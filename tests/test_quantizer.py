@@ -4,7 +4,14 @@ import numpy as np
 import pytest
 
 from quant.matrix_factory import gaussian_matrix
-from quant.quantizer import quantize_int4, quantize_int8, symmetric_quantize
+from quant.quantizer import (
+    grouped_symmetric_quantize,
+    quantize_int4,
+    quantize_int4_grouped,
+    quantize_int8,
+    quantize_int8_grouped,
+    symmetric_quantize,
+)
 
 
 def test_int8_quantization_uses_expected_range() -> None:
@@ -93,3 +100,81 @@ def test_symmetric_quantize_rejects_integer_input() -> None:
 
     with pytest.raises(TypeError, match="floating-point"):
         symmetric_quantize(matrix, bitwidth=8)
+
+
+def test_grouped_int4_quantization_uses_expected_range_and_metadata() -> None:
+    matrix = np.array([[-2.0, 0.0, 4.0, 8.0]], dtype=np.float32)
+
+    result = quantize_int4_grouped(matrix, group_size=2)
+
+    assert result.bitwidth == 4
+    assert result.qmin == -7
+    assert result.qmax == 7
+    assert result.quantized.min() >= -7
+    assert result.quantized.max() <= 7
+    assert result.quantized.dtype == np.int8
+    assert result.group_size == 2
+    np.testing.assert_allclose(result.scales, np.array([2.0 / 7.0, 8.0 / 7.0]))
+
+
+def test_grouped_int8_quantization_wrapper_sets_bitwidth() -> None:
+    matrix = np.ones((2, 3), dtype=np.float32)
+
+    result = quantize_int8_grouped(matrix, group_size=1)
+
+    assert result.bitwidth == 8
+    assert result.qmax == 127
+    assert result.scales is not None
+    assert result.scales.shape == (3,)
+
+
+def test_grouped_quantization_handles_last_partial_group() -> None:
+    matrix = np.array([[1.0, 2.0, 3.0, 4.0, 20.0]], dtype=np.float32)
+
+    result = quantize_int4_grouped(matrix, group_size=2)
+
+    assert result.scales is not None
+    assert result.scales.shape == (3,)
+    np.testing.assert_allclose(
+        result.scales,
+        np.array([2.0 / 7.0, 4.0 / 7.0, 20.0 / 7.0]),
+    )
+
+
+def test_grouped_quantization_zero_group_uses_unit_scale() -> None:
+    matrix = np.array([[0.0, 0.0, 3.0, -3.0]], dtype=np.float32)
+
+    result = quantize_int4_grouped(matrix, group_size=2)
+
+    np.testing.assert_allclose(result.scales, np.array([1.0, 3.0 / 7.0]))
+    np.testing.assert_array_equal(result.dequantized[:, :2], np.zeros((1, 2), dtype=np.float32))
+
+
+def test_group_size_covering_all_columns_matches_global_quantization() -> None:
+    matrix = gaussian_matrix((8, 8), seed=41)
+
+    global_result = quantize_int4(matrix)
+    grouped_result = quantize_int4_grouped(matrix, group_size=matrix.shape[1])
+
+    assert grouped_result.scale == pytest.approx(global_result.scale)
+    np.testing.assert_array_equal(grouped_result.quantized, global_result.quantized)
+    np.testing.assert_allclose(grouped_result.dequantized, global_result.dequantized)
+
+
+def test_grouped_quantization_can_reduce_error_when_outlier_group_is_isolated() -> None:
+    matrix = np.ones((4, 4), dtype=np.float32)
+    matrix[0, 0] = 100.0
+
+    global_result = quantize_int4(matrix)
+    grouped_result = quantize_int4_grouped(matrix, group_size=1)
+    global_error = np.mean((matrix - global_result.dequantized) ** 2)
+    grouped_error = np.mean((matrix - grouped_result.dequantized) ** 2)
+
+    assert grouped_error < global_error
+
+
+def test_grouped_quantization_rejects_invalid_group_size() -> None:
+    matrix = np.ones((2, 2), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="group_size"):
+        grouped_symmetric_quantize(matrix, bitwidth=4, group_size=0)

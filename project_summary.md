@@ -4,7 +4,7 @@ This is the compact handoff document for resuming work on the Quantization Lab r
 
 ## Current State
 
-Milestone 1 is complete. Milestone 2 (ParoQuant Core) is underway: pairwise Givens rotations, per-channel scaling, and the first rotation/scaling experiment are implemented and tested.
+Milestone 1 is complete. Milestone 2 (ParoQuant Core) is underway: pairwise Givens rotations, per-channel scaling, grouped quantization, and the first rotation/scaling experiment are implemented and tested.
 
 Implemented so far:
 
@@ -19,6 +19,7 @@ Implemented so far:
 - integration and repository-hygiene tests
 - pairwise Givens rotation utilities (`quant/rotations.py`)
 - per-channel scaling utilities (`quant/scaling.py`)
+- grouped symmetric quantization utilities
 - rotation/scaling experiment comparing four INT4 preprocessing paths
 - living research-paper draft in `docs/research_draft.md`
 - tracked paper figures in `docs/figures/`
@@ -49,7 +50,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-130 passed
+138 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -74,12 +75,14 @@ If another coding agent resumes this project, the safest order is:
 6. When commit or push is requested, use the existing private remote `origin` for `main` in `QuantizationTests`.
 7. Keep docs in sync with code changes, especially this summary and the lab book, so handoff remains easy.
 8. **Always update `README.md` before every commit and push.** The README is the public-facing entry point on GitHub and must never be stale. At minimum check: milestone statuses, progress table rows, current-milestone description, and the expected test count. Treat a stale README as a broken handoff.
+9. **Keep the research draft current before every commit and push when the work changes the research story.** Update `docs/research_draft.md` with new findings, examples, caveats, and figure references. Copy any paper-ready figure resources into `docs/figures/` and commit them with the draft. Do not rely on ignored `plots/` artifacts for GitHub-visible paper figures.
 
 Typical publish flow:
 
 ```bash
 git status --short --branch
 # update README.md, project_summary.md, lab_book/project_journey.md as needed
+# update docs/research_draft.md and docs/figures/ when findings or paper figures change
 git add <files>
 git commit -m "<short message>"
 git push origin main
@@ -119,6 +122,12 @@ Implements symmetric full-matrix quantization and stores both integer codes and 
   - Dequantize: $\hat{W} = sQ$
 - `quantize_int8(matrix)`
 - `quantize_int4(matrix)`
+- `grouped_symmetric_quantize(matrix, bitwidth=..., group_size=...)`
+  - Quantizes contiguous column groups with one symmetric scale per group.
+  - For group $g$, scale is $s_g = \max(|W_g|) / (2^{b-1}-1)$.
+  - Dequantization uses $\hat{W}_g = s_g Q_g$.
+- `quantize_int8_grouped(matrix, group_size=...)`
+- `quantize_int4_grouped(matrix, group_size=...)`
 
 Ranges:
 
@@ -126,6 +135,8 @@ Ranges:
 - INT4: `[-7, 7]`, stored as NumPy `int8`
 
 Zero matrices use `scale=1.0` and reconstruct exactly to zeros.
+
+Grouped quantization returns per-group scales in `QuantizationResult.scales` and the requested `group_size` in `QuantizationResult.group_size`. The scalar `scale` field is the mean group scale for summary compatibility.
 
 ### `quant/metrics.py`
 
@@ -353,7 +364,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-130 passed
+138 passed
 ```
 
 ## Design Conventions
@@ -370,6 +381,7 @@ Current known passing test state:
 - Keep APIs small and experiment-friendly.
 - Update both this file and `lab_book/project_journey.md` as the project evolves.
 - Update `docs/research_draft.md` when a result becomes part of the research story.
+- Copy paper-ready figure resources into `docs/figures/` and commit them with the draft.
 
 ## Research Draft
 
@@ -405,7 +417,7 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-Broaden Milestone 2 analysis using the completed rotation/scaling experiment, likely by adding grouped quantization or a small rotation/scaling sweep.
+Broaden Milestone 2 analysis by comparing grouped quantization against rotation/scaling paths across seeds, outlier fractions, and outlier scales.
 
 Acceptance check:
 

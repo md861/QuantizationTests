@@ -311,7 +311,55 @@ In this single run, rotation + scaling is best among the four paths on MSE, rela
 
 It does not yet justify the broad claim that rotation + scaling is always the best strategy.
 
-## 10. Current Findings
+## 10. Grouped Quantization
+
+Grouped quantization is now implemented as an intermediate path between full-matrix global quantization and fully per-column scaling. Instead of one scale for the whole matrix, contiguous column groups receive separate symmetric scales.
+
+For a group $W_g$ and bitwidth $b$,
+
+$$
+s_g = \frac{\max |W_g|}{2^{b-1}-1},
+$$
+
+with integer codes
+
+$$
+Q_g = \mathrm{clip}\left(\mathrm{round}(W_g / s_g), q_{\min}, q_{\max}\right),
+$$
+
+and reconstruction
+
+$$
+\hat{W}_g = s_g Q_g.
+$$
+
+This matters because grouped quantization is closer to practical low-bit quantization than a single full-matrix scale. It can reduce outlier pressure when outliers are localized to a small subset of columns.
+
+On the same outlier example used earlier, grouped INT4 improves over global INT4, and per-column grouping improves much more:
+
+| Method | MSE | Rel. Frobenius | SNR dB | Zero frac | Sat. frac |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Global INT4 | 0.297624 | 0.226335 | 12.905 | 0.664062 | 0.015625 |
+| Grouped INT4 (group=4) | 0.275787 | 0.217873 | 13.236 | 0.652344 | 0.023438 |
+| Column INT4 (group=1) | 0.089124 | 0.123855 | 18.142 | 0.339844 | 0.078125 |
+
+The saturation fraction rises as groups become smaller because each group can use its own local range more aggressively. This is not necessarily bad, but it means grouped quantization must be evaluated using multiple diagnostics rather than MSE alone.
+
+Grouped quantization changes the next research question. The fairer comparison is no longer only:
+
+$$
+\text{global INT4} \quad \text{vs.} \quad \text{rotation/scaling + global INT4}.
+$$
+
+It should become:
+
+$$
+\text{global INT4},\quad \text{grouped INT4},\quad
+\text{scaling + global/grouped INT4},\quad
+\text{rotation + scaling + global/grouped INT4}.
+$$
+
+## 11. Current Findings
 
 The project has produced the following working findings.
 
@@ -321,8 +369,9 @@ The project has produced the following working findings.
 4. Givens rotations preserve matrix energy and can redistribute outlier pressure.
 5. Per-channel scaling is reversible and directly reduces column magnitude imbalance.
 6. In the first rotation/scaling experiment, scaling explains most of the observed improvement, while rotation + scaling is the best path but only by a small margin over scaling alone.
+7. Grouped quantization improves over global INT4 in the first outlier example, especially when groups are small, but it must be compared carefully because saturation behavior also changes.
 
-## 11. Limitations
+## 12. Limitations
 
 The current results are intentionally preliminary.
 
@@ -330,20 +379,21 @@ The current results are intentionally preliminary.
 - Most examples use a single seed or a small number of conditions.
 - Rotation-pair selection is simple: the two columns with largest max-abs values.
 - Scaling currently balances full-column max-absolute values, not groups or learned activation-aware statistics.
-- The current quantizer is symmetric and full-matrix, not yet grouped or per-channel.
+- The current grouped quantizer uses simple contiguous column groups and has not yet been swept across group sizes or combined with all preprocessing paths.
 - No transformer-layer or language-model benchmark has been run yet.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 12. Next Work
+## 13. Next Work
 
 The next research steps should turn isolated examples into evidence.
 
 1. Run rotation/scaling sweeps over seeds, outlier fractions, outlier scales, and matrix shapes.
 2. Report average improvement and win rate for each method.
-3. Add grouped quantization as a bridge between full-matrix and more realistic model quantization.
-4. Compare rotation-pair selection strategies.
-5. Start applying the same metrics to small transformer weight matrices.
+3. Sweep grouped quantization over group sizes and compare it against rotation/scaling paths.
+4. Test whether rotation/scaling still improves grouped INT4.
+5. Compare rotation-pair selection strategies.
+6. Start applying the same metrics to small transformer weight matrices.
 
 ## Appendix A. Reproducing Current Figures
 

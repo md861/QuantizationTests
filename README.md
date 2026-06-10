@@ -34,6 +34,7 @@ is now underway, with pairwise Givens rotations and per-channel scaling in place
 | Results analysis helper | Complete |
 | Pairwise Givens rotation module | Complete |
 | Per-channel scaling | Complete |
+| Grouped quantization | Complete |
 | Rotation/scaling experiment | Complete |
 | Transformer integration | Later |
 
@@ -54,6 +55,9 @@ quantization to reduce outlier pressure:
   factor per column so nonzero channel max-abs values share a target before
   quantization. Key functions: `column_max_abs`, `compute_channel_scaling`,
   `apply_channel_scaling`, `invert_channel_scaling`, `balance_channel_max_abs`.
+- **Grouped quantization** (`quant/quantizer.py`): quantize contiguous column
+  groups with separate symmetric scales. Key functions:
+  `grouped_symmetric_quantize`, `quantize_int8_grouped`, `quantize_int4_grouped`.
 - **Rotation/scaling experiment** (`experiments/rotation_experiment.py`):
   compares baseline INT4, rotation-only INT4, scaling-only INT4, and
   rotation+scaling INT4 on one controlled outlier-heavy matrix.
@@ -84,7 +88,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-130 passed
+138 passed
 ```
 
 ## Reproduce Artifacts
@@ -122,4 +126,6 @@ Milestone 2 development visuals include:
 - `docs/research_draft.md` is the living paper-style draft of findings,
   examples, figures, and current claims.
 - `docs/figures/` contains tracked figures used by the research draft.
+- When a committed change affects the research story, update the draft and
+  commit any required `docs/figures/` resources with it.
 - `plots/` and `results/` are local generated artifacts, not tracked source.

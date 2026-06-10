@@ -11,7 +11,7 @@ from experiments.baseline_experiment import BaselineConfig, run_baseline_experim
 from experiments.outlier_experiment import OutlierExperimentConfig, run_outlier_experiment
 from quant.matrix_factory import MatrixKind, make_matrix, outlier_matrix
 from quant.metrics import compute_quantization_metrics
-from quant.quantizer import quantize_int4, quantize_int8
+from quant.quantizer import quantize_int4, quantize_int4_grouped, quantize_int8
 from quant.rotations import GivensRotation, apply_sequential_rotations, rotate_channel_pair
 from quant.scaling import balance_channel_max_abs, column_max_abs, invert_channel_scaling
 
@@ -191,6 +191,36 @@ def test_channel_scaling_integrates_with_quantization_pipeline() -> None:
     np.testing.assert_allclose(recovered, matrix, atol=1e-5)
     assert np.ptp(column_max_abs(scaled)) < np.ptp(column_max_abs(matrix))
     assert np.isfinite(scaled_metrics.relative_frobenius_error)
+
+
+def test_grouped_quantization_integrates_with_metrics_pipeline() -> None:
+    """Grouped INT4 should produce valid codes, scales, and metrics."""
+
+    matrix = outlier_matrix((16, 16), outlier_fraction=0.02, outlier_scale=10.0, seed=59)
+
+    global_result = quantize_int4(matrix)
+    grouped_result = quantize_int4_grouped(matrix, group_size=4)
+    grouped_metrics = compute_quantization_metrics(
+        matrix,
+        grouped_result.dequantized,
+        quantized=grouped_result.quantized,
+        qmin=grouped_result.qmin,
+        qmax=grouped_result.qmax,
+    )
+
+    assert grouped_result.scales is not None
+    assert grouped_result.scales.shape == (4,)
+    assert grouped_result.quantized.shape == matrix.shape
+    assert grouped_result.dequantized.shape == matrix.shape
+    assert grouped_result.dequantized.dtype == matrix.dtype
+    assert grouped_metrics.mse >= 0.0
+    assert grouped_metrics.mse <= compute_quantization_metrics(
+        matrix,
+        global_result.dequantized,
+        quantized=global_result.quantized,
+        qmin=global_result.qmin,
+        qmax=global_result.qmax,
+    ).mse
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:

@@ -2625,3 +2625,104 @@ Updated `docs/research_draft.md` so all figure links point to `docs/figures/` vi
 ### Note
 
 The project still treats `plots/` and `results/` as ignored generated artifacts. Paper-ready figures should be copied into `docs/figures/` when they become part of the tracked draft.
+
+## 2026-06-10 — Research Draft Update Policy
+
+### Decision
+
+The user established a standing rule: when development work changes the research story, the research draft and its required resources must be updated before commit and push.
+
+### What Future Agents Must Do
+
+- Update `docs/research_draft.md` when a result, example, limitation, visual, or claim becomes part of the paper narrative.
+- Copy paper-ready figure resources into `docs/figures/` and update the draft links to point there.
+- Commit `docs/research_draft.md` and any needed `docs/figures/` files with the related code/docs changes.
+- Do not rely on ignored `plots/` artifacts for GitHub-visible paper figures.
+- Continue treating `plots/` and `results/` as local generated artifacts unless the user explicitly says otherwise.
+
+### Handoff Update
+
+This rule is now recorded in `project_summary.md` under the future-agent working protocol and in `README.md` under Project Notes.
+
+## 2026-06-10 — Milestone 2: Grouped Quantization
+
+### Goal
+
+Implement grouped symmetric quantization as a viable Milestone 2 comparison path. Grouped quantization uses multiple local scales instead of one full-matrix scale, making it a more realistic baseline for later rotation/scaling comparisons.
+
+### Implementation
+
+Updated `quant/quantizer.py`:
+
+- added optional `scales` and `group_size` metadata to `QuantizationResult`
+- added `grouped_symmetric_quantize(matrix, bitwidth, group_size)`
+- added `quantize_int8_grouped(matrix, group_size=...)`
+- added `quantize_int4_grouped(matrix, group_size=...)`
+
+For each contiguous column group $W_g$:
+
+$$
+s_g = \max(|W_g|)/(2^{b-1}-1)
+$$
+
+and:
+
+$$
+Q_g = \mathrm{clip}(\mathrm{round}(W_g/s_g), q_{\min}, q_{\max})
+$$
+
+with dequantization:
+
+$$
+\hat{W}_g = s_g Q_g.
+$$
+
+Zero groups use scale 1.0. The returned scalar `scale` field stores the mean group scale for summary compatibility; the actual group scales are in `scales`.
+
+### Tests
+
+Updated `tests/test_quantizer.py` with coverage for:
+
+- grouped INT4 range and metadata
+- grouped INT8 wrapper behavior
+- last partial group handling
+- zero-group scale handling
+- equivalence to global quantization when `group_size == n_cols`
+- reduced error when an outlier column is isolated
+- invalid group size validation
+
+Updated `tests/test_integration.py` to run grouped INT4 through the matrix-generation and metrics pipeline.
+
+### Research Draft
+
+Updated `docs/research_draft.md` with a grouped-quantization section, including formulas and a small outlier example comparing:
+
+- global INT4
+- grouped INT4 with group size 4
+- column-wise INT4 with group size 1
+
+Current example:
+
+```text
+Global INT4              MSE=0.297624  zero_frac=0.664062
+Grouped INT4 (group=4)   MSE=0.275787  zero_frac=0.652344
+Column INT4 (group=1)    MSE=0.089124  zero_frac=0.339844
+```
+
+### Next Step
+
+Compare grouped quantization against rotation/scaling paths across seeds, outlier fractions, outlier scales, and group sizes.
+
+### Verification
+
+Full-suite command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+138 passed in 13.25s
+```
