@@ -1,4 +1,4 @@
-# ParoQuant Lab Book
+# Quantization Lab Book
 
 This lab book records the development journey for the ParoQuant research project from a blank workspace toward a working quantization sandbox. It is intended for future engineers or AI agents to understand what was done, why it was done, which commands were run, what failed, and how issues were resolved.
 
@@ -1756,3 +1756,33 @@ Output:
 ```text
 ============================== 59 passed in 6.17s ==============================
 ```
+
+## 2026-06-10 — Bookkeeping And Handoff Refresh
+
+### Goal
+
+Update stale project bookkeeping before continuing with implementation work.
+
+### Changes
+
+Updated `project_summary.md`:
+
+- renamed the compact handoff from ParoQuant Project Summary to Quantization Lab Project Summary
+- corrected the Git note to reflect the current valid Git repository
+- recorded the private GitHub remote:
+  - `https://github.com/md861/QuantizationTests`
+- clarified that generated `plots/` and `results/` artifacts are local and ignored by Git
+- replaced the outdated outlier-experiment next step with the remaining Milestone 1 polish items:
+  - histogram visualization helpers
+  - results-analysis helper
+  - first rotation/scaling experiment as the next research step after Milestone 1 polish
+
+Updated `main.py`:
+
+- replaced the scaffold-era baseline placeholder
+- now prints current test and experiment commands for the implemented Milestone 1 sandbox
+
+Updated `lab_book/project_journey.md`:
+
+- renamed the lab-book title to Quantization Lab Book
+- preserved earlier historical notes, including the old invalid-Git state, as chronology rather than current status

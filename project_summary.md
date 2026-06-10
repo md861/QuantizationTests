@@ -1,6 +1,6 @@
-# ParoQuant Project Summary
+# Quantization Lab Project Summary
 
-This is the compact handoff document for resuming work on the ParoQuant research sandbox. For the full chronological history, see `lab_book/project_journey.md`.
+This is the compact handoff document for resuming work on the Quantization Lab research sandbox. For the full chronological history, see `lab_book/project_journey.md`.
 
 ## Current State
 
@@ -15,9 +15,9 @@ Implemented so far:
 - baseline experiment comparing INT8 and INT4 across matrix families
 - outlier-severity sweep comparing INT8 and INT4 across controlled outlier fractions and scales
 - tests for all implemented modules
-- generated example plots in `plots/`
+- generated example plots in `plots/` locally, with generated artifacts ignored by Git
 
-The next recommended implementation step is a small results-analysis helper or first rotation/scaling experiment.
+The remaining Milestone 1 polish items are histogram visualizations and a small results-analysis helper. The next research implementation step after that is the first rotation/scaling experiment for Milestone 2.
 
 ## Environment
 
@@ -47,7 +47,13 @@ Current known passing test state:
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
 
-Git note: Git is installed, but this folder is not currently a valid Git repo. An empty `.git/` directory exists.
+Git note: this folder is now a valid Git repo on branch `main`, tracking the private GitHub repository:
+
+```text
+https://github.com/md861/QuantizationTests
+```
+
+Generated artifacts under `plots/` and `results/`, the virtual environment, caches, and local tools are ignored by Git.
 
 ## Implemented Modules
 
@@ -257,12 +263,14 @@ Key observation from the first run:
 
 Implement one of:
 
-- `experiments/outlier_experiment.py`: sweep `outlier_fraction` and `outlier_scale` to quantify when INT4 starts failing.
-- baseline-results analysis helper: read `results/baseline_metrics.csv` and produce compact comparison tables/plots.
+- histogram visualization helpers for weights and residuals
+- results-analysis helper: read `results/baseline_metrics.csv` and `results/outlier_metrics.csv` and produce compact comparison tables/plots
+- first rotation/scaling experiment for Milestone 2
 
 Acceptance check:
 
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
 ```
