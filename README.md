@@ -30,6 +30,9 @@ failure modes visible.
 | Baseline experiment | Complete |
 | Outlier-severity sweep | Complete |
 | Consolidated comparison plots | Complete |
+| Integration and hygiene tests | Complete |
+| Histogram visualizations | Complete |
+| Results analysis helper | Complete |
 | Rotation and scaling experiments | Next |
 | Transformer integration | Later |
 
@@ -42,6 +45,7 @@ Milestone 1 builds the quantization sandbox:
 - reconstruction metrics such as MSE, MAE, cosine similarity, relative
   Frobenius error, and SNR
 - singular-value spectrum diagnostics
+- value, residual, and quantized-code histogram diagnostics
 - comparison plots showing original matrices, residuals, spectra, and metrics
 
 This repository prioritizes clarity, modularity, reproducibility, and
@@ -61,7 +65,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-59 passed
+71 passed
 ```
 
 ## Reproduce Artifacts
@@ -72,6 +76,7 @@ locally with:
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 ```
 
 These commands write CSV files under `results/` and comparison figures under

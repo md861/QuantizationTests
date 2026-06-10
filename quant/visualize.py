@@ -117,6 +117,146 @@ def plot_singular_values(
     return ax
 
 
+def plot_value_histogram(
+    matrix: np.ndarray,
+    *,
+    title: str = "Value Distribution",
+    ax: Axes | None = None,
+    bins: int = 50,
+    color: str = "tab:blue",
+) -> Axes:
+    """Plot a histogram of all matrix values."""
+
+    _validate_matrix(matrix)
+    _validate_bins(bins)
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(5, 3.5))
+
+    ax.hist(matrix.ravel(), bins=bins, color=color, alpha=0.82)
+    ax.set_title(title)
+    ax.set_xlabel("Value")
+    ax.set_ylabel("Count")
+    return ax
+
+
+def plot_residual_histogram(
+    original: np.ndarray,
+    reconstructed: np.ndarray,
+    *,
+    title: str = "Residual Distribution",
+    ax: Axes | None = None,
+    bins: int = 50,
+    color: str = "tab:orange",
+) -> Axes:
+    """Plot a histogram of reconstruction residuals."""
+
+    _validate_matrix_pair(original, reconstructed)
+    _validate_bins(bins)
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(5, 3.5))
+
+    residual = (reconstructed - original).ravel()
+    ax.hist(residual, bins=bins, color=color, alpha=0.82)
+    ax.axvline(0.0, color="black", linestyle=":", linewidth=1.0, alpha=0.75)
+    ax.set_title(title)
+    ax.set_xlabel("Residual")
+    ax.set_ylabel("Count")
+    return ax
+
+
+def plot_quantized_code_histogram(
+    result: QuantizationResult,
+    *,
+    title: str = "Quantized Code Distribution",
+    ax: Axes | None = None,
+    color: str = "tab:green",
+) -> Axes:
+    """Plot a histogram of integer quantized codes."""
+
+    if result.quantized.ndim != 2:
+        raise ValueError("quantized matrix must be 2D")
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(5, 3.5))
+
+    code_edges = np.arange(result.qmin - 0.5, result.qmax + 1.5, 1.0)
+    ax.hist(result.quantized.ravel(), bins=code_edges, color=color, alpha=0.82)
+    ax.set_title(title)
+    ax.set_xlabel("Quantized code")
+    ax.set_ylabel("Count")
+    ax.set_xlim(result.qmin - 0.5, result.qmax + 0.5)
+    return ax
+
+
+def plot_quantization_histograms(
+    original: np.ndarray,
+    results: Mapping[str, QuantizationResult],
+    *,
+    output_path: str | Path | None = None,
+    title: str = "Quantization Histograms",
+    bins: int = 50,
+    figsize: tuple[float, float] | None = None,
+) -> Figure:
+    """Compare original values, residuals, and quantized codes by quantizer."""
+
+    _validate_matrix(original)
+    if not results:
+        raise ValueError("results must contain at least one quantization result")
+    _validate_bins(bins)
+
+    for result in results.values():
+        _validate_matrix_pair(original, result.dequantized)
+        if result.quantized.shape != original.shape:
+            raise ValueError("quantized matrices must have the same shape as original")
+
+    labels = list(results.keys())
+    column_count = len(labels) + 1
+    if figsize is None:
+        figsize = (5.0 * column_count, 7.0)
+
+    fig, axes = plt.subplots(2, column_count, figsize=figsize, squeeze=False)
+    fig.suptitle(title, fontsize=14)
+
+    plot_value_histogram(original, title="Original Values", ax=axes[0, 0], bins=bins)
+    axes[1, 0].axis("off")
+    axes[1, 0].text(
+        0.0,
+        1.0,
+        _format_distribution_summary(original),
+        va="top",
+        ha="left",
+        family="monospace",
+        fontsize=9,
+    )
+
+    for column, label in enumerate(labels, start=1):
+        result = results[label]
+        display_label = label.upper()
+        plot_residual_histogram(
+            original,
+            result.dequantized,
+            title=f"{display_label} Residuals",
+            ax=axes[0, column],
+            bins=bins,
+        )
+        plot_quantized_code_histogram(
+            result,
+            title=f"{display_label} Codes",
+            ax=axes[1, column],
+        )
+
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.94))
+
+    if output_path is not None:
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output, dpi=160, bbox_inches="tight")
+
+    return fig
+
+
 def plot_spectrum_comparison(
     matrices: Mapping[str, np.ndarray],
     *,
@@ -332,6 +472,31 @@ def plot_quantization_comparison(
 def _validate_matrix(matrix: np.ndarray) -> None:
     if matrix.ndim != 2:
         raise ValueError("matrix must be a 2D array")
+
+
+def _validate_matrix_pair(original: np.ndarray, reconstructed: np.ndarray) -> None:
+    _validate_matrix(original)
+    _validate_matrix(reconstructed)
+    if original.shape != reconstructed.shape:
+        raise ValueError("matrices must have the same shape")
+
+
+def _validate_bins(bins: int) -> None:
+    if bins <= 0:
+        raise ValueError("bins must be positive")
+
+
+def _format_distribution_summary(matrix: np.ndarray) -> str:
+    values = matrix.astype(np.float64, copy=False).ravel()
+    return "\n".join(
+        [
+            "Distribution",
+            f"  min: {_format_float(float(np.min(values)))}",
+            f"  max: {_format_float(float(np.max(values)))}",
+            f"  mean: {_format_float(float(np.mean(values)))}",
+            f"  std: {_format_float(float(np.std(values)))}",
+        ]
+    )
 
 
 def _validate_comparison_inputs(

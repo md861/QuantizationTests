@@ -14,10 +14,15 @@ Implemented so far:
 - heatmap, spectrum, and quantization-summary visualizations
 - baseline experiment comparing INT8 and INT4 across matrix families
 - outlier-severity sweep comparing INT8 and INT4 across controlled outlier fractions and scales
+- histogram visualizations for values, residuals, and quantized codes
+- results-analysis helper comparing INT4 against INT8 from generated CSVs
+- integration and repository-hygiene tests
 - tests for all implemented modules
 - generated example plots in `plots/` locally, with generated artifacts ignored by Git
 
-The remaining Milestone 1 polish items are histogram visualizations and a small results-analysis helper. The next research implementation step after that is the first rotation/scaling experiment for Milestone 2.
+Milestone 1 is now complete enough to move into the first rotation/scaling experiment for Milestone 2.
+
+Resume reminder: before starting new work, review the last implemented Milestone 1 polish changes: histogram visualizations, results-analysis helper, and integration/hygiene tests.
 
 ## Environment
 
@@ -42,7 +47,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-59 passed
+71 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -125,9 +130,13 @@ Provides Matplotlib visualizations:
 - `plot_matrix_heatmap(...)`
 - `plot_matrix_grid(...)`
 - `plot_singular_values(...)`
+- `plot_value_histogram(...)`
+- `plot_residual_histogram(...)`
+- `plot_quantized_code_histogram(...)`
 - `plot_spectrum_comparison(...)`
 - `plot_quantization_summary(...)`
 - `plot_quantization_comparison(...)`
+- `plot_quantization_histograms(...)`
 
 Spectrum styling convention:
 
@@ -177,6 +186,17 @@ Runs an outlier-severity sweep:
 - optionally writes one quantization comparison plot per fraction/scale condition:
   - `plots/outlier_fraction_<fraction>_scale_<scale>_comparison.png`
 
+### `experiments/analyze_results.py`
+
+Analyzes generated baseline and outlier CSVs:
+
+- compares INT4 against INT8 for each experiment condition
+- computes MSE ratios, relative-Frobenius ratios, SNR deltas, zero-fraction deltas, and saturation deltas
+- prints a compact summary
+- optionally writes:
+  - `results/baseline_analysis.csv`
+  - `results/outlier_analysis.csv`
+
 ## Tests
 
 Current test files:
@@ -188,6 +208,8 @@ Current test files:
 - `tests/test_visualize.py`
 - `tests/test_baseline_experiment.py`
 - `tests/test_outlier_experiment.py`
+- `tests/test_analyze_results.py`
+- `tests/test_integration.py`
 
 Run all tests:
 
@@ -222,6 +244,11 @@ Outlier experiment artifacts:
 
 - `results/outlier_metrics.csv`
 - `plots/outlier_fraction_<fraction>_scale_<scale>_comparison.png`
+
+Analysis artifacts:
+
+- `results/baseline_analysis.csv`
+- `results/outlier_analysis.csv`
 
 ## Design Conventions
 
@@ -261,11 +288,7 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-Implement one of:
-
-- histogram visualization helpers for weights and residuals
-- results-analysis helper: read `results/baseline_metrics.csv` and `results/outlier_metrics.csv` and produce compact comparison tables/plots
-- first rotation/scaling experiment for Milestone 2
+Start the first rotation/scaling experiment for Milestone 2.
 
 Acceptance check:
 
@@ -273,4 +296,5 @@ Acceptance check:
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 ```

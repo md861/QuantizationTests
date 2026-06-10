@@ -7,10 +7,14 @@ import pytest
 from quant.visualize import (
     plot_matrix_grid,
     plot_matrix_heatmap,
+    plot_quantization_histograms,
     plot_quantization_comparison,
     plot_quantization_summary,
+    plot_quantized_code_histogram,
+    plot_residual_histogram,
     plot_singular_values,
     plot_spectrum_comparison,
+    plot_value_histogram,
 )
 from quant.quantizer import quantize_int4, quantize_int8
 
@@ -57,6 +61,38 @@ def test_plot_singular_values_returns_axes() -> None:
     plt.close(ax.figure)
 
 
+def test_plot_value_histogram_returns_axes() -> None:
+    matrix = np.arange(12, dtype=np.float32).reshape(3, 4)
+
+    ax = plot_value_histogram(matrix, title="Values", bins=4)
+
+    assert ax.get_title() == "Values"
+    assert ax.get_xlabel() == "Value"
+    plt.close(ax.figure)
+
+
+def test_plot_residual_histogram_returns_axes() -> None:
+    original = np.zeros((3, 4), dtype=np.float32)
+    reconstructed = np.ones((3, 4), dtype=np.float32)
+
+    ax = plot_residual_histogram(original, reconstructed, title="Residuals", bins=3)
+
+    assert ax.get_title() == "Residuals"
+    assert ax.get_xlabel() == "Residual"
+    plt.close(ax.figure)
+
+
+def test_plot_quantized_code_histogram_returns_axes() -> None:
+    matrix = np.arange(9, dtype=np.float32).reshape(3, 3)
+    result = quantize_int4(matrix)
+
+    ax = plot_quantized_code_histogram(result, title="Codes")
+
+    assert ax.get_title() == "Codes"
+    assert ax.get_xlabel() == "Quantized code"
+    plt.close(ax.figure)
+
+
 def test_plot_spectrum_comparison_saves_png(tmp_path) -> None:
     matrices = {
         "Identity": np.eye(3, dtype=np.float32),
@@ -68,6 +104,22 @@ def test_plot_spectrum_comparison_saves_png(tmp_path) -> None:
 
     assert output_path.exists()
     assert output_path.stat().st_size > 0
+    plt.close(fig)
+
+
+def test_plot_quantization_histograms_saves_png(tmp_path) -> None:
+    matrix = np.arange(16, dtype=np.float32).reshape(4, 4)
+    results = {
+        "int8": quantize_int8(matrix),
+        "int4": quantize_int4(matrix),
+    }
+    output_path = tmp_path / "quantization_histograms.png"
+
+    fig = plot_quantization_histograms(matrix, results, output_path=output_path, bins=4)
+
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
+    assert len(fig.axes) >= 6
     plt.close(fig)
 
 
@@ -113,3 +165,16 @@ def test_plot_quantization_comparison_requires_matching_shapes() -> None:
 
     with pytest.raises(ValueError, match="same shape"):
         plot_quantization_comparison(matrix, results)
+
+
+def test_plot_residual_histogram_requires_matching_shapes() -> None:
+    with pytest.raises(ValueError, match="same shape"):
+        plot_residual_histogram(
+            np.zeros((2, 2), dtype=np.float32),
+            np.zeros((3, 3), dtype=np.float32),
+        )
+
+
+def test_histogram_helpers_require_positive_bins() -> None:
+    with pytest.raises(ValueError, match="bins"):
+        plot_value_histogram(np.zeros((2, 2), dtype=np.float32), bins=0)

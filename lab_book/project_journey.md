@@ -1786,3 +1786,167 @@ Updated `lab_book/project_journey.md`:
 
 - renamed the lab-book title to Quantization Lab Book
 - preserved earlier historical notes, including the old invalid-Git state, as chronology rather than current status
+
+## 2026-06-10 — Integration And Hygiene Test Layer
+
+### Goal
+
+Add a lightweight integration test layer to ensure new work keeps fitting into the stable Milestone 1 code, and add a guard against stale scaffold comments/placeholders returning to current-facing files.
+
+### Implementation Summary
+
+Created `tests/test_integration.py`.
+
+Covered:
+
+- direct end-to-end pipeline:
+  - generate each matrix family
+  - quantize with INT8 and INT4
+  - compute quantization metrics
+  - verify shape, dtype, and basic error contracts
+- experiment-output contract:
+  - run baseline and outlier experiments with tiny matrices
+  - write CSVs to a temporary directory
+  - verify expected rows and stable key columns
+- repository hygiene:
+  - scan current-facing source/docs for stale scaffold markers
+  - intentionally exclude historical lab-book entries from this stale-marker check
+
+### Verification
+
+Focused test command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_integration.py
+```
+
+Output:
+
+```text
+============================== 3 passed in 0.58s ===============================
+```
+
+Full-suite command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+Output:
+
+```text
+============================== 62 passed in 5.82s ==============================
+```
+
+## 2026-06-10 — Milestone 1 Polish: Histograms And Result Analysis
+
+### Goal
+
+Complete the remaining Milestone 1 polish items before moving to rotation/scaling work:
+
+- histogram visualizations for value, residual, and quantized-code distributions
+- a compact results-analysis helper for generated baseline and outlier CSVs
+
+### Histogram Implementation
+
+Updated `quant/visualize.py` with:
+
+- `plot_value_histogram(...)`
+- `plot_residual_histogram(...)`
+- `plot_quantized_code_histogram(...)`
+- `plot_quantization_histograms(...)`
+
+The combined histogram figure compares:
+
+- original matrix value distribution
+- residual distribution for each quantization method
+- integer code distribution for each quantization method
+
+### Histogram Tests
+
+Updated `tests/test_visualize.py`.
+
+Focused command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_visualize.py
+```
+
+Output:
+
+```text
+============================== 16 passed in 3.48s ==============================
+```
+
+### Results Analysis Implementation
+
+Created `experiments/analyze_results.py`.
+
+The helper:
+
+- reads `results/baseline_metrics.csv`
+- reads `results/outlier_metrics.csv`
+- compares INT4 against INT8 by condition
+- computes MSE ratios, relative-Frobenius ratios, SNR deltas, zero-fraction deltas, and saturation deltas
+- prints a compact summary
+- writes optional analysis CSVs:
+  - `results/baseline_analysis.csv`
+  - `results/outlier_analysis.csv`
+
+### Results Analysis Tests
+
+Created `tests/test_analyze_results.py`.
+
+Focused command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_analyze_results.py
+```
+
+Output:
+
+```text
+============================== 3 passed in 0.39s ===============================
+```
+
+### Analysis Run
+
+Command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
+```
+
+Result:
+
+- printed compact INT4-vs-INT8 comparisons
+- identified the largest INT4/INT8 MSE ratio in the local generated results
+- wrote ignored local analysis artifacts under `results/`
+
+### Handoff Update
+
+Updated `README.md` and `project_summary.md` to mark histogram visualizations and results analysis as complete Milestone 1 polish items. The next recommended implementation step is now the first rotation/scaling experiment for Milestone 2.
+
+### Full Verification
+
+Final pre-checkpoint command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+Output:
+
+```text
+============================== 71 passed in 7.01s ==============================
+```
+
+### Resume Checkpoint
+
+Milestone 1 polish is complete. On resume, the next planned research implementation is the first rotation/scaling experiment for Milestone 2.
+
+Reminder for next resume: check the last implemented changes before moving on:
+
+- histogram visualization helpers in `quant/visualize.py`
+- results-analysis helper in `experiments/analyze_results.py`
+- integration/hygiene tests in `tests/test_integration.py`
