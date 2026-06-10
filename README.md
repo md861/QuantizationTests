@@ -6,16 +6,15 @@ Quantization Lab is a research-oriented educational sandbox for seeing how low-b
 quantization changes matrices, spectra, and reconstruction error.
 
 The project starts at matrix level before scaling toward transformer models.
-The current focus is Milestone 1: generating synthetic matrices, applying
-symmetric INT8 and INT4 quantization, measuring distortion, and making the
-failure modes visible.
+Milestone 1 (quantization sandbox) is complete. Milestone 2 (ParoQuant core)
+is now underway, starting with pairwise Givens rotations for outlier redistribution.
 
 ## Project Roadmap
 
 | Milestone | Focus | Status |
 | --- | --- | --- |
-| 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Active |
-| 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Next |
+| 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
+| 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Active |
 | 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Planned |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
@@ -33,17 +32,30 @@ failure modes visible.
 | Integration and hygiene tests | Complete |
 | Histogram visualizations | Complete |
 | Results analysis helper | Complete |
-| Rotation and scaling experiments | Next |
+| Pairwise Givens rotation module | Complete |
+| Per-channel scaling | Next |
+| Rotation experiment | Next |
 | Transformer integration | Later |
 
 ## Current Milestone
 
-Milestone 1 builds the quantization sandbox:
+Milestone 2 implements the ParoQuant core — transformations applied before
+quantization to reduce outlier pressure:
+
+- **Pairwise Givens rotations** (`quant/rotations.py`): rotate any column pair
+  by an angle that minimises the joint max-abs, redistributing outlier energy
+  across channels before INT4/INT8 quantization.  Key functions:
+  `rotation_matrix`, `apply_rotation`, `optimal_angle`, `rotate_channel_pair`,
+  `apply_sequential_rotations`.
+- Verified via entry-zeroing (arctan2 angle analytically zeros a target entry),
+  full Givens QR decomposition (Q@R=A cross-checked against `numpy.linalg.qr`),
+  and column orthogonalisation (Jacobi angle drives inner product to machine zero).
+
+Milestone 1 built the quantization sandbox:
 
 - matrix generation for Gaussian, heavy-tailed, and outlier-heavy data
 - symmetric INT8 and INT4 quantization
-- reconstruction metrics such as MSE, MAE, cosine similarity, relative
-  Frobenius error, and SNR
+- reconstruction metrics: MSE, MAE, cosine similarity, relative Frobenius error, SNR
 - singular-value spectrum diagnostics
 - value, residual, and quantized-code histogram diagnostics
 - comparison plots showing original matrices, residuals, spectra, and metrics
@@ -65,7 +77,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-72 passed
+107 passed
 ```
 
 ## Reproduce Artifacts
