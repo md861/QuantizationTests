@@ -25,7 +25,7 @@ Implemented so far:
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (in `quant/quantizer.py`), and `experiments/rotation_experiment.py` are all complete. Next is comparative sweeps: grouped quantization vs rotation/scaling paths across seeds, outlier fractions, outlier scales, and group sizes.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. Key finding: row-grouped and rotate+scale+row-grouped are the only paths that materially outperform global INT4 when outliers are row-localised. Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
 
 ## Environment
 
@@ -50,7 +50,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-146 passed
+157 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -319,6 +319,31 @@ Analyzes generated baseline and outlier CSVs:
 - optionally writes a collated benchmark-style dashboard:
   - `plots/analysis_dashboard.png`
 
+### `experiments/sweep_experiment.py`
+
+Comparative sweep across all quantization paths and outlier conditions (Milestone 2).
+
+- **Paths compared** (for a 32×32 matrix by default):
+  - `global`: standard full-matrix INT4
+  - `col_grouped_g{g}`: column-grouped INT4 for each configured group size
+  - `row_grouped_g{g}`: row-grouped INT4 for each configured row group size
+  - `scale_global`: per-channel scale then global INT4
+  - `rotate_global`: pairwise Givens rotation then global INT4
+  - `rotate_scale_global`: rotation + scaling then global INT4
+  - `rotate_scale_row_g{g}`: rotation + scaling then row-grouped INT4
+- **Condition grid**: seeds × outlier_fractions × outlier_scales (configurable via `SweepConfig`)
+- **Outputs**: `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`
+- **Dashboard**: 4 panels — mean MSE ratio per method, mean zero fraction per method, MSE ratio vs outlier severity, effect of row group size
+- **Key finding**: row-grouped and rotate+scale+row-grouped paths are the only ones that consistently outperform global INT4 on row-localised outliers at any outlier scale; column-grouped gives no improvement at any group size for this outlier pattern.
+
+API:
+
+- `SweepConfig` — dataclass with grid parameters and output settings
+- `SweepRecord` — frozen dataclass with metrics for one (condition, method) pair
+- `run_sweep_experiment(config) -> list[SweepRecord]`
+- `methods_in_config(config) -> list[str]`
+- `print_summary(records) -> None`
+
 ### `experiments/rotation_experiment.py`
 
 Runs the first Milestone 2 transformation experiment on one controlled outlier-heavy matrix.
@@ -361,6 +386,7 @@ Current test files:
 - `tests/test_rotations.py`
 - `tests/test_scaling.py`
 - `tests/test_rotation_experiment.py`
+- `tests/test_sweep_experiment.py`
 - `tests/test_integration.py`
 
 Run all tests:
@@ -372,7 +398,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-146 passed
+157 passed
 ```
 
 ## Design Conventions
@@ -425,9 +451,9 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-Broaden Milestone 2 analysis by comparing grouped quantization against rotation/scaling paths across seeds, outlier fractions, and outlier scales.
+Milestone 2 matrix-level work is complete. The natural next step is Milestone 3: apply the ParoQuant pipeline to a tiny transformer (tiny-gpt2 or DistilGPT2), measure perplexity and activation drift before and after rotation+row-grouped INT4 quantization, and write up those results in the research draft.
 
-Acceptance check:
+Acceptance check for Milestone 2 artifacts:
 
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
@@ -435,4 +461,5 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/rotation_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/sweep_experiment.py
 ```

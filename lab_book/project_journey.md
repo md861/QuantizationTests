@@ -2805,4 +2805,51 @@ Output:
 
 ### Next Step
 
-Add row-grouped as a fourth quantization path in `experiments/rotation_experiment.py` and the comparative sweeps.
+Implement the comparative sweep experiment to compare all quantization paths across a grid of conditions.
+
+## 2026-06-10 — Milestone 2 Complete: Comparative Sweep Experiment
+
+### Motivation
+
+With all quantization paths implemented (global, column-grouped, row-grouped, scale+global, rotate+global, rotate+scale+global, rotate+scale+row-grouped), the next step was to compare them systematically under controlled conditions: varying seeds, outlier fractions, outlier scales, and group sizes. A single-condition comparison risks cherry-picking; a grid sweep gives reproducible evidence.
+
+### Implementation
+
+Added `experiments/sweep_experiment.py` with:
+
+- `SweepConfig` — dataclass controlling the condition grid and output paths
+- `SweepRecord` — frozen dataclass storing metrics for one (condition, method) pair
+- `run_sweep_experiment(config)` — outer loop over seeds × fractions × scales; inner dispatch over all methods; writes CSV and optional dashboard
+- `_quantize_all_methods(matrix, config)` — applies all paths to one matrix; computes rotation metadata once and shares it across rotate+global, rotate+scale+global, and all rotate+scale+row-grouped variants
+- `_plot_dashboard(records, config)` — 4-panel figure: (1) mean MSE ratio per method (horizontal bar, green < 1.0), (2) mean zero fraction per method, (3) MSE ratio vs outlier scale for key methods, (4) MSE ratio vs row_group_size
+- `_write_csv` / `_save_figure` helpers; `methods_in_config` utility; `print_summary` terminal view
+
+Added `tests/test_sweep_experiment.py` with 11 tests covering record count, metric validity, CSV output, dashboard file, global MSE correctness, method set coverage, MSE ratio baseline, and row-grouped superiority on row-outlier scenarios.
+
+### Key Findings
+
+Row-grouped and rotate+scale+row-grouped are the only paths that consistently outperform global INT4 on row-localised outliers at any outlier scale. Column-grouped provides no improvement at any group size when outliers are row-localised (every column group still contains the outlier row). The combination of rotation, scaling, and row-grouped quantization is the strongest path overall.
+
+### Test State
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+157 passed in 12.89s
+```
+
+### Milestone 2 Status
+
+All Milestone 2 modules are implemented and tested:
+
+- `quant/rotations.py` — pairwise Givens rotations
+- `quant/scaling.py` — per-channel scaling
+- `quant/quantizer.py` — global, column-grouped, and row-grouped quantization
+- `experiments/rotation_experiment.py` — single-condition rotation/scaling comparison
+- `experiments/sweep_experiment.py` — full multi-condition comparative sweep
+
+Milestone 2 is complete. Next is Milestone 3: apply the ParoQuant pipeline to a tiny transformer and measure perplexity and activation drift.

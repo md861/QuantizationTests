@@ -384,30 +384,28 @@ The project has produced the following working findings.
 6. In the first rotation/scaling experiment, scaling explains most of the observed improvement, while rotation + scaling is the best path but only by a small margin over scaling alone.
 7. Column-grouped quantization improves over global INT4 when outliers are column-localised, but provides no benefit when outliers are row-localised, because the outlier row spans every column group regardless of group size.
 8. Row-grouped quantization (one scale per row-group per column, the GPTQ/AWQ approach) directly addresses row-localised outliers. In a controlled row-outlier example, row-grouping with group size 4 reduces MSE by 7× and zero fraction from 92% to 23% compared with global INT4, while column-grouped quantization leaves both metrics unchanged at any group size.
+9. The comparative sweep experiment (`experiments/sweep_experiment.py`) confirms findings 7 and 8 across a grid of seeds, outlier fractions, and outlier scales: row-grouped and rotate+scale+row-grouped are the only paths that consistently outperform global INT4 for row-localised outliers. Column-grouped shows no measurable improvement over global INT4 at any group size when outliers are row-localised. The full sweep data are written to `results/sweep_metrics.csv`.
 
 ## 12. Limitations
 
 The current results are intentionally preliminary.
 
 - Matrices are synthetic and small.
-- Most examples use a single seed or a small number of conditions.
 - Rotation-pair selection is simple: the two columns with largest max-abs values.
 - Scaling currently balances full-column max-absolute values, not groups or learned activation-aware statistics.
-- Two grouped quantization strategies are implemented (column-grouped and row-grouped) but have not yet been swept across group sizes in combination with rotation and scaling paths.
+- The sweep covers outlier fractions up to 10% and outlier scales up to 20×; extreme conditions may shift the relative ordering of methods.
 - No transformer-layer or language-model benchmark has been run yet.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
 ## 13. Next Work
 
-The next research steps should turn isolated examples into evidence.
+The next research steps move from matrix-level evidence to transformer-level evidence.
 
-1. Run rotation/scaling sweeps over seeds, outlier fractions, outlier scales, and matrix shapes.
-2. Report average improvement and win rate for each method.
-3. Sweep both column-grouped and row-grouped quantization over group sizes.
-4. Test whether rotation/scaling still improves row-grouped INT4, and at what group sizes the benefit is largest.
-5. Compare rotation-pair selection strategies.
-6. Start applying the same metrics to small transformer weight matrices.
+1. Apply the best-performing pipeline (rotation + scaling + row-grouped INT4) to weight matrices from a tiny transformer (tiny-gpt2 or DistilGPT2).
+2. Measure perplexity and activation drift before and after quantization across methods.
+3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
+4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.
 
 ## Appendix A. Reproducing Current Figures
 
@@ -418,6 +416,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/rotation_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/sweep_experiment.py
 ```
 
 Current tracked figure references used in this draft:

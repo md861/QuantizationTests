@@ -7,16 +7,17 @@ quantization changes matrices, spectra, and reconstruction error.
 
 The project starts at matrix level before scaling toward transformer models.
 Milestone 1 (quantization sandbox) is complete. Milestone 2 (ParoQuant core)
-is now underway, with pairwise Givens rotations, per-channel scaling, grouped
-quantization, and the first rotation/scaling experiment all in place.
+is now complete: pairwise Givens rotations, per-channel scaling, column-grouped
+and row-grouped quantization, the rotation/scaling experiment, and a full
+comparative sweep across all quantization paths are all implemented and tested.
 
 ## Project Roadmap
 
 | Milestone | Focus | Status |
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
-| 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Active |
-| 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Planned |
+| 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
+| 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -37,7 +38,8 @@ quantization, and the first rotation/scaling experiment all in place.
 | Per-channel scaling | Complete |
 | Grouped quantization | Complete |
 | Rotation/scaling experiment | Complete |
-| Transformer integration | Later |
+| Comparative sweep experiment | Complete |
+| Transformer integration | Next |
 
 ## Current Milestone
 
@@ -66,6 +68,13 @@ quantization to reduce outlier pressure:
 - **Rotation/scaling experiment** (`experiments/rotation_experiment.py`):
   compares baseline INT4, rotation-only INT4, scaling-only INT4, and
   rotation+scaling INT4 on one controlled outlier-heavy matrix.
+- **Comparative sweep experiment** (`experiments/sweep_experiment.py`):
+  sweeps 12 quantization paths (global, col-grouped, row-grouped, scale+global,
+  rotate+global, rotate+scale+global, rotate+scale+row-grouped) across a grid
+  of seeds, outlier fractions, and outlier scales. Outputs `results/sweep_metrics.csv`
+  and a 4-panel `plots/sweep_dashboard.png`. Key finding: row-grouped and
+  rotate+scale+row-grouped are the only paths that consistently beat global INT4
+  for row-localised outliers; column-grouped gives no improvement at any group size.
 
 Milestone 1 built the quantization sandbox:
 
@@ -93,7 +102,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-146 passed
+157 passed
 ```
 
 ## Reproduce Artifacts
@@ -106,6 +115,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/rotation_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/sweep_experiment.py
 ```
 
 These commands write CSV files under `results/` and comparison figures under
@@ -119,6 +129,11 @@ The rotation/scaling experiment writes:
 
 - `results/rotation_metrics.csv`
 - `plots/rotation_scaling_comparison.png`
+
+The sweep experiment writes:
+
+- `results/sweep_metrics.csv`
+- `plots/sweep_dashboard.png`
 
 Milestone 2 development visuals include:
 
