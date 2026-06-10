@@ -4,9 +4,9 @@ Status: living draft. This document should be updated as experiments, figures, a
 
 ## Abstract
 
-This project studies low-bit quantization from a deliberately small and inspectable starting point: synthetic matrices. The central question is how symmetric low-bit quantization changes matrix values, reconstruction error, singular-value structure, and integer-code usage under different distributional conditions. We first build a matrix-level quantization sandbox with Gaussian, heavy-tailed, and outlier-injected matrices. We then compare INT8 and INT4 symmetric quantization using reconstruction metrics, spectrum diagnostics, residual plots, histograms, and benchmark-style dashboards. Finally, we begin testing ParoQuant-inspired preprocessing transformations, specifically pairwise Givens rotations and reversible per-channel scaling, to reduce outlier pressure before INT4 quantization.
+This project studies low-bit quantization from a deliberately small and inspectable starting point: synthetic matrices. The central question is how symmetric low-bit quantization changes matrix values, reconstruction error, singular-value structure, and integer-code usage under different distributional conditions. We first build a matrix-level quantization sandbox with Gaussian, heavy-tailed, and outlier-injected matrices. We then compare INT8 and INT4 symmetric quantization using reconstruction metrics, spectrum diagnostics, residual plots, histograms, and benchmark-style dashboards. We then test ParoQuant-inspired preprocessing transformations — pairwise Givens rotations, reversible per-channel scaling — and two grouped quantization strategies: column-grouped (one scale per block of columns) and row-grouped (one scale per block of rows within each column, the approach used by GPTQ and AWQ).
 
-The current evidence shows that INT4 quantization is highly sensitive to outlier-dominated scales, often producing elevated reconstruction error and high zero-code fractions. Per-channel scaling substantially reduces this failure mode in our first controlled examples. Pairwise rotation alone helps modestly in the current single-matrix experiment, while rotation followed by scaling gives the best result among the four tested paths on that example. We treat this as a promising observation, not yet a general claim, because broader sweeps over seeds, outlier strengths, and transformation strategies are still needed.
+The current evidence shows that INT4 is highly sensitive to outlier-dominated scales, producing elevated reconstruction error and high zero-code fractions. Per-channel scaling substantially reduces this failure mode. A key new finding is that column-grouped quantization offers no improvement over global INT4 when outliers are confined to a single row, because every column group still contains that row. Row-grouped quantization directly addresses this: in a controlled row-outlier example, row-grouping with group size 4 reduces MSE by 6× and zero fraction from 92% to 23% compared with global INT4, while column-grouped quantization at any group size leaves both metrics unchanged. We treat these as promising observations pending broader sweeps.
 
 ## 1. Research Motivation
 
@@ -313,50 +313,63 @@ It does not yet justify the broad claim that rotation + scaling is always the be
 
 ## 10. Grouped Quantization
 
-Grouped quantization is now implemented as an intermediate path between full-matrix global quantization and fully per-column scaling. Instead of one scale for the whole matrix, contiguous column groups receive separate symmetric scales.
+### 10.1 Column-Grouped Quantization
 
-For a group $W_g$ and bitwidth $b$,
+The first grouped strategy splits the matrix into contiguous **column blocks**, each receiving its own scale. For a column-group $W_g$ and bitwidth $b$,
 
 $$
 s_g = \frac{\max |W_g|}{2^{b-1}-1},
 $$
 
-with integer codes
+with codes
 
 $$
 Q_g = \mathrm{clip}\left(\mathrm{round}(W_g / s_g), q_{\min}, q_{\max}\right),
 $$
 
-and reconstruction
+and reconstruction $\hat{W}_g = s_g Q_g$. When one column contains an extreme value, only that group's scale is inflated; all other column groups retain tight scales.
+
+On the column-outlier example from Section 5, column-grouped INT4 improves over global INT4, and per-column grouping improves substantially more:
+
+| Method | MSE | Rel. Frobenius | SNR dB | Zero frac |
+| --- | ---: | ---: | ---: | ---: |
+| Global INT4 | 0.297624 | 0.226335 | 12.905 | 0.664062 |
+| Column-grouped INT4 (group=4 cols) | 0.275787 | 0.217873 | 13.236 | 0.652344 |
+| Column-grouped INT4 (group=1 col) | 0.089124 | 0.123855 | 18.142 | 0.339844 |
+
+### 10.2 Row-Grouped Quantization
+
+Column-grouped quantization has a blind spot: if an outlier appears in a **single row** that spans many columns, every column group is affected and the scale improvements vanish. The standard industry approach — used in GPTQ and AWQ — addresses this by grouping **rows within each column**. Each column is split independently into row groups of size $g$, giving one scale per group per column:
 
 $$
-\hat{W}_g = s_g Q_g.
+s_{c,k} = \frac{\max_{i \in \text{group } k} |W_{i,c}|}{2^{b-1}-1}.
 $$
 
-This matters because grouped quantization is closer to practical low-bit quantization than a single full-matrix scale. It can reduce outlier pressure when outliers are localized to a small subset of columns.
+This yields $n_{\mathrm{cols}} \times \lceil n_{\mathrm{rows}} / g \rceil$ scales in total. An outlier confined to a row group inflates only that group's scale; all other row groups in all columns are unaffected.
 
-On the same outlier example used earlier, grouped INT4 improves over global INT4, and per-column grouping improves much more:
+### 10.3 Column-Grouped vs Row-Grouped: A Critical Comparison
 
-| Method | MSE | Rel. Frobenius | SNR dB | Zero frac | Sat. frac |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Global INT4 | 0.297624 | 0.226335 | 12.905 | 0.664062 | 0.015625 |
-| Grouped INT4 (group=4) | 0.275787 | 0.217873 | 13.236 | 0.652344 | 0.023438 |
-| Column INT4 (group=1) | 0.089124 | 0.123855 | 18.142 | 0.339844 | 0.078125 |
+The distinction becomes concrete when a row-level outlier is present. The following example uses a $16 \times 16$ Gaussian matrix (seed 42) with the entire first row set to 30.0 (approximately 30× the background standard deviation).
 
-The saturation fraction rises as groups become smaller because each group can use its own local range more aggressively. This is not necessarily bad, but it means grouped quantization must be evaluated using multiple diagnostics rather than MSE alone.
+| Method | MSE | Rel. Frobenius | SNR dB | Zero frac |
+| --- | ---: | ---: | ---: | ---: |
+| Global INT4 | 0.769182 | 0.116081 | 18.705 | 0.921875 |
+| Column-grouped INT4 (group=4 cols) | 0.769182 | 0.116081 | 18.705 | 0.921875 |
+| Column-grouped INT4 (group=1 col) | 0.769182 | 0.116081 | 18.705 | 0.921875 |
+| Row-grouped INT4 (group=4 rows) | 0.109244 | 0.043747 | 27.181 | 0.226562 |
+| Row-grouped INT4 (group=1 row) | 0.000000 | 0.000000 | ∞ | 0.000000 |
 
-Grouped quantization changes the next research question. The fairer comparison is no longer only:
+Column-grouped quantization provides **no improvement at any group size**: because the outlier row is present in every column group, every group's scale is dominated by it regardless of how the columns are partitioned. Row-grouped quantization at group size 4 reduces MSE by 7× and zero fraction from 92% to 23%. At group size 1 (one scale per element per column), reconstruction is exact up to floating-point rounding.
+
+This demonstrates that the choice of grouping axis matters as much as the number of groups. When outliers are row-localised, only row-grouped quantization addresses the root cause.
+
+### 10.4 Implications for the Comparison Landscape
+
+Grouped quantization expands the set of quantization paths that should be compared:
 
 $$
-\text{global INT4} \quad \text{vs.} \quad \text{rotation/scaling + global INT4}.
-$$
-
-It should become:
-
-$$
-\text{global INT4},\quad \text{grouped INT4},\quad
-\text{scaling + global/grouped INT4},\quad
-\text{rotation + scaling + global/grouped INT4}.
+\text{global INT4},\quad \text{column-grouped INT4},\quad \text{row-grouped INT4},\quad
+\text{rotation/scaling + any of the above}.
 $$
 
 ## 11. Current Findings
@@ -369,7 +382,8 @@ The project has produced the following working findings.
 4. Givens rotations preserve matrix energy and can redistribute outlier pressure.
 5. Per-channel scaling is reversible and directly reduces column magnitude imbalance.
 6. In the first rotation/scaling experiment, scaling explains most of the observed improvement, while rotation + scaling is the best path but only by a small margin over scaling alone.
-7. Grouped quantization improves over global INT4 in the first outlier example, especially when groups are small, but it must be compared carefully because saturation behavior also changes.
+7. Column-grouped quantization improves over global INT4 when outliers are column-localised, but provides no benefit when outliers are row-localised, because the outlier row spans every column group regardless of group size.
+8. Row-grouped quantization (one scale per row-group per column, the GPTQ/AWQ approach) directly addresses row-localised outliers. In a controlled row-outlier example, row-grouping with group size 4 reduces MSE by 7× and zero fraction from 92% to 23% compared with global INT4, while column-grouped quantization leaves both metrics unchanged at any group size.
 
 ## 12. Limitations
 
@@ -379,7 +393,7 @@ The current results are intentionally preliminary.
 - Most examples use a single seed or a small number of conditions.
 - Rotation-pair selection is simple: the two columns with largest max-abs values.
 - Scaling currently balances full-column max-absolute values, not groups or learned activation-aware statistics.
-- The current grouped quantizer uses simple contiguous column groups and has not yet been swept across group sizes or combined with all preprocessing paths.
+- Two grouped quantization strategies are implemented (column-grouped and row-grouped) but have not yet been swept across group sizes in combination with rotation and scaling paths.
 - No transformer-layer or language-model benchmark has been run yet.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
@@ -390,8 +404,8 @@ The next research steps should turn isolated examples into evidence.
 
 1. Run rotation/scaling sweeps over seeds, outlier fractions, outlier scales, and matrix shapes.
 2. Report average improvement and win rate for each method.
-3. Sweep grouped quantization over group sizes and compare it against rotation/scaling paths.
-4. Test whether rotation/scaling still improves grouped INT4.
+3. Sweep both column-grouped and row-grouped quantization over group sizes.
+4. Test whether rotation/scaling still improves row-grouped INT4, and at what group sizes the benefit is largest.
 5. Compare rotation-pair selection strategies.
 6. Start applying the same metrics to small transformer weight matrices.
 
