@@ -7,6 +7,10 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.figure import Figure
+
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -17,7 +21,9 @@ class ResultsAnalysisConfig:
 
     results_dir: Path = Path("results")
     output_dir: Path = Path("results")
+    plots_dir: Path = Path("plots")
     write_csv: bool = True
+    save_plots: bool = True
 
 
 @dataclass(frozen=True)
@@ -77,6 +83,14 @@ def run_results_analysis(
         _write_csv(config.output_dir / "baseline_analysis.csv", baseline)
         _write_csv(config.output_dir / "outlier_analysis.csv", outlier)
 
+    if config.save_plots:
+        config.plots_dir.mkdir(parents=True, exist_ok=True)
+        figure = plot_results_analysis_dashboard(
+            report,
+            output_path=config.plots_dir / "analysis_dashboard.png",
+        )
+        plt.close(figure)
+
     return report
 
 
@@ -134,6 +148,143 @@ def worst_by_mse_ratio(
     return max(records, key=lambda record: record.mse_ratio_int4_over_int8)
 
 
+def plot_results_analysis_dashboard(
+    report: ResultsAnalysisReport,
+    *,
+    output_path: Path | None = None,
+    figsize: tuple[float, float] = (15.0, 10.0),
+) -> Figure:
+    """Plot a single dashboard for baseline and outlier analysis metrics."""
+
+    if not report.baseline:
+        raise ValueError("baseline records must contain at least one row")
+    if not report.outlier:
+        raise ValueError("outlier records must contain at least one row")
+
+    fig = plt.figure(figsize=figsize)
+    grid = fig.add_gridspec(2, 3, height_ratios=(0.9, 1.1))
+    fig.suptitle("Quantization Analysis Dashboard", fontsize=15)
+
+    baseline_axes = [fig.add_subplot(grid[0, index]) for index in range(3)]
+    _plot_baseline_analysis_bars_on_axes(report.baseline, baseline_axes)
+
+    mse_axis = fig.add_subplot(grid[1, 0:2])
+    zero_axis = fig.add_subplot(grid[1, 2])
+    _plot_outlier_metric_heatmap_on_axis(
+        report.outlier,
+        metric_name="mse_ratio_int4_over_int8",
+        title="Outlier Sweep INT4 / INT8 MSE Ratio",
+        colorbar_label="MSE ratio",
+        ax=mse_axis,
+        cmap="magma",
+    )
+    _plot_outlier_metric_heatmap_on_axis(
+        report.outlier,
+        metric_name="zero_fraction_delta_int4_minus_int8",
+        title="INT4 Zero-Fraction Increase",
+        colorbar_label="Zero-fraction delta",
+        ax=zero_axis,
+        cmap="viridis",
+    )
+
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.95))
+    _save_figure(fig, output_path)
+    return fig
+
+
+def plot_baseline_analysis_bars(
+    records: list[QuantizerComparisonRecord],
+    *,
+    output_path: Path | None = None,
+    figsize: tuple[float, float] = (13.0, 8.0),
+) -> Figure:
+    """Plot benchmark-style baseline comparison bars."""
+
+    if not records:
+        raise ValueError("records must contain at least one row")
+
+    fig, axes = plt.subplots(1, 3, figsize=figsize)
+    fig.suptitle("Baseline INT4 vs INT8 Analysis", fontsize=14)
+    _plot_baseline_analysis_bars_on_axes(records, list(axes))
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.92))
+    _save_figure(fig, output_path)
+    return fig
+
+
+def plot_outlier_mse_ratio_heatmap(
+    records: list[QuantizerComparisonRecord],
+    *,
+    output_path: Path | None = None,
+    figsize: tuple[float, float] = (8.0, 5.5),
+) -> Figure:
+    """Plot outlier-sweep heatmap colored by INT4-over-INT8 MSE ratio."""
+
+    return plot_outlier_metric_heatmap(
+        records,
+        metric_name="mse_ratio_int4_over_int8",
+        title="Outlier Sweep INT4 / INT8 MSE Ratio",
+        colorbar_label="MSE ratio",
+        output_path=output_path,
+        figsize=figsize,
+        cmap="magma",
+    )
+
+
+def plot_outlier_zero_delta_heatmap(
+    records: list[QuantizerComparisonRecord],
+    *,
+    output_path: Path | None = None,
+    figsize: tuple[float, float] = (8.0, 5.5),
+) -> Figure:
+    """Plot outlier-sweep heatmap colored by INT4 zero-fraction increase."""
+
+    return plot_outlier_metric_heatmap(
+        records,
+        metric_name="zero_fraction_delta_int4_minus_int8",
+        title="Outlier Sweep INT4 Zero-Fraction Increase",
+        colorbar_label="Zero-fraction delta",
+        output_path=output_path,
+        figsize=figsize,
+        cmap="viridis",
+    )
+
+
+def plot_outlier_metric_heatmap(
+    records: list[QuantizerComparisonRecord],
+    *,
+    metric_name: str,
+    title: str,
+    colorbar_label: str,
+    output_path: Path | None = None,
+    figsize: tuple[float, float] = (8.0, 5.5),
+    cmap: str = "viridis",
+) -> Figure:
+    """Plot a fraction-by-scale heatmap for an outlier analysis metric."""
+
+    if not records:
+        raise ValueError("records must contain at least one row")
+    if not all(
+        record.outlier_fraction is not None and record.outlier_scale is not None
+        for record in records
+    ):
+        raise ValueError("all records must include outlier_fraction and outlier_scale")
+    if not hasattr(records[0], metric_name):
+        raise ValueError(f"unknown metric: {metric_name}")
+
+    fig, ax = plt.subplots(figsize=figsize)
+    _plot_outlier_metric_heatmap_on_axis(
+        records,
+        metric_name=metric_name,
+        title=title,
+        colorbar_label=colorbar_label,
+        ax=ax,
+        cmap=cmap,
+    )
+    fig.tight_layout()
+    _save_figure(fig, output_path)
+    return fig
+
+
 def main() -> None:
     """Run the default results analysis."""
 
@@ -141,6 +292,7 @@ def main() -> None:
     print_summary(report)
     print("Saved analysis to results/baseline_analysis.csv")
     print("Saved analysis to results/outlier_analysis.csv")
+    print("Saved plot to plots/analysis_dashboard.png")
 
 
 def _read_rows(path: Path) -> list[dict[str, str]]:
@@ -233,6 +385,121 @@ def _write_csv(path: Path, records: list[QuantizerComparisonRecord]) -> None:
         writer.writeheader()
         for record in records:
             writer.writerow(asdict(record))
+
+
+def _plot_baseline_analysis_bars_on_axes(
+    records: list[QuantizerComparisonRecord],
+    axes: list[plt.Axes],
+) -> None:
+    labels = [record.condition for record in records]
+    x_positions = np.arange(len(records))
+    metrics = [
+        (
+            "INT4 / INT8 MSE Ratio",
+            [record.mse_ratio_int4_over_int8 for record in records],
+            "Ratio",
+            "tab:blue",
+        ),
+        (
+            "INT4 Zero-Fraction Increase",
+            [record.zero_fraction_delta_int4_minus_int8 for record in records],
+            "Fraction delta",
+            "tab:orange",
+        ),
+        (
+            "INT4 SNR Drop",
+            [-record.snr_db_delta_int4_minus_int8 for record in records],
+            "dB drop",
+            "tab:red",
+        ),
+    ]
+
+    for ax, (title, values, ylabel, color) in zip(axes, metrics, strict=True):
+        ax.bar(x_positions, values, color=color, alpha=0.82)
+        ax.set_title(title)
+        ax.set_ylabel(ylabel)
+        ax.set_xticks(x_positions)
+        ax.set_xticklabels(labels, rotation=25, ha="right")
+        ax.grid(axis="y", alpha=0.25)
+
+
+def _plot_outlier_metric_heatmap_on_axis(
+    records: list[QuantizerComparisonRecord],
+    *,
+    metric_name: str,
+    title: str,
+    colorbar_label: str,
+    ax: plt.Axes,
+    cmap: str,
+) -> None:
+    if not records:
+        raise ValueError("records must contain at least one row")
+    if not all(
+        record.outlier_fraction is not None and record.outlier_scale is not None
+        for record in records
+    ):
+        raise ValueError("all records must include outlier_fraction and outlier_scale")
+    if not hasattr(records[0], metric_name):
+        raise ValueError(f"unknown metric: {metric_name}")
+
+    fractions = sorted(
+        {record.outlier_fraction for record in records if record.outlier_fraction is not None}
+    )
+    scales = sorted({record.outlier_scale for record in records if record.outlier_scale is not None})
+    values = np.full((len(fractions), len(scales)), np.nan, dtype=np.float64)
+
+    fraction_index = {fraction: index for index, fraction in enumerate(fractions)}
+    scale_index = {scale: index for index, scale in enumerate(scales)}
+    for record in records:
+        values[
+            fraction_index[record.outlier_fraction],
+            scale_index[record.outlier_scale],
+        ] = float(getattr(record, metric_name))
+
+    image = ax.imshow(values, cmap=cmap, aspect="auto")
+    ax.set_title(title)
+    ax.set_xlabel("Outlier scale")
+    ax.set_ylabel("Outlier fraction")
+    ax.set_xticks(np.arange(len(scales)))
+    ax.set_xticklabels([f"{scale:g}" for scale in scales])
+    ax.set_yticks(np.arange(len(fractions)))
+    ax.set_yticklabels([f"{fraction:g}" for fraction in fractions])
+    ax.figure.colorbar(image, ax=ax, label=colorbar_label)
+
+    for row_index in range(values.shape[0]):
+        for col_index in range(values.shape[1]):
+            value = values[row_index, col_index]
+            if np.isfinite(value):
+                ax.text(
+                    col_index,
+                    row_index,
+                    _format_heatmap_value(value),
+                    ha="center",
+                    va="center",
+                    color=_annotation_color(image.cmap(image.norm(value))),
+                    fontsize=8,
+                )
+
+
+def _save_figure(fig: Figure, output_path: Path | None) -> None:
+    if output_path is None:
+        return
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=160, bbox_inches="tight")
+
+
+def _format_heatmap_value(value: float) -> str:
+    if abs(value) >= 100.0:
+        return f"{value:.0f}"
+    if abs(value) >= 10.0:
+        return f"{value:.1f}"
+    return f"{value:.3f}"
+
+
+def _annotation_color(rgba: tuple[float, float, float, float]) -> str:
+    red, green, blue, _ = rgba
+    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    return "black" if luminance > 0.55 else "white"
 
 
 def _condition_label(key_fields: tuple[str, ...], key: tuple[str, ...]) -> str:

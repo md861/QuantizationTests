@@ -1950,3 +1950,111 @@ Reminder for next resume: check the last implemented changes before moving on:
 - histogram visualization helpers in `quant/visualize.py`
 - results-analysis helper in `experiments/analyze_results.py`
 - integration/hygiene tests in `tests/test_integration.py`
+
+## 2026-06-10 — Benchmark-Style Result Analysis Visuals
+
+### Goal
+
+Extend `experiments/analyze_results.py` so the CSV analysis can also produce visuals similar to common quantization benchmark summaries.
+
+### Implementation Summary
+
+Updated `experiments/analyze_results.py` with:
+
+- `plot_baseline_analysis_bars(...)`
+- `plot_outlier_mse_ratio_heatmap(...)`
+- `plot_outlier_zero_delta_heatmap(...)`
+- generic `plot_outlier_metric_heatmap(...)`
+
+Initial analysis plotting wrote separate files:
+
+- `plots/baseline_analysis_bars.png`
+- `plots/outlier_mse_ratio_heatmap.png`
+- `plots/outlier_zero_delta_heatmap.png`
+
+This was then consolidated so the default analysis now writes one review figure:
+
+- `plots/analysis_dashboard.png`
+
+The baseline bar chart shows:
+
+- INT4 / INT8 MSE ratio
+- INT4 zero-fraction increase
+- INT4 SNR drop
+
+The outlier heatmaps show fraction-by-scale sensitivity for:
+
+- INT4 / INT8 MSE ratio
+- INT4 zero-fraction increase
+
+The collated dashboard places the baseline bar summaries and outlier heatmaps in one figure for easier review.
+
+### Tests
+
+Updated `tests/test_analyze_results.py`.
+
+Covered:
+
+- analysis plotting files are written and non-empty
+- outlier heatmaps reject non-outlier records
+- existing CSV analysis behavior remains intact
+
+### Verification
+
+Focused command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_analyze_results.py
+```
+
+Output:
+
+```text
+============================== 4 passed in 1.15s ===============================
+```
+
+Full-suite command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+Output:
+
+```text
+============================== 72 passed in 7.71s ==============================
+```
+
+## 2026-06-10 — Project Summary Math Documentation Refresh
+
+### Goal
+
+Improve the compact handoff document so it explains what the core modules create and the mathematical quantities they compute, while keeping generated plot/result artifacts out of the summary.
+
+### Changes
+
+Updated `project_summary.md`:
+
+- expanded `quant/matrix_factory.py` with concise distribution descriptions:
+  - Gaussian matrices
+  - Student-t heavy-tailed matrices
+  - Gaussian-plus-outlier matrices
+- expanded `quant/quantizer.py` with symmetric quantization formulae:
+  - scale
+  - integer code quantization
+  - dequantization
+- expanded `quant/metrics.py` with readable formulae for:
+  - MSE
+  - MAE
+  - relative Frobenius error
+  - cosine similarity
+  - SNR
+  - spectrum errors
+  - zero and saturation fractions
+- expanded `quant/spectrum.py` with SVD/singular-value descriptions:
+  - explained energy
+  - stable rank
+  - spectrum comparison
+- removed the generated example plots/artifacts section from the summary
+
+This keeps `project_summary.md` focused on current source capabilities and resume guidance rather than local generated files.

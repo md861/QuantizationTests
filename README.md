@@ -65,7 +65,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-71 passed
+72 passed
 ```
 
 ## Reproduce Artifacts
@@ -81,6 +81,10 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 
 These commands write CSV files under `results/` and comparison figures under
 `plots/`.
+
+The analysis helper also writes a collated benchmark-style visual:
+
+- `plots/analysis_dashboard.png`
 
 ## Project Notes
 

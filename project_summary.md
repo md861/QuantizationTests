@@ -15,10 +15,9 @@ Implemented so far:
 - baseline experiment comparing INT8 and INT4 across matrix families
 - outlier-severity sweep comparing INT8 and INT4 across controlled outlier fractions and scales
 - histogram visualizations for values, residuals, and quantized codes
-- results-analysis helper comparing INT4 against INT8 from generated CSVs
+- results-analysis helper comparing INT4 against INT8 from generated CSVs, including a collated benchmark-style dashboard
 - integration and repository-hygiene tests
 - tests for all implemented modules
-- generated example plots in `plots/` locally, with generated artifacts ignored by Git
 
 Milestone 1 is now complete enough to move into the first rotation/scaling experiment for Milestone 2.
 
@@ -47,7 +46,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-71 passed
+72 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -64,22 +63,34 @@ Generated artifacts under `plots/` and `results/`, the virtual environment, cach
 
 ### `quant/matrix_factory.py`
 
-Generates reproducible synthetic matrices:
+Creates reproducible synthetic matrices for controlled quantization tests. These matrices are the input data used by the quantizer, metrics, and experiments.
 
 - `gaussian_matrix(...)`
+  - Creates independent Gaussian entries.
+  - Formula: $x_{ij} \sim \mathcal{N}(\mu, \sigma^2)$
 - `heavy_tailed_matrix(...)`
+  - Creates Student-t entries for outlier-prone, heavy-tailed data.
+  - Formula: $x_{ij} = s \cdot t_{\nu}$, where $\nu$ is the degrees of freedom and $s$ is a scale factor.
 - `outlier_matrix(...)`
+  - Creates a Gaussian base matrix, then replaces a controlled fraction of entries with large signed outliers.
+  - Approximate rule: choose $k = \mathrm{round}(f \cdot mn)$ entries and set them near $\mu \pm |\mathcal{N}(\alpha\sigma, \sigma^2)|$, where $f$ is `outlier_fraction` and $\alpha$ is `outlier_scale`.
 - `make_matrix(...)`
+  - Dispatches by `MatrixKind` or string name for experiment-friendly matrix creation.
 - `MatrixKind`
 
 All generators support `shape`, `seed`, and `dtype`.
 
 ### `quant/quantizer.py`
 
-Implements symmetric full-matrix quantization:
+Implements symmetric full-matrix quantization and stores both integer codes and dequantized reconstructions.
 
 - `QuantizationResult`
+  - Stores `quantized`, `dequantized`, `scale`, `bitwidth`, `qmin`, and `qmax`.
 - `symmetric_quantize(matrix, bitwidth=...)`
+  - Computes a single full-matrix scale from the maximum absolute value.
+  - Scale: $s = \max(|W|) / (2^{b-1} - 1)$
+  - Quantize: $Q = \mathrm{clip}(\mathrm{round}(W / s), q_{\min}, q_{\max})$
+  - Dequantize: $\hat{W} = sQ$
 - `quantize_int8(matrix)`
 - `quantize_int4(matrix)`
 
@@ -92,21 +103,21 @@ Zero matrices use `scale=1.0` and reconstruct exactly to zeros.
 
 ### `quant/metrics.py`
 
-Computes error and diagnostic metrics comparing original vs dequantized matrices:
+Computes reconstruction, similarity, spectrum, and integer-code diagnostics comparing an original matrix $W$ with a dequantized reconstruction $\hat{W}$. Let $E = \hat{W} - W$.
 
-- MSE
-- MAE
-- relative Frobenius error
-- cosine similarity
-- SNR in dB
-- max absolute error
-- mean signed error
-- error standard deviation
-- spectrum L2 error
-- relative spectrum L2 error
+- MSE: $\mathrm{mean}(E^2)$
+- MAE: $\mathrm{mean}(|E|)$
+- relative Frobenius error: $\|W - \hat{W}\|_F / \|W\|_F$
+- cosine similarity: $\langle W, \hat{W} \rangle / (\|W\|_2\|\hat{W}\|_2)$ after flattening
+- SNR in dB: $10\log_{10}(\sum W^2 / \sum (W-\hat{W})^2)$
+- max absolute error: $\max(|E|)$
+- mean signed error: $\mathrm{mean}(E)$
+- error standard deviation: $\mathrm{std}(E)$
+- spectrum L2 error: $\|\sigma(W) - \sigma(\hat{W})\|_2$
+- relative spectrum L2 error: $\|\sigma(W) - \sigma(\hat{W})\|_2 / \|\sigma(W)\|_2$
 - rank and stable-rank diagnostics
-- optional saturation fraction
-- optional zero fraction
+- optional saturation fraction: fraction of codes equal to $q_{\min}$ or $q_{\max}$
+- optional zero fraction: fraction of codes equal to 0
 
 Main API:
 
@@ -115,13 +126,20 @@ Main API:
 
 ### `quant/spectrum.py`
 
-Computes singular-value analysis:
+Computes singular-value analysis for understanding how quantization changes matrix geometry. For a matrix $W$, singular values are $\sigma_1 \ge \sigma_2 \ge \dots$.
 
 - `SpectrumStats`
+  - Stores singular values, rank, spectral/nuclear/Frobenius norms, condition number, stable rank, and explained energy.
 - `singular_values(...)`
+  - Computes $\sigma(W)$ using SVD.
 - `explained_energy(...)`
+  - Computes cumulative squared singular-value energy.
+  - Formula: $\mathrm{energy}_k = \sum_{i=1}^{k}\sigma_i^2 / \sum_i \sigma_i^2$
 - `analyze_spectrum(...)`
+  - Computes rank, norms, condition number, stable rank, and explained energy.
+  - Stable rank: $\|W\|_F^2 / \|W\|_2^2 = \sum_i\sigma_i^2 / \sigma_1^2$
 - `compare_spectra(...)`
+  - Compares singular-value spectra and stable-rank changes between reference and candidate matrices.
 
 ### `quant/visualize.py`
 
@@ -196,6 +214,8 @@ Analyzes generated baseline and outlier CSVs:
 - optionally writes:
   - `results/baseline_analysis.csv`
   - `results/outlier_analysis.csv`
+- optionally writes a collated benchmark-style dashboard:
+  - `plots/analysis_dashboard.png`
 
 ## Tests
 
@@ -216,39 +236,6 @@ Run all tests:
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 ```
-
-## Generated Example Plots
-
-Matrix factory examples:
-
-- `plots/matrix_factory_3x3_heatmaps.png`
-- `plots/matrix_factory_3x3_spectra.png`
-- `plots/matrix_factory_20x20_heatmaps.png`
-- `plots/matrix_factory_20x20_spectra.png`
-- `plots/matrix_factory_5x20_heatmaps.png`
-- `plots/matrix_factory_5x20_spectra.png`
-
-Quantization summary examples:
-
-- `plots/outlier_5x20_int8_quantization_summary.png`
-- `plots/outlier_5x20_int4_quantization_summary.png`
-
-Baseline experiment artifacts:
-
-- `results/baseline_metrics.csv`
-- `plots/baseline_gaussian_comparison.png`
-- `plots/baseline_heavy_tailed_comparison.png`
-- `plots/baseline_outlier_comparison.png`
-
-Outlier experiment artifacts:
-
-- `results/outlier_metrics.csv`
-- `plots/outlier_fraction_<fraction>_scale_<scale>_comparison.png`
-
-Analysis artifacts:
-
-- `results/baseline_analysis.csv`
-- `results/outlier_analysis.csv`
 
 ## Design Conventions
 
