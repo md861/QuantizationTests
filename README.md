@@ -10,6 +10,15 @@ The current focus is Milestone 1: generating synthetic matrices, applying
 symmetric INT8 and INT4 quantization, measuring distortion, and making the
 failure modes visible.
 
+## Project Roadmap
+
+| Milestone | Focus | Status |
+| --- | --- | --- |
+| 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Active |
+| 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Next |
+| 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Planned |
+| 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
+
 ## Progress
 
 | Area | Status |
