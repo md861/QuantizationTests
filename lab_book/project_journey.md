@@ -2158,3 +2158,89 @@ Make the continuation path explicit enough that another coding agent can resume 
 ### Takeaway
 
 The docs are now better suited for a handoff to a different agent, because they explain both the project state and the local working conventions that have mattered during development.
+
+## 2026-06-10 — Rotation Verification Tests And Worked Example
+
+### Goal
+
+Extend `tests/test_rotations.py` with three mathematically grounded verification tests that prove the rotation machinery is correct from first principles, not just self-consistent.  Also produce a concrete numerical worked example on a chosen matrix.
+
+### Verification Tests Added
+
+Four tests added to `tests/test_rotations.py` (bringing module tests from 28 to 32):
+
+**`test_exact_angle_zeros_target_entry`**
+
+Uses the analytic result that $\theta = \arctan2(b, a)$ applied to columns $i$ and $j$ of matrix $M$ zeros entry $M[k, j]$ exactly:
+
+$$M'[k, j] = -\sin\theta \cdot a + \cos\theta \cdot b = 0 \quad \text{iff} \quad \tan\theta = b/a$$
+
+Also verifies $|M'[k, i]| = \sqrt{a^2 + b^2}$ (the merged magnitude lands on column $i$).
+
+**`test_givens_qr_via_cascaded_rotations`**
+
+Implements Givens QR decomposition entirely through `apply_rotation`, using the transpose trick for row operations:
+
+- Row rotation on $R$: `apply_rotation(R.T, i-1, i, theta).T` $\equiv G_\mathrm{step} @ R$
+- $Q$ accumulation: `apply_rotation(Q, i-1, i, theta)` $\equiv Q @ G_\mathrm{step}^T$
+
+At each step the angle is $\theta = \arctan2(R[i, j],\, R[i-1, j])$, which analytically zeros $R[i, j]$.  After sweeping all sub-diagonal positions the test asserts $\|Q R - A\|_F < 10^{-10}$, $\|Q^T Q - I\|_F < 10^{-10}$, and every lower-triangular entry satisfies $|R[r, c]| < 10^{-10}$.
+
+**`test_givens_qr_diagonal_magnitudes_match_numpy`**
+
+Checks that $|\mathrm{diag}(R)|$ from the Givens QR matches `numpy.linalg.qr` up to sign conventions.  Diagonal magnitudes are unique regardless of sign choice, so this provides an independent ground-truth comparison.
+
+**`test_exact_angle_orthogonalises_column_pair`**
+
+Uses the Jacobi SVD angle formula.  Setting dot product of rotated columns to zero:
+
+$$\sin(2\theta)(\|c_j\|^2 - \|c_i\|^2) + 2\cos(2\theta)(c_i \cdot c_j) = 0$$
+
+Solving: $\theta = \tfrac{1}{2}\arctan2(2 c_i \cdot c_j,\; \|c_i\|^2 - \|c_j\|^2)$
+
+The test applies this angle and asserts $|c_i' \cdot c_j'| < 10^{-10}$.
+
+### Concrete Worked Example (5×4 matrix, seed 77)
+
+```text
+Matrix A (5×4):
+[[ 0.4278 -0.5708  2.6545 -1.6085]
+ [ 0.6617 -0.1434 -0.3545  1.0664]
+ [-1.8179 -0.9847 -0.1142  1.7413]
+ [ 0.0890  0.8957 -1.8633 -1.2389]
+ [ 0.9695 -0.6282 -0.0630  0.7309]]
+
+Entry-zeroing  (row 2, col_i=0, col_j=3):
+  a = -1.817922,  b = +1.741274
+  theta = arctan2(b, a) = 2.3777 rad
+  A'[2,3] = 2.22e-16  (zeroed)
+  A'[2,0] = 2.517315 = sqrt(a²+b²)  ✓
+
+Givens QR (10 row-rotations):
+  ||Q @ R - A||_F   = 1.10e-15  ✓
+  ||Q^T Q - I||_F   = 3.76e-16  ✓
+  max |R lower tri| = 2.85e-16  ✓
+  diag |R| ours  = [2.2076  1.5292  2.5027  1.3937]
+  diag |R| numpy = [2.2076  1.5292  2.5027  1.3937]  ✓
+
+Column orthogonalisation (8×8, cols 0 and 3, seed 11):
+  dot before = +3.1906
+  theta = 0.5 * arctan2(2*dot, ||ci||²-||cj||²) = 0.6658 rad
+  dot after  = -7.22e-16  ✓
+```
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+Output:
+
+```text
+107 passed in 8.35s
+```
+
+### Next Step
+
+Implement `quant/scaling.py` — per-channel scaling to complement the rotations.

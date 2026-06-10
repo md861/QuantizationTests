@@ -254,3 +254,81 @@ def test_optimal_angle_raises_for_invalid_n_search() -> None:
     matrix = np.ones((4, 4), dtype=np.float64)
     with pytest.raises(ValueError, match="n_search"):
         optimal_angle(matrix, 0, 1, n_search=0)
+
+
+# ── Verification: entry-zeroing, Givens QR, column orthogonalisation ─────────
+
+def _givens_qr(A: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """QR via cascaded Givens row-rotations built on apply_rotation.
+
+    Row rotation on R uses the transpose trick:
+        apply_rotation(R.T, i-1, i, theta).T  ≡  G_step @ R
+
+    Q is accumulated via right-multiplication by G_step^T at each step:
+        apply_rotation(Q, i-1, i, theta)  ≡  Q @ G_step^T
+
+    After all steps: Q @ R == A  (complete form, Q is m×m).
+    """
+    m, n = A.shape
+    R = A.astype(np.float64).copy()
+    Q = np.eye(m, dtype=np.float64)
+    for j in range(n):
+        for i in range(m - 1, j, -1):
+            a, b = R[i - 1, j], R[i, j]
+            if abs(b) < 1e-14:
+                continue
+            theta = float(np.arctan2(b, a))
+            R = np.ascontiguousarray(apply_rotation(R.T, i - 1, i, theta).T)
+            Q = apply_rotation(Q, i - 1, i, theta)
+    return Q, R
+
+
+def test_exact_angle_zeros_target_entry() -> None:
+    """arctan2(b, a) applied to cols (i, j) must zero entry M[k, j] exactly."""
+    rng = np.random.default_rng(77)
+    matrix = rng.standard_normal((6, 6)).astype(np.float64)
+    k, i, j = 2, 0, 3
+    a, b = float(matrix[k, i]), float(matrix[k, j])
+    theta = float(np.arctan2(b, a))
+    rotated = apply_rotation(matrix, i, j, theta)
+    assert abs(rotated[k, j]) < 1e-10
+    np.testing.assert_allclose(abs(rotated[k, i]), np.sqrt(a**2 + b**2), atol=1e-10)
+
+
+def test_givens_qr_via_cascaded_rotations() -> None:
+    """QR built from apply_rotation must satisfy Q@R=A, Q^T Q=I, R upper-triangular."""
+    rng = np.random.default_rng(42)
+    A = rng.standard_normal((6, 4)).astype(np.float64)
+    Q, R = _givens_qr(A)
+    np.testing.assert_allclose(Q @ R, A, atol=1e-10)
+    np.testing.assert_allclose(Q.T @ Q, np.eye(Q.shape[0]), atol=1e-10)
+    m, n = A.shape
+    for row in range(1, m):
+        for col in range(min(row, n)):
+            assert abs(R[row, col]) < 1e-10, f"R[{row},{col}] = {R[row,col]:.2e} not zero"
+
+
+def test_givens_qr_diagonal_magnitudes_match_numpy() -> None:
+    """Absolute diagonal of our Givens-QR R must match numpy.linalg.qr (sign-free)."""
+    rng = np.random.default_rng(99)
+    A = rng.standard_normal((5, 5)).astype(np.float64)
+    _, R_ours = _givens_qr(A)
+    _, R_numpy = np.linalg.qr(A)
+    np.testing.assert_allclose(
+        np.abs(np.diag(R_ours)),
+        np.abs(np.diag(R_numpy)),
+        atol=1e-8,
+    )
+
+
+def test_exact_angle_orthogonalises_column_pair() -> None:
+    """Jacobi angle 0.5*arctan2(2*dot, ||ci||²-||cj||²) must make columns orthogonal."""
+    rng = np.random.default_rng(11)
+    matrix = rng.standard_normal((8, 8)).astype(np.float64)
+    i, j = 0, 3
+    ci, cj = matrix[:, i].copy(), matrix[:, j].copy()
+    dot_ij = float(np.dot(ci, cj))
+    diff_norms = float(np.dot(ci, ci) - np.dot(cj, cj))
+    theta = 0.5 * float(np.arctan2(2.0 * dot_ij, diff_norms))
+    rotated = apply_rotation(matrix, i, j, theta)
+    assert abs(np.dot(rotated[:, i], rotated[:, j])) < 1e-10

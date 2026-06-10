@@ -286,7 +286,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-103 passed
+107 passed
 ```
 
 ## Design Conventions
