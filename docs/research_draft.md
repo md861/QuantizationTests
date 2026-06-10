@@ -384,7 +384,24 @@ The project has produced the following working findings.
 6. In the first rotation/scaling experiment, scaling explains most of the observed improvement, while rotation + scaling is the best path but only by a small margin over scaling alone.
 7. Column-grouped quantization improves over global INT4 when outliers are column-localised, but provides no benefit when outliers are row-localised, because the outlier row spans every column group regardless of group size.
 8. Row-grouped quantization (one scale per row-group per column, the GPTQ/AWQ approach) directly addresses row-localised outliers. In a controlled row-outlier example, row-grouping with group size 4 reduces MSE by 7× and zero fraction from 92% to 23% compared with global INT4, while column-grouped quantization leaves both metrics unchanged at any group size.
-9. The comparative sweep experiment (`experiments/sweep_experiment.py`) confirms findings 7 and 8 across a grid of seeds, outlier fractions, and outlier scales: row-grouped and rotate+scale+row-grouped are the only paths that consistently outperform global INT4 for row-localised outliers. Column-grouped shows no measurable improvement over global INT4 at any group size when outliers are row-localised. The full sweep data are written to `results/sweep_metrics.csv`.
+9. The comparative sweep (5 seeds × 3 outlier fractions × 3 outlier scales = 45 conditions, 12 methods each) produces the following mean MSE ratios relative to global INT4, averaged across all conditions:
+
+| Method | Mean MSE ratio | Mean zero fraction |
+|---|---|---|
+| rotate_scale_row_g4 | **0.111** | 0.137 |
+| row_grouped_g4 | **0.112** | 0.136 |
+| rotate_scale_row_g8 | 0.216 | 0.219 |
+| row_grouped_g8 | 0.219 | 0.219 |
+| rotate_scale_row_g16 | 0.353 | 0.311 |
+| row_grouped_g16 | 0.362 | 0.312 |
+| rotate_scale_global | 0.507 | 0.402 |
+| scale_global | 0.531 | 0.410 |
+| col_grouped_g4 | 0.766 | 0.519 |
+| col_grouped_g8 | 0.875 | 0.560 |
+| rotate_global | 0.902 | 0.570 |
+| global | 1.000 | 0.593 |
+
+Key observations from the sweep: (a) row_grouped_g4 achieves ~9× MSE reduction on average; (b) rotation adds only marginal benefit on top of row-grouped alone (0.111 vs 0.112 at g=4) — the value of rotation is realised through its combination with scaling; (c) scale_global (0.53×) outperforms column-grouped at any group size; (d) rotation alone (0.90×) barely moves the needle; (e) group size is the dominant variable for row-grouped — g=4 gives 9× improvement, g=16 gives only 3×.
 
 ## 12. Limitations
 

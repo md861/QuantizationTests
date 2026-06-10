@@ -2826,9 +2826,31 @@ Added `experiments/sweep_experiment.py` with:
 
 Added `tests/test_sweep_experiment.py` with 11 tests covering record count, metric validity, CSV output, dashboard file, global MSE correctness, method set coverage, MSE ratio baseline, and row-grouped superiority on row-outlier scenarios.
 
-### Key Findings
+### Actual Sweep Results (45 conditions, 12 methods)
 
-Row-grouped and rotate+scale+row-grouped are the only paths that consistently outperform global INT4 on row-localised outliers at any outlier scale. Column-grouped provides no improvement at any group size when outliers are row-localised (every column group still contains the outlier row). The combination of rotation, scaling, and row-grouped quantization is the strongest path overall.
+```
+Method                                MSE ratio   Zero frac
+------------------------------------------------------------
+rotate_scale_row_g4                      0.1110      0.1365
+row_grouped_g4                           0.1115      0.1359
+rotate_scale_row_g8                      0.2157      0.2191
+row_grouped_g8                           0.2192      0.2192
+rotate_scale_row_g16                     0.3529      0.3106
+row_grouped_g16                          0.3618      0.3120
+rotate_scale_global                      0.5068      0.4017
+scale_global                             0.5307      0.4101
+col_grouped_g4                           0.7659      0.5187
+col_grouped_g8                           0.8750      0.5602
+rotate_global                            0.9021      0.5702
+global                                   1.0000      0.5926
+```
+
+Key observations:
+- row_grouped_g4 reduces MSE to ~11% of global INT4 on average (9× improvement)
+- Rotation adds only marginal benefit on top of row-grouped alone (0.111 vs 0.112 at g=4)
+- scale_global (0.53×) outperforms column-grouped at any group size
+- Rotation alone (0.90×) barely moves the needle; its value comes through scaling
+- Group size is the dominant variable: g=4 gives 9× improvement, g=16 gives only 3×
 
 ### Test State
 

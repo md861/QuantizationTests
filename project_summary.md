@@ -25,7 +25,7 @@ Implemented so far:
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. Key finding: row-grouped and rotate+scale+row-grouped are the only paths that materially outperform global INT4 when outliers are row-localised. Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. Key findings from the sweep (45 conditions, 12 methods): row_grouped_g4 achieves mean MSE ratio 0.112 (~9× improvement); rotate_scale_row_g4 is marginally better at 0.111; scale_global (0.531) beats column-grouped at any group size; rotation alone (0.902) barely helps — its value comes through scaling; group size is the dominant variable for row-grouped (g=4 gives 9×, g=16 gives only 3×). Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
 
 ## Environment
 
@@ -334,7 +334,7 @@ Comparative sweep across all quantization paths and outlier conditions (Mileston
 - **Condition grid**: seeds × outlier_fractions × outlier_scales (configurable via `SweepConfig`)
 - **Outputs**: `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`
 - **Dashboard**: 4 panels — mean MSE ratio per method, mean zero fraction per method, MSE ratio vs outlier severity, effect of row group size
-- **Key finding**: row-grouped and rotate+scale+row-grouped paths are the only ones that consistently outperform global INT4 on row-localised outliers at any outlier scale; column-grouped gives no improvement at any group size for this outlier pattern.
+- **Actual sweep results** (45 conditions, 12 methods — mean MSE ratio vs global INT4): rotate_scale_row_g4=0.111, row_grouped_g4=0.112, rotate_scale_row_g8=0.216, row_grouped_g8=0.219, rotate_scale_global=0.507, scale_global=0.531, col_grouped_g4=0.766, col_grouped_g8=0.875, rotate_global=0.902, global=1.000. Column-grouped gives no improvement for row-localised outliers at any group size. Rotation alone barely helps; its value is realised through scaling.
 
 API:
 
