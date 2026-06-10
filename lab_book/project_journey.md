@@ -2244,3 +2244,18 @@ Output:
 ### Next Step
 
 Implement `quant/scaling.py` — per-channel scaling to complement the rotations.
+
+## 2026-06-10 — README Update Policy
+
+### Decision
+
+The user established a standing rule: **`README.md` must be updated before every commit and push to GitHub.** The README is the public entry point for the repository and must not be allowed to drift behind the code.
+
+### What to check on every publish
+
+- Milestone roadmap statuses (Complete / Active / Planned / Later)
+- Progress table rows — add any newly completed areas, advance "Next" items
+- "Current Milestone" description — reflect what is actively being built
+- Expected test count in the "Run Tests" section
+
+This rule is also recorded in `project_summary.md` as item 8 of the working protocol, so any agent reading the handoff docs will see it before making a commit.

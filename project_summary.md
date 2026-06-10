@@ -69,11 +69,13 @@ If another coding agent resumes this project, the safest order is:
 5. Do not commit or push unless the user explicitly asks, or it is the agreed end-of-day checkpoint.
 6. When commit or push is requested, use the existing private remote `origin` for `main` in `QuantizationTests`.
 7. Keep docs in sync with code changes, especially this summary and the lab book, so handoff remains easy.
+8. **Always update `README.md` before every commit and push.** The README is the public-facing entry point on GitHub and must never be stale. At minimum check: milestone statuses, progress table rows, current-milestone description, and the expected test count. Treat a stale README as a broken handoff.
 
 Typical publish flow:
 
 ```bash
 git status --short --branch
+# update README.md, project_summary.md, lab_book/project_journey.md as needed
 git add <files>
 git commit -m "<short message>"
 git push origin main
