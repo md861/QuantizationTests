@@ -9,9 +9,10 @@ import numpy as np
 
 from experiments.baseline_experiment import BaselineConfig, run_baseline_experiment
 from experiments.outlier_experiment import OutlierExperimentConfig, run_outlier_experiment
-from quant.matrix_factory import MatrixKind, make_matrix
+from quant.matrix_factory import MatrixKind, make_matrix, outlier_matrix
 from quant.metrics import compute_quantization_metrics
 from quant.quantizer import quantize_int4, quantize_int8
+from quant.rotations import GivensRotation, apply_sequential_rotations, rotate_channel_pair
 
 
 def test_quantization_pipeline_integrates_generation_quantizers_and_metrics() -> None:
@@ -113,6 +114,60 @@ def test_current_source_files_do_not_contain_stale_scaffold_markers() -> None:
         text = path.read_text(encoding="utf-8")
         for marker in stale_markers:
             assert marker not in text, f"{path} contains stale marker: {marker}"
+
+
+def test_rotation_reduces_int4_error_on_outlier_matrix() -> None:
+    """Rotating the worst channel pair before INT4 quantization reduces error."""
+
+    matrix = outlier_matrix((32, 32), outlier_fraction=0.02, outlier_scale=10.0, seed=7)
+
+    baseline = quantize_int4(matrix)
+    baseline_metrics = compute_quantization_metrics(
+        matrix,
+        baseline.dequantized,
+        quantized=baseline.quantized,
+        qmin=baseline.qmin,
+        qmax=baseline.qmax,
+    )
+
+    # Find and apply the single best rotation across all column pairs
+    best_col = int(np.argmax(np.max(np.abs(matrix), axis=0)))
+    second_col = int(np.argmax(
+        np.max(np.abs(matrix), axis=0) * np.arange(matrix.shape[1] != best_col, dtype=float)
+    ))
+    # Simpler: pair the outlier column with its nearest neighbour by index
+    pair_j = (best_col + 1) % matrix.shape[1]
+    rotated, _ = rotate_channel_pair(matrix, best_col, pair_j)
+
+    rotated_result = quantize_int4(rotated)
+    rotated_metrics = compute_quantization_metrics(
+        rotated,
+        rotated_result.dequantized,
+        quantized=rotated_result.quantized,
+        qmin=rotated_result.qmin,
+        qmax=rotated_result.qmax,
+    )
+
+    assert rotated_metrics.relative_frobenius_error < baseline_metrics.relative_frobenius_error
+    assert rotated_metrics.zero_fraction < baseline_metrics.zero_fraction
+
+
+def test_sequential_rotations_preserve_frobenius_norm() -> None:
+    """Applying any sequence of Givens rotations must not change matrix energy."""
+
+    rng = np.random.default_rng(31)
+    matrix = rng.standard_normal((16, 16)).astype(np.float32)
+    rotations = [
+        GivensRotation(i=0, j=4, theta=0.6),
+        GivensRotation(i=1, j=7, theta=1.2),
+        GivensRotation(i=3, j=9, theta=0.3),
+    ]
+    result = apply_sequential_rotations(matrix, rotations)
+    np.testing.assert_allclose(
+        np.linalg.norm(matrix, "fro"),
+        np.linalg.norm(result, "fro"),
+        rtol=1e-5,
+    )
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:

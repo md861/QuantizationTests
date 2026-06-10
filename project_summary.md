@@ -4,7 +4,7 @@ This is the compact handoff document for resuming work on the Quantization Lab r
 
 ## Current State
 
-The project is in Milestone 1: a matrix-level quantization sandbox for understanding symmetric INT8/INT4 quantization, reconstruction error, spectra, and visual distortions.
+Milestone 1 is complete. Milestone 2 (ParoQuant Core) is underway: pairwise Givens rotations are implemented and tested.
 
 Implemented so far:
 
@@ -17,11 +17,10 @@ Implemented so far:
 - histogram visualizations for values, residuals, and quantized codes
 - results-analysis helper comparing INT4 against INT8 from generated CSVs, including a collated benchmark-style dashboard
 - integration and repository-hygiene tests
+- pairwise Givens rotation utilities (`quant/rotations.py`)
 - tests for all implemented modules
 
-Milestone 1 is now complete enough to move into the first rotation/scaling experiment for Milestone 2.
-
-Resume reminder: before starting new work, review the last implemented Milestone 1 polish changes: histogram visualizations, results-analysis helper, and integration/hygiene tests.
+Resume reminder: `quant/rotations.py` is complete. Next is `quant/scaling.py` (per-channel scaling), then `experiments/rotation_experiment.py`.
 
 ## Environment
 
@@ -162,6 +161,31 @@ Computes singular-value analysis for understanding how quantization changes matr
 - `compare_spectra(...)`
   - Compares singular-value spectra and stable-rank changes between reference and candidate matrices.
 
+### `quant/rotations.py`
+
+Implements pairwise Givens channel rotations for outlier redistribution before quantization.
+
+- `GivensRotation`
+  - Frozen dataclass storing `i`, `j`, and `theta` for one rotation.
+- `rotation_matrix(n, i, j, theta)`
+  - Returns an $n \times n$ identity matrix with the $(i, j)$ subblock replaced by the Givens rotation:
+    $R[i,i] = R[j,j] = \cos\theta$, $R[i,j] = -\sin\theta$, $R[j,i] = \sin\theta$.
+  - Right-multiplying: $W' = W R$ rotates columns $i$ and $j$ of $W$.
+- `apply_rotation(matrix, i, j, theta)`
+  - Applies the rotation directly to columns $i$ and $j$ without constructing the full $n \times n$ matrix:
+    $w_i' = \cos\theta \cdot w_i + \sin\theta \cdot w_j$,
+    $w_j' = -\sin\theta \cdot w_i + \cos\theta \cdot w_j$.
+  - Preserves input dtype; computes in float64 internally.
+- `optimal_angle(matrix, i, j, *, n_search=360)`
+  - Grid-searches $\theta \in [0, \pi)$ for the angle minimising $\max(|w_i'|_\infty, |w_j'|_\infty)$.
+  - The objective is $\pi$-periodic, so $[0, \pi)$ covers the full search space.
+- `rotate_channel_pair(matrix, i, j, *, n_search=360)`
+  - Convenience wrapper returning `(rotated_matrix, theta)`.
+- `apply_sequential_rotations(matrix, rotations)`
+  - Applies a list of `GivensRotation` objects in order.
+
+Key invariant: Givens rotations are orthogonal, so $\|W'\|_F = \|W\|_F$ exactly.
+
 ### `quant/visualize.py`
 
 Provides Matplotlib visualizations:
@@ -250,12 +274,19 @@ Current test files:
 - `tests/test_baseline_experiment.py`
 - `tests/test_outlier_experiment.py`
 - `tests/test_analyze_results.py`
+- `tests/test_rotations.py`
 - `tests/test_integration.py`
 
 Run all tests:
 
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+Current known passing test state:
+
+```text
+103 passed
 ```
 
 ## Design Conventions

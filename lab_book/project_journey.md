@@ -2059,6 +2059,83 @@ Updated `project_summary.md`:
 
 This keeps `project_summary.md` focused on current source capabilities and resume guidance rather than local generated files.
 
+## 2026-06-10 — Milestone 2: Pairwise Givens Rotation Module
+
+### Goal
+
+Begin Milestone 2 by implementing the core ParoQuant primitive: pairwise Givens rotations between weight-matrix columns, which redistribute outlier energy before quantization.
+
+### Implementation Summary
+
+Created `quant/rotations.py` with:
+
+- `GivensRotation`
+  - Frozen dataclass storing `i`, `j`, and `theta`.
+- `rotation_matrix(n, i, j, theta)`
+  - Returns an $n \times n$ Givens rotation matrix. Right-multiplying $W$ by this matrix rotates columns $i$ and $j$.
+- `apply_rotation(matrix, i, j, theta)`
+  - Applies the rotation directly to columns $i$ and $j$ without building the full $n \times n$ matrix.
+  - Computes in float64 internally; preserves input dtype on return.
+  - Does not mutate the input.
+- `optimal_angle(matrix, i, j, *, n_search=360)`
+  - Grid-searches $\theta \in [0, \pi)$ for the angle minimising $\max(\|w_i'\|_\infty, \|w_j'\|_\infty)$.
+  - The cost function is $\pi$-periodic, so searching $[0, \pi)$ covers the full optimum.
+- `rotate_channel_pair(matrix, i, j, *, n_search=360)`
+  - Convenience wrapper returning `(rotated_matrix, theta)`.
+- `apply_sequential_rotations(matrix, rotations)`
+  - Applies a list of `GivensRotation` objects in order.
+
+Key invariant: Givens rotations are orthogonal ($R^T R = I$), so the Frobenius norm of the matrix is exactly preserved.
+
+### Tests Added
+
+Created `tests/test_rotations.py` — 28 tests.
+
+Covered:
+
+- rotation matrix is identity at zero angle
+- rotation matrix is orthogonal ($R^T R = I$)
+- subblock values match $(\cos\theta, \pm\sin\theta)$
+- rotation matrix leaves non-target rows and columns as identity
+- `apply_rotation` at zero is identity
+- `apply_rotation` preserves Frobenius norm
+- `apply_rotation` is invertible (rotate by $\theta$ then $-\theta$ recovers original)
+- `apply_rotation` only modifies target columns
+- `apply_rotation` preserves dtype (float32 and float64)
+- `apply_rotation` does not mutate input
+- `apply_rotation` agrees numerically with `matrix @ rotation_matrix(...)`
+- `optimal_angle` does not increase max-abs after rotation
+- `optimal_angle` strictly improves a single-outlier column
+- `optimal_angle` returns a float in $[0, \pi)$
+- `rotate_channel_pair` result matches `apply_rotation` with the returned angle
+- `apply_sequential_rotations` with empty list is identity
+- `apply_sequential_rotations` chains correctly against manual composition
+- `apply_sequential_rotations` preserves Frobenius norm
+- validation errors for mismatched indices, out-of-range indices, non-2D input, integer dtype, invalid `n_search`
+
+### Integration Tests Updated
+
+Added two tests to `tests/test_integration.py`:
+
+- `test_rotation_reduces_int4_error_on_outlier_matrix`: rotates the dominant outlier column pair on a controlled outlier matrix and verifies that relative Frobenius error and zero fraction both decrease after INT4 quantization.
+- `test_sequential_rotations_preserve_frobenius_norm`: applies a sequence of rotations to a float32 matrix and checks the Frobenius norm is preserved within float32 rounding tolerance.
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+Output:
+
+```text
+103 passed in 8.03s
+```
+
+### Next Step
+
+Implement `quant/scaling.py` — per-channel scaling to complement the rotations.
+
 ## 2026-06-10 — Handoff Protocol And Git Workflow Notes
 
 ### Goal
