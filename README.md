@@ -7,7 +7,7 @@ quantization changes matrices, spectra, and reconstruction error.
 
 The project starts at matrix level before scaling toward transformer models.
 Milestone 1 (quantization sandbox) is complete. Milestone 2 (ParoQuant core)
-is now underway, starting with pairwise Givens rotations for outlier redistribution.
+is now underway, with pairwise Givens rotations and per-channel scaling in place.
 
 ## Project Roadmap
 
@@ -33,8 +33,8 @@ is now underway, starting with pairwise Givens rotations for outlier redistribut
 | Histogram visualizations | Complete |
 | Results analysis helper | Complete |
 | Pairwise Givens rotation module | Complete |
-| Per-channel scaling | Next |
-| Rotation experiment | Next |
+| Per-channel scaling | Complete |
+| Rotation/scaling experiment | Complete |
 | Transformer integration | Later |
 
 ## Current Milestone
@@ -50,6 +50,13 @@ quantization to reduce outlier pressure:
 - Verified via entry-zeroing (arctan2 angle analytically zeros a target entry),
   full Givens QR decomposition (Q@R=A cross-checked against `numpy.linalg.qr`),
   and column orthogonalisation (Jacobi angle drives inner product to machine zero).
+- **Per-channel scaling** (`quant/scaling.py`): compute one reversible positive
+  factor per column so nonzero channel max-abs values share a target before
+  quantization. Key functions: `column_max_abs`, `compute_channel_scaling`,
+  `apply_channel_scaling`, `invert_channel_scaling`, `balance_channel_max_abs`.
+- **Rotation/scaling experiment** (`experiments/rotation_experiment.py`):
+  compares baseline INT4, rotation-only INT4, scaling-only INT4, and
+  rotation+scaling INT4 on one controlled outlier-heavy matrix.
 
 Milestone 1 built the quantization sandbox:
 
@@ -77,7 +84,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-107 passed
+130 passed
 ```
 
 ## Reproduce Artifacts
@@ -89,6 +96,7 @@ locally with:
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/rotation_experiment.py
 ```
 
 These commands write CSV files under `results/` and comparison figures under
@@ -98,8 +106,20 @@ The analysis helper also writes a collated benchmark-style visual:
 
 - `plots/analysis_dashboard.png`
 
+The rotation/scaling experiment writes:
+
+- `results/rotation_metrics.csv`
+- `plots/rotation_scaling_comparison.png`
+
+Milestone 2 development visuals include:
+
+- `plots/channel_scaling_dashboard.png`
+
 ## Project Notes
 
 - `project_summary.md` is the compact handoff for resuming work.
 - `lab_book/project_journey.md` is the chronological development record.
+- `docs/research_draft.md` is the living paper-style draft of findings,
+  examples, figures, and current claims.
+- `docs/figures/` contains tracked figures used by the research draft.
 - `plots/` and `results/` are local generated artifacts, not tracked source.

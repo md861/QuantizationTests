@@ -2278,3 +2278,350 @@ Updated `project_summary.md`:
 ### Check
 
 Searched `README.md`, `project_summary.md`, and `lab_book/project_journey.md` for old test counts and milestone wording. Historical lab-book entries still retain their original test outputs because they are chronological records, not current-state claims.
+
+## 2026-06-10 — Milestone 2: Per-Channel Scaling Module
+
+### Goal
+
+Implement the first version of `quant/scaling.py`, a reversible per-channel scaling primitive to complement pairwise Givens rotations before quantization experiments.
+
+### Implementation
+
+Created `quant/scaling.py` with:
+
+- `ChannelScaling`
+  - frozen dataclass storing per-column `factors` and `target_max_abs`
+- `column_max_abs(matrix)`
+  - computes $\max_i |W_{ij}|$ for every column
+- `compute_channel_scaling(matrix, target_max_abs=None)`
+  - computes positive per-column factors
+  - default target is the mean of nonzero column max-abs values
+  - formula for nonzero columns: $d_j = \tau / \max_i |W_{ij}|$
+  - zero columns receive factor 1.0
+- `apply_channel_scaling(matrix, scaling)`
+  - applies $W' = W D$
+- `invert_channel_scaling(matrix, scaling)`
+  - applies $W = W' D^{-1}$
+- `balance_channel_max_abs(matrix, target_max_abs=None)`
+  - convenience wrapper returning `(scaled_matrix, scaling)`
+
+Implementation conventions match the rotation module:
+
+- accept only 2D floating-point arrays
+- compute in float64 internally
+- preserve input dtype on returned matrices
+- avoid mutating inputs
+
+### Tests
+
+Added `tests/test_scaling.py` with coverage for:
+
+- per-column max-abs computation
+- balancing nonzero columns to a shared target
+- custom target values
+- scaling then inverse scaling recovering the original matrix
+- dtype preservation for float32
+- zero-matrix identity factors
+- non-mutation of inputs
+- validation errors for non-2D input, integer input, invalid targets, factor-count mismatch, and nonpositive factors
+
+Updated `tests/test_integration.py` with a scaling integration check:
+
+- balance an outlier-heavy matrix
+- invert the scaling back to the original matrix
+- run INT4 quantization on the scaled matrix
+- verify the scaled column max-abs spread is smaller and metrics remain finite
+
+### Documentation
+
+Updated:
+
+- `README.md`
+  - marks per-channel scaling as complete
+  - describes the scaling module in the Milestone 2 section
+  - updates expected test count
+- `project_summary.md`
+  - records `quant/scaling.py` as implemented
+  - adds formulae and API descriptions
+  - updates the next step to `experiments/rotation_experiment.py`
+
+### Verification
+
+Focused command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_scaling.py tests/test_integration.py -q
+```
+
+Output:
+
+```text
+18 passed in 0.55s
+```
+
+Full-suite command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+120 passed in 8.25s
+```
+
+### Next Step
+
+Build `experiments/rotation_experiment.py` to compare baseline quantization against rotation and scaling pre-processing.
+
+## 2026-06-10 — Channel Scaling Visual Dashboard
+
+### Goal
+
+Add a visual test/dashboard for comparing global INT4 quantization against per-channel scaled INT4 quantization.
+
+### Implementation
+
+Added `plot_channel_scaling_quantization_dashboard(...)` to `quant/visualize.py`.
+
+The dashboard compares:
+
+- original matrix
+- global INT4 residual
+- channel-scaled INT4 residual after inverse scaling
+- original column max-abs values
+- scaled column max-abs values
+- residual max-abs per column
+- singular-value spectra
+- per-column MSE
+- summary metrics for both paths
+
+The channel-scaled path is:
+
+```text
+W -> per-channel scale -> global INT4 quantize scaled W -> dequantize -> inverse scale
+```
+
+### Test
+
+Added `test_channel_scaling_quantization_dashboard_saves_png` to `tests/test_scaling.py`.
+
+The test uses a deliberately imbalanced matrix:
+
+```text
+matrix[:, 0] *= 50
+matrix[:, 1] *= 20
+matrix[:, 2] *= 10
+```
+
+It saves the review dashboard to:
+
+```text
+plots/channel_scaling_dashboard.png
+```
+
+### Verification
+
+Focused command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_scaling.py -q
+```
+
+Output:
+
+```text
+13 passed in 2.28s
+```
+
+Full-suite command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+121 passed in 9.85s
+```
+
+## 2026-06-10 — Milestone 2: Rotation/Scaling Experiment
+
+### Goal
+
+Implement the first end-to-end Milestone 2 experiment comparing INT4 quantization with rotation and scaling preprocessing.
+
+### Implementation
+
+Created `experiments/rotation_experiment.py` with:
+
+- `RotationExperimentConfig`
+  - shape, seed, outlier severity, rotation search steps, output dirs, and plot toggle
+- `RotationExperimentRecord`
+  - one CSV row per method with transform metadata, quantizer metadata, reconstruction metrics, spectrum metrics, zero fraction, and saturation fraction
+- `run_rotation_experiment(...)`
+  - generates one controlled outlier-heavy matrix
+  - selects the two columns with largest max-abs values for the rotation pair
+  - runs four INT4 paths:
+    - `baseline`
+    - `rotation_only`
+    - `scaling_only`
+    - `rotation_scaling`
+  - writes `results/rotation_metrics.csv`
+  - optionally writes `plots/rotation_scaling_comparison.png`
+- `plot_rotation_experiment_dashboard(...)`
+  - creates the consolidated visual comparison
+
+The four transformation paths are:
+
+```text
+baseline:
+  W -> INT4 -> dequantized W_hat
+
+rotation_only:
+  W -> W R -> INT4 -> dequantized WR_hat -> WR_hat R^{-1}
+
+scaling_only:
+  W -> W D -> INT4 -> dequantized WD_hat -> WD_hat D^{-1}
+
+rotation_scaling:
+  W -> W R -> W R D -> INT4 -> dequantized WRD_hat -> WRD_hat D^{-1} R^{-1}
+```
+
+Metrics are always computed against the original matrix after inverting the preprocessing transforms.
+
+### Dashboard
+
+The default dashboard shows, for each method:
+
+- transformed matrix heatmap
+- final residual heatmap against the original matrix
+- transformed column max-abs bars
+- per-column MSE bars
+- singular-value spectra against the original matrix
+
+The figure also includes a compact metric summary for all four methods.
+
+### Tests
+
+Added `tests/test_rotation_experiment.py` with coverage for:
+
+- metrics CSV creation without plots
+- one dashboard plot creation with plots enabled
+- all four methods are present
+- scaling methods reduce transformed column max-abs spread
+- config validation
+
+### Verification
+
+Focused command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_rotation_experiment.py tests/test_scaling.py -q
+```
+
+Output:
+
+```text
+22 passed in 5.08s
+```
+
+Full-suite command:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+130 passed in 12.33s
+```
+
+## 2026-06-10 — Living Research Draft Started
+
+### Goal
+
+Start a paper-style draft that documents the research story as it develops: motivations, examples, metrics, visuals, test cases, current findings, and limitations.
+
+### Draft
+
+Created:
+
+```text
+docs/research_draft.md
+```
+
+The draft currently includes:
+
+- abstract and research motivation
+- synthetic matrix families
+- symmetric INT8/INT4 quantization equations
+- metric definitions with formulas
+- Gaussian INT8/INT4 worked example
+- outlier-driven INT4 failure example
+- baseline/outlier analysis dashboard discussion
+- mathematical test cases as evidence
+- global scaling vs channel-wise scaling visual discussion
+- rotation/scaling experiment discussion
+- current findings, limitations, next work, and reproduction commands
+
+### Figures Generated For The Draft
+
+Generated flat plot outputs:
+
+```text
+plots/research_matrix_families.png
+plots/research_int4_gaussian_comparison.png
+plots/research_outlier_histograms.png
+plots/analysis_dashboard.png
+```
+
+The draft also references existing flat Milestone 2 figures:
+
+```text
+plots/channel_scaling_dashboard.png
+plots/rotation_scaling_comparison.png
+```
+
+### Current Interpretation Captured
+
+The draft deliberately uses cautious wording:
+
+- INT4 is clearly more sensitive to outlier pressure than INT8 in the current sandbox.
+- Per-channel scaling is strongly beneficial in the current controlled examples.
+- Rotation + scaling is best in the first rotation/scaling run, but the margin over scaling alone is modest.
+- A broader sweep is needed before making a general "best strategy" claim.
+
+## 2026-06-10 — Tracked Paper Figures
+
+### Goal
+
+Make the research draft and its figures available on GitHub while keeping `plots/` as an ignored local artifact directory.
+
+### Change
+
+Created:
+
+```text
+docs/figures/
+```
+
+Copied the current paper figures from flat `plots/` outputs into tracked draft assets:
+
+```text
+docs/figures/research_matrix_families.png
+docs/figures/research_int4_gaussian_comparison.png
+docs/figures/research_outlier_histograms.png
+docs/figures/analysis_dashboard.png
+docs/figures/channel_scaling_dashboard.png
+docs/figures/rotation_scaling_comparison.png
+```
+
+Updated `docs/research_draft.md` so all figure links point to `docs/figures/` via relative Markdown paths.
+
+### Note
+
+The project still treats `plots/` and `results/` as ignored generated artifacts. Paper-ready figures should be copied into `docs/figures/` when they become part of the tracked draft.

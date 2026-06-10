@@ -13,7 +13,8 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from quant.metrics import QuantizationMetrics, compute_quantization_metrics
-from quant.quantizer import QuantizationResult
+from quant.quantizer import QuantizationResult, symmetric_quantize
+from quant.scaling import balance_channel_max_abs, column_max_abs, invert_channel_scaling
 from quant.spectrum import analyze_spectrum, singular_values
 
 
@@ -469,6 +470,147 @@ def plot_quantization_comparison(
     return fig
 
 
+def plot_channel_scaling_quantization_dashboard(
+    original: np.ndarray,
+    *,
+    output_path: str | Path | None = None,
+    title: str = "Global vs Channel-Scaled Quantization",
+    bitwidth: int = 4,
+    cmap: str = "coolwarm",
+    figsize: tuple[float, float] = (18.0, 13.0),
+) -> Figure:
+    """Compare global quantization with channel-scaled quantization."""
+
+    _validate_matrix(original)
+
+    global_result = symmetric_quantize(original, bitwidth=bitwidth)
+    scaled_matrix, scaling = balance_channel_max_abs(original)
+    scaled_result = symmetric_quantize(scaled_matrix, bitwidth=bitwidth)
+    scaled_recovered = invert_channel_scaling(scaled_result.dequantized, scaling)
+
+    global_metrics = compute_quantization_metrics(
+        original,
+        global_result.dequantized,
+        quantized=global_result.quantized,
+        qmin=global_result.qmin,
+        qmax=global_result.qmax,
+    )
+    scaled_metrics = compute_quantization_metrics(
+        original,
+        scaled_recovered,
+        quantized=scaled_result.quantized,
+        qmin=scaled_result.qmin,
+        qmax=scaled_result.qmax,
+    )
+
+    global_residual = global_result.dequantized - original
+    scaled_residual = scaled_recovered - original
+    x_positions = np.arange(original.shape[1])
+
+    fig, axes = plt.subplots(3, 3, figsize=figsize)
+    fig.suptitle(title, fontsize=14)
+
+    plot_matrix_heatmap(original, title="Original", ax=axes[0, 0], cmap=cmap)
+    plot_matrix_heatmap(global_residual, title=f"Global INT{bitwidth} Residual", ax=axes[0, 1], cmap=cmap)
+    plot_matrix_heatmap(
+        scaled_residual,
+        title=f"Channel-Scaled INT{bitwidth} Residual",
+        ax=axes[0, 2],
+        cmap=cmap,
+    )
+
+    axes[1, 0].bar(x_positions, column_max_abs(original), color="tab:blue", alpha=0.82)
+    axes[1, 0].set_title("Original Column Max-Abs")
+    axes[1, 0].set_xlabel("Column")
+    axes[1, 0].set_ylabel("Max abs")
+    axes[1, 0].grid(axis="y", alpha=0.25)
+
+    axes[1, 1].bar(x_positions, column_max_abs(scaled_matrix), color="tab:orange", alpha=0.82)
+    axes[1, 1].set_title("Scaled Column Max-Abs")
+    axes[1, 1].set_xlabel("Column")
+    axes[1, 1].set_ylabel("Max abs")
+    axes[1, 1].grid(axis="y", alpha=0.25)
+
+    width = 0.42
+    axes[1, 2].bar(
+        x_positions - width / 2,
+        np.max(np.abs(global_residual), axis=0),
+        width=width,
+        label="Global",
+        color="tab:red",
+        alpha=0.78,
+    )
+    axes[1, 2].bar(
+        x_positions + width / 2,
+        np.max(np.abs(scaled_residual), axis=0),
+        width=width,
+        label="Channel-scaled",
+        color="tab:green",
+        alpha=0.78,
+    )
+    axes[1, 2].set_title("Residual Max-Abs Per Column")
+    axes[1, 2].set_xlabel("Column")
+    axes[1, 2].set_ylabel("Max abs residual")
+    axes[1, 2].legend()
+    axes[1, 2].grid(axis="y", alpha=0.25)
+
+    plot_spectrum_comparison(
+        {
+            "Original": original,
+            f"Global INT{bitwidth}": global_result.dequantized,
+            f"Channel-scaled INT{bitwidth}": scaled_recovered,
+        },
+        ax=axes[2, 0],
+        title="Singular Value Spectra",
+    )
+
+    axes[2, 1].bar(
+        x_positions - width / 2,
+        _per_column_mse(original, global_result.dequantized),
+        width=width,
+        label="Global",
+        color="tab:red",
+        alpha=0.78,
+    )
+    axes[2, 1].bar(
+        x_positions + width / 2,
+        _per_column_mse(original, scaled_recovered),
+        width=width,
+        label="Channel-scaled",
+        color="tab:green",
+        alpha=0.78,
+    )
+    axes[2, 1].set_title("Per-Column MSE")
+    axes[2, 1].set_xlabel("Column")
+    axes[2, 1].set_ylabel("MSE")
+    axes[2, 1].legend()
+    axes[2, 1].grid(axis="y", alpha=0.25)
+
+    axes[2, 2].axis("off")
+    axes[2, 2].text(
+        0.0,
+        1.0,
+        _format_scaling_dashboard_summary(
+            global_metrics,
+            scaled_metrics,
+            scaling.target_max_abs,
+        ),
+        va="top",
+        ha="left",
+        family="monospace",
+        fontsize=9,
+    )
+
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.95))
+
+    if output_path is not None:
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output, dpi=160, bbox_inches="tight")
+
+    return fig
+
+
 def _validate_matrix(matrix: np.ndarray) -> None:
     if matrix.ndim != 2:
         raise ValueError("matrix must be a 2D array")
@@ -629,6 +771,39 @@ def _format_optional_float(value: float | None) -> str:
     if value is None:
         return "n/a"
     return _format_float(value)
+
+
+def _per_column_mse(original: np.ndarray, reconstructed: np.ndarray) -> np.ndarray:
+    return np.mean((reconstructed - original) ** 2, axis=0)
+
+
+def _format_scaling_dashboard_summary(
+    global_metrics: QuantizationMetrics,
+    scaled_metrics: QuantizationMetrics,
+    target_max_abs: float,
+) -> str:
+    global_values = asdict(global_metrics)
+    scaled_values = asdict(scaled_metrics)
+    rows = [
+        ("mse", "MSE"),
+        ("relative_frobenius_error", "rel_frob"),
+        ("snr_db", "snr_db"),
+        ("zero_fraction", "zero_frac"),
+        ("saturation_fraction", "sat_frac"),
+    ]
+    lines = [
+        "Summary",
+        f"  target_max_abs: {_format_float(target_max_abs)}",
+        "",
+        "Metric              Global      Scaled",
+    ]
+    for key, label in rows:
+        lines.append(
+            f"{label:<17}"
+            f"{_format_optional_float(global_values[key]):>10}  "
+            f"{_format_optional_float(scaled_values[key]):>10}"
+        )
+    return "\n".join(lines)
 
 
 def _format_float(value: float) -> str:

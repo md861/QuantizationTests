@@ -13,6 +13,7 @@ from quant.matrix_factory import MatrixKind, make_matrix, outlier_matrix
 from quant.metrics import compute_quantization_metrics
 from quant.quantizer import quantize_int4, quantize_int8
 from quant.rotations import GivensRotation, apply_sequential_rotations, rotate_channel_pair
+from quant.scaling import balance_channel_max_abs, column_max_abs, invert_channel_scaling
 
 
 def test_quantization_pipeline_integrates_generation_quantizers_and_metrics() -> None:
@@ -168,6 +169,28 @@ def test_sequential_rotations_preserve_frobenius_norm() -> None:
         np.linalg.norm(result, "fro"),
         rtol=1e-5,
     )
+
+
+def test_channel_scaling_integrates_with_quantization_pipeline() -> None:
+    """Scaling should be reversible and usable before quantization."""
+
+    matrix = outlier_matrix((16, 16), outlier_fraction=0.02, outlier_scale=8.0, seed=41)
+    matrix[:, 0] *= 12.0
+
+    scaled, scaling = balance_channel_max_abs(matrix)
+    recovered = invert_channel_scaling(scaled, scaling)
+    scaled_quantized = quantize_int4(scaled)
+    scaled_metrics = compute_quantization_metrics(
+        scaled,
+        scaled_quantized.dequantized,
+        quantized=scaled_quantized.quantized,
+        qmin=scaled_quantized.qmin,
+        qmax=scaled_quantized.qmax,
+    )
+
+    np.testing.assert_allclose(recovered, matrix, atol=1e-5)
+    assert np.ptp(column_max_abs(scaled)) < np.ptp(column_max_abs(matrix))
+    assert np.isfinite(scaled_metrics.relative_frobenius_error)
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:

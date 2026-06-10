@@ -4,7 +4,7 @@ This is the compact handoff document for resuming work on the Quantization Lab r
 
 ## Current State
 
-Milestone 1 is complete. Milestone 2 (ParoQuant Core) is underway: pairwise Givens rotations are implemented and tested.
+Milestone 1 is complete. Milestone 2 (ParoQuant Core) is underway: pairwise Givens rotations, per-channel scaling, and the first rotation/scaling experiment are implemented and tested.
 
 Implemented so far:
 
@@ -18,9 +18,13 @@ Implemented so far:
 - results-analysis helper comparing INT4 against INT8 from generated CSVs, including a collated benchmark-style dashboard
 - integration and repository-hygiene tests
 - pairwise Givens rotation utilities (`quant/rotations.py`)
+- per-channel scaling utilities (`quant/scaling.py`)
+- rotation/scaling experiment comparing four INT4 preprocessing paths
+- living research-paper draft in `docs/research_draft.md`
+- tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 
-Resume reminder: `quant/rotations.py` is complete. Next is `quant/scaling.py` (per-channel scaling), then `experiments/rotation_experiment.py`.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, and `experiments/rotation_experiment.py` are complete. Next is to broaden Milestone 2 analysis, likely grouped quantization or rotation/scaling sweeps.
 
 ## Environment
 
@@ -45,7 +49,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-107 passed
+130 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -188,6 +192,28 @@ Implements pairwise Givens channel rotations for outlier redistribution before q
 
 Key invariant: Givens rotations are orthogonal, so $\|W'\|_F = \|W\|_F$ exactly.
 
+### `quant/scaling.py`
+
+Implements reversible per-channel scaling for balancing column magnitudes before quantization.
+
+- `ChannelScaling`
+  - Frozen dataclass storing `factors` and `target_max_abs`.
+- `column_max_abs(matrix)`
+  - Returns $\max_i |W_{ij}|$ for each column $j$.
+- `compute_channel_scaling(matrix, *, target_max_abs=None)`
+  - Computes one positive factor per column.
+  - Default target: mean of nonzero column max-abs values.
+  - Formula for nonzero columns: $d_j = \tau / \max_i |W_{ij}|$, where $\tau$ is the target max-abs.
+  - Zero columns receive factor 1.0.
+- `apply_channel_scaling(matrix, scaling)`
+  - Applies $W' = W D$, where $D = \mathrm{diag}(d_1,\dots,d_n)$.
+- `invert_channel_scaling(matrix, scaling)`
+  - Applies $W = W' D^{-1}$.
+- `balance_channel_max_abs(matrix, *, target_max_abs=None)`
+  - Convenience wrapper returning `(scaled_matrix, scaling)`.
+
+Key invariant: scaling is exactly reversible up to floating-point rounding when the same `ChannelScaling` metadata is used for inversion.
+
 ### `quant/visualize.py`
 
 Provides Matplotlib visualizations:
@@ -202,6 +228,7 @@ Provides Matplotlib visualizations:
 - `plot_quantization_summary(...)`
 - `plot_quantization_comparison(...)`
 - `plot_quantization_histograms(...)`
+- `plot_channel_scaling_quantization_dashboard(...)`
 
 Spectrum styling convention:
 
@@ -226,6 +253,15 @@ Default experiment plots use `plot_quantization_comparison(...)` to reduce plot 
 - one residual heatmap per quantization method
 - singular-value spectra comparing original and dequantized data per method
 - side-by-side metric summaries per method
+
+`plot_channel_scaling_quantization_dashboard(...)` compares global quantization with per-channel scaled quantization. It includes:
+
+- original matrix, global residual, and channel-scaled residual heatmaps
+- original and scaled column max-abs bars
+- residual max-abs per column
+- singular-value spectra for original, global INT4, and channel-scaled INT4
+- per-column MSE bars
+- summary metrics for global and channel-scaled paths
 
 ### `experiments/baseline_experiment.py`
 
@@ -264,6 +300,33 @@ Analyzes generated baseline and outlier CSVs:
 - optionally writes a collated benchmark-style dashboard:
   - `plots/analysis_dashboard.png`
 
+### `experiments/rotation_experiment.py`
+
+Runs the first Milestone 2 transformation experiment on one controlled outlier-heavy matrix.
+
+Compared INT4 paths:
+
+- `baseline`: $W \rightarrow \mathrm{INT4} \rightarrow \hat{W}$
+- `rotation_only`: $W \rightarrow W R \rightarrow \mathrm{INT4} \rightarrow \widehat{WR} \rightarrow \widehat{W} = \widehat{WR} R^{-1}$
+- `scaling_only`: $W \rightarrow W D \rightarrow \mathrm{INT4} \rightarrow \widehat{WD} \rightarrow \widehat{W} = \widehat{WD}D^{-1}$
+- `rotation_scaling`: $W \rightarrow W R \rightarrow W R D \rightarrow \mathrm{INT4} \rightarrow \widehat{WRD} \rightarrow \widehat{W} = \widehat{WRD}D^{-1}R^{-1}$
+
+The rotation pair is selected from the two columns with largest max-abs values, then `rotate_channel_pair(...)` chooses the angle that minimises the joint max-abs over that pair.
+
+Default outputs:
+
+- `results/rotation_metrics.csv`
+- `plots/rotation_scaling_comparison.png`
+
+The dashboard includes:
+
+- transformed matrix heatmaps
+- final residual heatmaps against the original matrix
+- transformed column max-abs bars
+- per-column MSE bars
+- singular-value spectra against the original matrix
+- summary metrics for all four paths
+
 ## Tests
 
 Current test files:
@@ -277,6 +340,8 @@ Current test files:
 - `tests/test_outlier_experiment.py`
 - `tests/test_analyze_results.py`
 - `tests/test_rotations.py`
+- `tests/test_scaling.py`
+- `tests/test_rotation_experiment.py`
 - `tests/test_integration.py`
 
 Run all tests:
@@ -288,7 +353,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-107 passed
+130 passed
 ```
 
 ## Design Conventions
@@ -304,6 +369,17 @@ Current known passing test state:
 - Use seeded NumPy generators for reproducibility.
 - Keep APIs small and experiment-friendly.
 - Update both this file and `lab_book/project_journey.md` as the project evolves.
+- Update `docs/research_draft.md` when a result becomes part of the research story.
+
+## Research Draft
+
+The living paper-style draft is:
+
+```text
+docs/research_draft.md
+```
+
+It currently summarizes the matrix-level sandbox, INT8/INT4 examples, metrics, outlier failure modes, result-analysis dashboards, rotation/scaling tests, and current Milestone 2 findings. Tracked paper figures live under `docs/figures/`. Keep claims cautious unless they are supported by sweeps or repeated evidence.
 
 ## Current Baseline Result
 
@@ -329,7 +405,7 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-Implement `quant/scaling.py` for per-channel scaling, then use it with the completed rotation utilities in `experiments/rotation_experiment.py`.
+Broaden Milestone 2 analysis using the completed rotation/scaling experiment, likely by adding grouped quantization or a small rotation/scaling sweep.
 
 Acceptance check:
 
@@ -338,4 +414,5 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/baseline_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/rotation_experiment.py
 ```
