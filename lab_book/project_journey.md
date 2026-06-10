@@ -2726,3 +2726,26 @@ Output:
 ```text
 138 passed in 13.25s
 ```
+
+## 2026-06-10 — Handover Diagnostics And Stale Data Sweep
+
+### Action
+
+Performed handover diagnostics (scan all docs, verify test suite, check git log, flag drift).
+
+### Stale data found and corrected
+
+- `README.md` intro paragraph named only rotations and scaling; updated to also mention grouped quantization and rotation/scaling experiment.
+- `project_summary.md` resume reminder said "likely grouped quantization" as a next step; grouped quantization is complete so updated to describe the actual next step (comparative sweeps).
+- `memory/project_overview.md` was significantly out of date: still showed 72 tests, M2 as "NEXT", and rotations/scaling as stubs; fully refreshed to reflect 138 tests, M2 active, and all completed modules.
+
+### Shorthand established
+
+The user established **"handover diagnostics"** as a shorthand for this action: read `project_summary.md`, tail the lab book, check `git log`, verify the test suite, and flag any drift between docs and code state.
+
+### Current clean state
+
+- 138 tests passing
+- All Milestone 2 core modules complete: rotations, per-channel scaling, grouped quantization, rotation/scaling experiment
+- Research draft live at `docs/research_draft.md`
+- Next: comparative sweeps across seeds, outlier fractions, scales, and group sizes

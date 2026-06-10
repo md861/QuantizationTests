@@ -7,7 +7,8 @@ quantization changes matrices, spectra, and reconstruction error.
 
 The project starts at matrix level before scaling toward transformer models.
 Milestone 1 (quantization sandbox) is complete. Milestone 2 (ParoQuant core)
-is now underway, with pairwise Givens rotations and per-channel scaling in place.
+is now underway, with pairwise Givens rotations, per-channel scaling, grouped
+quantization, and the first rotation/scaling experiment all in place.
 
 ## Project Roadmap
 

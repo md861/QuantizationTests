@@ -25,7 +25,7 @@ Implemented so far:
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, and `experiments/rotation_experiment.py` are complete. Next is to broaden Milestone 2 analysis, likely grouped quantization or rotation/scaling sweeps.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (in `quant/quantizer.py`), and `experiments/rotation_experiment.py` are all complete. Next is comparative sweeps: grouped quantization vs rotation/scaling paths across seeds, outlier fractions, outlier scales, and group sizes.
 
 ## Environment
 
