@@ -2058,3 +2058,26 @@ Updated `project_summary.md`:
 - removed the generated example plots/artifacts section from the summary
 
 This keeps `project_summary.md` focused on current source capabilities and resume guidance rather than local generated files.
+
+## 2026-06-10 — Handoff Protocol And Git Workflow Notes
+
+### Goal
+
+Make the continuation path explicit enough that another coding agent can resume work without needing oral context.
+
+### Notes Added To The Handoff Docs
+
+- `project_summary.md` now includes a short working protocol for future agents.
+- The protocol tells a new agent to:
+  - read `project_summary.md` first
+  - skim the latest lab-book entry second
+  - use `.venv/bin/python`
+  - set `MPLCONFIGDIR=/tmp/paroquant-mpl` for Matplotlib-backed runs
+  - treat `plots/` and `results/` as disposable generated artifacts
+  - check `git status --short --branch` before changing anything
+  - avoid commits and pushes unless the user explicitly asks or a checkpoint is due
+  - use the existing private `origin` remote on `main` when a push is requested
+
+### Takeaway
+
+The docs are now better suited for a handoff to a different agent, because they explain both the project state and the local working conventions that have mattered during development.

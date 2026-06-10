@@ -2,12 +2,15 @@
 
 import csv
 
+import matplotlib.pyplot as plt
 import pytest
 
 from experiments.analyze_results import (
     ResultsAnalysisConfig,
     analyze_baseline_metrics,
+    plot_baseline_analysis_bars,
     plot_outlier_mse_ratio_heatmap,
+    plot_outlier_zero_delta_heatmap,
     run_results_analysis,
     worst_by_mse_ratio,
 )
@@ -110,6 +113,53 @@ def test_outlier_heatmap_requires_outlier_sweep_records(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="outlier_fraction"):
         plot_outlier_mse_ratio_heatmap(records)
+
+
+def test_zero_fraction_plots_use_percentage_labels(tmp_path) -> None:
+    results_dir = tmp_path / "results"
+    run_baseline_experiment(
+        BaselineConfig(
+            shape=(8, 8),
+            seed=37,
+            results_dir=results_dir,
+            plots_dir=tmp_path / "plots",
+            save_plots=False,
+        )
+    )
+    run_outlier_experiment(
+        OutlierExperimentConfig(
+            shape=(8, 8),
+            seed=37,
+            outlier_fractions=(0.0, 0.125),
+            outlier_scales=(4.0,),
+            results_dir=results_dir,
+            plots_dir=tmp_path / "plots",
+            save_plots=False,
+        )
+    )
+    outlier_records = run_results_analysis(
+        ResultsAnalysisConfig(
+            results_dir=results_dir,
+            output_dir=results_dir,
+            plots_dir=tmp_path / "analysis_plots",
+            write_csv=False,
+            save_plots=False,
+        )
+    ).outlier
+
+    bar_fig = plot_baseline_analysis_bars(
+        analyze_baseline_metrics(results_dir / "baseline_metrics.csv"),
+        output_path=tmp_path / "baseline.png",
+    )
+    heatmap_fig = plot_outlier_zero_delta_heatmap(
+        outlier_records,
+        output_path=tmp_path / "outlier_zero.png",
+    )
+
+    assert bar_fig.axes[1].get_ylabel() == "Percentage points (%)"
+    assert heatmap_fig.axes[1].get_ylabel() == "Percentage points (%)"
+    plt.close(bar_fig)
+    plt.close(heatmap_fig)
 
 
 def test_analyze_baseline_metrics_requires_int8_and_int4_rows(tmp_path) -> None:

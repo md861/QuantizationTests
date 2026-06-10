@@ -59,6 +59,27 @@ https://github.com/md861/QuantizationTests
 
 Generated artifacts under `plots/` and `results/`, the virtual environment, caches, and local tools are ignored by Git.
 
+## Working Protocol For Future Agents
+
+If another coding agent resumes this project, the safest order is:
+
+1. Read this file first, then skim the latest entry in `lab_book/project_journey.md`.
+2. Use `.venv/bin/python` for project commands and set `MPLCONFIGDIR=/tmp/paroquant-mpl` for Matplotlib-backed tests or scripts.
+3. Treat `plots/` and `results/` as disposable generated artifacts unless the task explicitly says otherwise.
+4. Keep the current branch clean before making unrelated changes; check `git status --short --branch` first.
+5. Do not commit or push unless the user explicitly asks, or it is the agreed end-of-day checkpoint.
+6. When commit or push is requested, use the existing private remote `origin` for `main` in `QuantizationTests`.
+7. Keep docs in sync with code changes, especially this summary and the lab book, so handoff remains easy.
+
+Typical publish flow:
+
+```bash
+git status --short --branch
+git add <files>
+git commit -m "<short message>"
+git push origin main
+```
+
 ## Implemented Modules
 
 ### `quant/matrix_factory.py`

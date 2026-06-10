@@ -182,7 +182,7 @@ def plot_results_analysis_dashboard(
         report.outlier,
         metric_name="zero_fraction_delta_int4_minus_int8",
         title="INT4 Zero-Fraction Increase",
-        colorbar_label="Zero-fraction delta",
+        colorbar_label="Percentage points (%)",
         ax=zero_axis,
         cmap="viridis",
     )
@@ -242,7 +242,7 @@ def plot_outlier_zero_delta_heatmap(
         records,
         metric_name="zero_fraction_delta_int4_minus_int8",
         title="Outlier Sweep INT4 Zero-Fraction Increase",
-        colorbar_label="Zero-fraction delta",
+        colorbar_label="Percentage points (%)",
         output_path=output_path,
         figsize=figsize,
         cmap="viridis",
@@ -393,6 +393,9 @@ def _plot_baseline_analysis_bars_on_axes(
 ) -> None:
     labels = [record.condition for record in records]
     x_positions = np.arange(len(records))
+    zero_fraction_percent = [
+        record.zero_fraction_delta_int4_minus_int8 * 100.0 for record in records
+    ]
     metrics = [
         (
             "INT4 / INT8 MSE Ratio",
@@ -402,8 +405,8 @@ def _plot_baseline_analysis_bars_on_axes(
         ),
         (
             "INT4 Zero-Fraction Increase",
-            [record.zero_fraction_delta_int4_minus_int8 for record in records],
-            "Fraction delta",
+            zero_fraction_percent,
+            "Percentage points (%)",
             "tab:orange",
         ),
         (
@@ -451,10 +454,13 @@ def _plot_outlier_metric_heatmap_on_axis(
     fraction_index = {fraction: index for index, fraction in enumerate(fractions)}
     scale_index = {scale: index for index, scale in enumerate(scales)}
     for record in records:
+        value = float(getattr(record, metric_name))
+        if metric_name == "zero_fraction_delta_int4_minus_int8":
+            value *= 100.0
         values[
             fraction_index[record.outlier_fraction],
             scale_index[record.outlier_scale],
-        ] = float(getattr(record, metric_name))
+        ] = value
 
     image = ax.imshow(values, cmap=cmap, aspect="auto")
     ax.set_title(title)
