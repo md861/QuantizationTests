@@ -1,8 +1,8 @@
-# ParoQuant Lab
+# Quantization Lab
 
 ![ParoQuant project journey](docs/assets/paroquant-journey.png)
 
-ParoQuant Lab is a research-oriented educational sandbox for seeing how low-bit
+Quantization Lab is a research-oriented educational sandbox for seeing how low-bit
 quantization changes matrices, spectra, and reconstruction error.
 
 The project starts at matrix level before scaling toward transformer models.
