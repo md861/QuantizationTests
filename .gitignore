@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.tools/
+
+plots/
+results/
+
+.DS_Store
+*:Zone.Identifier
