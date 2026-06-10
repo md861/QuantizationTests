@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import csv
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from quant.matrix_factory import outlier_matrix
 from quant.metrics import compute_quantization_metrics
