@@ -43,6 +43,8 @@ class SweepConfig:
     results_dir: Path = field(default_factory=lambda: Path("results"))
     plots_dir: Path = field(default_factory=lambda: Path("plots"))
     save_plots: bool = True
+    csv_name: str = "sweep_metrics.csv"
+    plot_name: str = "sweep_dashboard.png"
 
 
 @dataclass(frozen=True)
@@ -107,12 +109,12 @@ def run_sweep_experiment(
                     )
 
     config.results_dir.mkdir(parents=True, exist_ok=True)
-    _write_csv(config.results_dir / "sweep_metrics.csv", records)
+    _write_csv(config.results_dir / config.csv_name, records)
 
     if config.save_plots:
         config.plots_dir.mkdir(parents=True, exist_ok=True)
         fig = _plot_dashboard(records, config)
-        _save_figure(fig, config.plots_dir / "sweep_dashboard.png")
+        _save_figure(fig, config.plots_dir / config.plot_name)
 
     return records
 

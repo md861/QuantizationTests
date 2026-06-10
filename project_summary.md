@@ -25,7 +25,7 @@ Implemented so far:
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. Key findings from the sweep (45 conditions, 12 methods): row_grouped_g4 achieves mean MSE ratio 0.112 (~9× improvement); rotate_scale_row_g4 is marginally better at 0.111; scale_global (0.531) beats column-grouped at any group size; rotation alone (0.902) barely helps — its value comes through scaling; group size is the dominant variable for row-grouped (g=4 gives 9×, g=16 gives only 3×). Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. Key findings: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. Group size remains the dominant variable across both scales. Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
 
 ## Environment
 
@@ -334,15 +334,20 @@ Comparative sweep across all quantization paths and outlier conditions (Mileston
 - **Condition grid**: seeds × outlier_fractions × outlier_scales (configurable via `SweepConfig`)
 - **Outputs**: `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`
 - **Dashboard**: 4 panels — mean MSE ratio per method, mean zero fraction per method, MSE ratio vs outlier severity, effect of row group size
-- **Actual sweep results** (45 conditions, 12 methods — mean MSE ratio vs global INT4): rotate_scale_row_g4=0.111, row_grouped_g4=0.112, rotate_scale_row_g8=0.216, row_grouped_g8=0.219, rotate_scale_global=0.507, scale_global=0.531, col_grouped_g4=0.766, col_grouped_g8=0.875, rotate_global=0.902, global=1.000. Column-grouped gives no improvement for row-localised outliers at any group size. Rotation alone barely helps; its value is realised through scaling.
+- **Sweep results — 32×32** (45 cond, 12 methods): row_grouped_g4=0.112, rotate_scale_row_g4=0.111, scale_global=0.531, col_grouped_g4=0.766, rotate_global=0.902. Column-grouped gives no improvement for row-localised outliers. Rotation adds small benefit through scaling.
+- **Sweep results — 320×320** (45 cond, 15 methods, new seeds/conditions/group sizes): row_grouped_g4=0.143, rotate_scale_row_g4=0.143, scale_global=0.845, col_grouped_g4=0.898, rotate_global=0.965. At large scale with random scatter: rotation adds zero measurable benefit; per-channel scaling loses effectiveness because random scatter means every column has outliers; only row-grouped remains effective.
 
 API:
 
-- `SweepConfig` — dataclass with grid parameters and output settings
+- `SweepConfig` — dataclass with grid parameters and output settings; `csv_name` and `plot_name` fields allow multiple sweeps to coexist without overwriting
 - `SweepRecord` — frozen dataclass with metrics for one (condition, method) pair
 - `run_sweep_experiment(config) -> list[SweepRecord]`
 - `methods_in_config(config) -> list[str]`
 - `print_summary(records) -> None`
+
+Two sweeps have been run:
+- 32×32, seeds 0–4, fractions [0.01,0.05,0.10], scales [5,10,20] → `results/sweep_metrics.csv`, `docs/figures/sweep_dashboard.png`
+- 320×320, seeds 5–9, fractions [0.02,0.07,0.15], scales [7.5,15,30] → `results/sweep_metrics_320x320.csv`, `docs/figures/sweep_dashboard_320x320.png`
 
 ### `experiments/rotation_experiment.py`
 

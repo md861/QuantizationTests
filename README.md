@@ -132,8 +132,25 @@ The rotation/scaling experiment writes:
 
 The sweep experiment writes:
 
-- `results/sweep_metrics.csv`
-- `plots/sweep_dashboard.png`
+- `results/sweep_metrics.csv` and `plots/sweep_dashboard.png` (32×32, seeds 0–4)
+- `results/sweep_metrics_320x320.csv` and `plots/sweep_dashboard_320x320.png` (320×320, seeds 5–9)
+
+To reproduce the large-matrix sweep:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python - << 'EOF'
+from pathlib import Path
+from experiments.sweep_experiment import SweepConfig, run_sweep_experiment, print_summary
+config = SweepConfig(
+    shape=(320, 320), seeds=[5,6,7,8,9],
+    outlier_fractions=[0.02, 0.07, 0.15], outlier_scales=[7.5, 15.0, 30.0],
+    row_group_sizes=[4, 8, 16, 32], col_group_sizes=[4, 8, 16],
+    csv_name="sweep_metrics_320x320.csv", plot_name="sweep_dashboard_320x320.png",
+)
+records = run_sweep_experiment(config)
+print_summary(records)
+EOF
+```
 
 Milestone 2 development visuals include:
 

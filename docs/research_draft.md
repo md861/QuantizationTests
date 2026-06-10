@@ -403,18 +403,43 @@ The project has produced the following working findings.
 
 Key observations from the sweep: (a) row_grouped_g4 achieves ~9× MSE reduction on average; (b) rotation adds only marginal benefit on top of row-grouped alone (0.111 vs 0.112 at g=4) — the value of rotation is realised through its combination with scaling; (c) scale_global (0.53×) outperforms column-grouped at any group size; (d) rotation alone (0.90×) barely moves the needle; (e) group size is the dominant variable for row-grouped — g=4 gives 9× improvement, g=16 gives only 3×.
 
-![Sweep dashboard](figures/sweep_dashboard.png)
+![Sweep dashboard — 32×32](figures/sweep_dashboard.png)
 
-*Figure: Four-panel sweep dashboard. Top left — mean MSE ratio per method (green bars indicate improvement over global INT4, dashed line at 1.0). Top right — mean zero fraction per method. Bottom left — median MSE ratio vs outlier scale for key methods. Bottom right — mean MSE ratio vs row group size for row-grouped and rotate+scale+row-grouped paths.*
+*Figure: Four-panel sweep dashboard for 32×32 matrices. Top left — mean MSE ratio per method (green bars indicate improvement over global INT4, dashed line at 1.0). Top right — mean zero fraction per method. Bottom left — median MSE ratio vs outlier scale for key methods. Bottom right — mean MSE ratio vs row group size for row-grouped and rotate+scale+row-grouped paths.*
+
+10. A second sweep on larger 320×320 matrices (5 seeds × 3 new outlier fractions × 3 new outlier scales = 45 conditions, 15 methods including col_grouped_g16 and row/rotate_scale_row group sizes up to 32) reveals how findings scale with matrix size and random-scatter outliers:
+
+| Method | Mean MSE ratio | Mean zero fraction |
+|---|---|---|
+| row_grouped_g4 | **0.143** | 0.187 |
+| rotate_scale_row_g4 | **0.143** | 0.187 |
+| row_grouped_g8 | 0.274 | 0.307 |
+| rotate_scale_row_g8 | 0.274 | 0.307 |
+| row_grouped_g16 | 0.427 | 0.432 |
+| rotate_scale_row_g16 | 0.428 | 0.432 |
+| rotate_scale_row_g32 | 0.573 | 0.536 |
+| row_grouped_g32 | 0.573 | 0.536 |
+| rotate_scale_global | 0.844 | 0.685 |
+| scale_global | 0.845 | 0.686 |
+| col_grouped_g4 | 0.898 | 0.700 |
+| col_grouped_g8 | 0.919 | 0.706 |
+| col_grouped_g16 | 0.937 | 0.711 |
+| rotate_global | 0.965 | 0.721 |
+| global | 1.000 | 0.731 |
+
+Key observations from the large-matrix sweep: (a) row_grouped_g4 still achieves ~7× MSE reduction, confirming the finding scales to larger matrices; (b) rotation now adds **zero** measurable benefit over row-grouped or scaling alone — differences are at the fourth decimal place — suggesting rotation's marginal advantage at 32×32 was noise rather than signal; (c) per-channel scaling (scale_global = 0.845) is far less effective than at 32×32 (0.531) because random scatter means almost every column contains outliers, leaving no column to rescale beneficially; (d) column-grouped quantization collapses toward global (0.90–0.94) confirming it cannot address random-scatter outliers at any group size; (e) group size remains the dominant variable for row-grouped across both matrix sizes.
+
+![Sweep dashboard — 320×320](figures/sweep_dashboard_320x320.png)
+
+*Figure: Four-panel sweep dashboard for 320×320 matrices with random-scatter outliers. Same layout as the 32×32 dashboard. Notable: rotation and scaling alone converge toward global INT4 performance; only row-grouped paths provide substantial improvement.*
 
 ## 12. Limitations
 
 The current results are intentionally preliminary.
 
-- Matrices are synthetic and small.
+- Matrices are synthetic. Outliers are placed at uniformly random positions, not with the spatial structure seen in transformer activations.
 - Rotation-pair selection is simple: the two columns with largest max-abs values.
-- Scaling currently balances full-column max-absolute values, not groups or learned activation-aware statistics.
-- The sweep covers outlier fractions up to 10% and outlier scales up to 20×; extreme conditions may shift the relative ordering of methods.
+- Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - No transformer-layer or language-model benchmark has been run yet.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
@@ -449,5 +474,6 @@ Current tracked figure references used in this draft:
 - `docs/figures/channel_scaling_dashboard.png`
 - `docs/figures/rotation_scaling_comparison.png`
 - `docs/figures/sweep_dashboard.png`
+- `docs/figures/sweep_dashboard_320x320.png`
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.

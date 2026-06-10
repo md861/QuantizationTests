@@ -2875,3 +2875,49 @@ All Milestone 2 modules are implemented and tested:
 - `experiments/sweep_experiment.py` — full multi-condition comparative sweep
 
 Milestone 2 is complete. Next is Milestone 3: apply the ParoQuant pipeline to a tiny transformer and measure perplexity and activation drift.
+
+## 2026-06-11 — Large-Matrix Sweep (320×320) and SweepConfig Extension
+
+### Motivation
+
+The 32×32 sweep used seeds 0–4, outlier fractions [0.01, 0.05, 0.10], and scales [5, 10, 20]. A second sweep on 320×320 matrices with non-overlapping seeds and conditions tests whether findings hold at larger scale and with random-scatter outliers.
+
+### Changes
+
+Added `csv_name: str` and `plot_name: str` fields to `SweepConfig` (both default to the original filenames, so all existing tests pass unchanged). This allows multiple sweeps to coexist without overwriting each other's outputs.
+
+### Sweep Configuration
+
+- shape=(320, 320), seeds=[5,6,7,8,9], fractions=[0.02,0.07,0.15], scales=[7.5,15.0,30.0]
+- row_group_sizes=[4,8,16,32], col_group_sizes=[4,8,16] → 15 methods, 45 conditions, 675 records
+- csv_name="sweep_metrics_320x320.csv", plot_name="sweep_dashboard_320x320.png"
+
+### Actual Results
+
+```
+Method                                MSE ratio   Zero frac
+------------------------------------------------------------
+row_grouped_g4                           0.1432      0.1874
+rotate_scale_row_g4                      0.1432      0.1874
+row_grouped_g8                           0.2738      0.3073
+rotate_scale_row_g8                      0.2738      0.3073
+row_grouped_g16                          0.4274      0.4318
+rotate_scale_row_g16                     0.4275      0.4318
+rotate_scale_row_g32                     0.5726      0.5357
+row_grouped_g32                          0.5727      0.5359
+rotate_scale_global                      0.8439      0.6851
+scale_global                             0.8448      0.6857
+col_grouped_g4                           0.8983      0.7002
+col_grouped_g8                           0.9188      0.7061
+col_grouped_g16                          0.9370      0.7114
+rotate_global                            0.9650      0.7213
+global                                   1.0000      0.7314
+```
+
+### Key New Findings
+
+- Row-grouped still provides ~7× MSE improvement at 320×320, confirming the finding scales
+- Rotation adds **zero** measurable benefit over row-grouped or scaling at this scale — differences at the 4th decimal place suggest the 32×32 rotation advantage may have been noise
+- Per-channel scaling collapses from 0.531 (32×32) to 0.845 (320×320): with random scatter, almost every column has outliers, leaving no columns for scaling to balance
+- Column-grouped converges toward global (0.90–0.94) at all group sizes with random scatter
+- Group size remains the dominant variable for row-grouped across both scales
