@@ -19,6 +19,7 @@ class QuantizationResult:
     qmax: int
     scales: np.ndarray | None = None
     group_size: int | None = None
+    row_group_size: int | None = None
 
 
 def symmetric_quantize(matrix: np.ndarray, *, bitwidth: int) -> QuantizationResult:
@@ -112,6 +113,62 @@ def grouped_symmetric_quantize(
     )
 
 
+def row_grouped_symmetric_quantize(
+    matrix: np.ndarray,
+    *,
+    bitwidth: int,
+    row_group_size: int,
+) -> QuantizationResult:
+    """Quantize contiguous row groups within each column with one scale per group.
+
+    Each column is split into groups of ``row_group_size`` rows independently.
+    This gives ``n_cols * ceil(n_rows / row_group_size)`` scales in total and is
+    the approach used in GPTQ and AWQ: a row-group outlier only inflates the
+    scale for that group, leaving all other groups with tight, precise scales.
+
+    Scales are stored in ``result.scales`` as a 2-D array of shape
+    ``(n_cols, n_row_groups)``.  The scalar ``result.scale`` is the mean of all
+    group scales for summary compatibility.
+    """
+    _validate_matrix(matrix)
+    if row_group_size <= 0:
+        raise ValueError("row_group_size must be positive")
+
+    qmin, qmax = _symmetric_range(bitwidth)
+    output_dtype = _integer_dtype(bitwidth)
+    n_rows, n_cols = matrix.shape
+    n_row_groups = (n_rows + row_group_size - 1) // row_group_size
+
+    quantized = np.zeros_like(matrix, dtype=output_dtype)
+    dequantized = np.zeros_like(matrix, dtype=matrix.dtype)
+    all_scales = np.zeros((n_cols, n_row_groups), dtype=np.float64)
+
+    for col in range(n_cols):
+        for g, row_start in enumerate(range(0, n_rows, row_group_size)):
+            row_end = min(row_start + row_group_size, n_rows)
+            group = matrix[row_start:row_end, col]
+            scale = _scale_for_values(group, qmax)
+            all_scales[col, g] = scale
+
+            group_q = np.round(group / scale)
+            group_q = np.clip(group_q, qmin, qmax).astype(output_dtype)
+            quantized[row_start:row_end, col] = group_q
+            dequantized[row_start:row_end, col] = (
+                group_q.astype(np.float64) * scale
+            ).astype(matrix.dtype, copy=False)
+
+    return QuantizationResult(
+        quantized=quantized,
+        dequantized=dequantized,
+        scale=float(np.mean(all_scales)),
+        bitwidth=bitwidth,
+        qmin=qmin,
+        qmax=qmax,
+        scales=all_scales,
+        row_group_size=row_group_size,
+    )
+
+
 def quantize_int8(matrix: np.ndarray) -> QuantizationResult:
     """Apply symmetric INT8 quantization."""
 
@@ -122,6 +179,16 @@ def quantize_int4(matrix: np.ndarray) -> QuantizationResult:
     """Apply symmetric INT4 quantization."""
 
     return symmetric_quantize(matrix, bitwidth=4)
+
+
+def quantize_int8_row_grouped(matrix: np.ndarray, *, row_group_size: int) -> QuantizationResult:
+    """Apply row-grouped symmetric INT8 quantization (one scale per row-group per column)."""
+    return row_grouped_symmetric_quantize(matrix, bitwidth=8, row_group_size=row_group_size)
+
+
+def quantize_int4_row_grouped(matrix: np.ndarray, *, row_group_size: int) -> QuantizationResult:
+    """Apply row-grouped symmetric INT4 quantization (one scale per row-group per column)."""
+    return row_grouped_symmetric_quantize(matrix, bitwidth=4, row_group_size=row_group_size)
 
 
 def quantize_int8_grouped(matrix: np.ndarray, *, group_size: int) -> QuantizationResult:

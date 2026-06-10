@@ -2749,3 +2749,60 @@ The user established **"handover diagnostics"** as a shorthand for this action: 
 - All Milestone 2 core modules complete: rotations, per-channel scaling, grouped quantization, rotation/scaling experiment
 - Research draft live at `docs/research_draft.md`
 - Next: comparative sweeps across seeds, outlier fractions, scales, and group sizes
+
+## 2026-06-10 — Milestone 2: Row-Grouped Quantization
+
+### Motivation
+
+The existing `grouped_symmetric_quantize` groups **columns** together, giving one scale per block of columns. This was identified as a weaker baseline than the industry standard: in GPTQ and AWQ, each column is split into **row groups**, each with its own scale. A row-level outlier in the column-grouped approach inflates the scale for the entire column block; in the row-grouped approach, only the row group containing the outlier is penalised, leaving all other row groups with tight, precise scales.
+
+### Implementation
+
+Added to `quant/quantizer.py`:
+
+- `row_grouped_symmetric_quantize(matrix, bitwidth, row_group_size)`
+  - Iterates over each column independently, splitting rows into groups of `row_group_size`.
+  - One scale per group: $s_{c,g} = \max(|W_{c,g}|) / (2^{b-1}-1)$.
+  - Returns `scales` as a 2-D array of shape `(n_cols, n_row_groups)` and `row_group_size` in metadata.
+  - Zero groups use scale 1.0. Partial last groups handled correctly.
+- `quantize_int8_row_grouped(matrix, row_group_size=...)`
+- `quantize_int4_row_grouped(matrix, row_group_size=...)`
+
+Also added optional `row_group_size` field to `QuantizationResult` (backwards compatible; defaults to `None`).
+
+### Comparison of quantization strategies now available
+
+| Strategy | Scales stored | Outlier isolation |
+|---|---|---|
+| Global (`symmetric_quantize`) | 1 | None — worst-case element sets scale for all |
+| Column-grouped (`grouped_symmetric_quantize`) | $\lceil n_{\mathrm{cols}}/g \rceil$ | Column-block level |
+| Row-grouped (`row_grouped_symmetric_quantize`) | $n_{\mathrm{cols}} \times \lceil n_{\mathrm{rows}}/g \rceil$ | Row-group within each column — tightest |
+
+### Tests
+
+Added 8 tests to `tests/test_quantizer.py`:
+
+- range and metadata (scales shape, `row_group_size` field, `group_size` is None)
+- INT8 wrapper shape
+- partial last group scale values
+- zero-group unit scale
+- full-row-group equivalence
+- strictly lower error than global when row outlier is isolated
+- strictly lower error than column-grouped for a row-outlier scenario
+- invalid `row_group_size` raises ValueError
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+146 passed in 12.75s
+```
+
+### Next Step
+
+Add row-grouped as a fourth quantization path in `experiments/rotation_experiment.py` and the comparative sweeps.

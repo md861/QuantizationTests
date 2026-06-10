@@ -50,7 +50,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-138 passed
+146 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -123,11 +123,17 @@ Implements symmetric full-matrix quantization and stores both integer codes and 
 - `quantize_int8(matrix)`
 - `quantize_int4(matrix)`
 - `grouped_symmetric_quantize(matrix, bitwidth=..., group_size=...)`
-  - Quantizes contiguous column groups with one symmetric scale per group.
+  - Quantizes contiguous **column** groups with one symmetric scale per group.
   - For group $g$, scale is $s_g = \max(|W_g|) / (2^{b-1}-1)$.
   - Dequantization uses $\hat{W}_g = s_g Q_g$.
 - `quantize_int8_grouped(matrix, group_size=...)`
 - `quantize_int4_grouped(matrix, group_size=...)`
+- `row_grouped_symmetric_quantize(matrix, bitwidth=..., row_group_size=...)`
+  - Quantizes contiguous **row** groups within each column independently (the GPTQ/AWQ approach).
+  - Gives $n_{\mathrm{cols}} \times \lceil n_{\mathrm{rows}} / g \rceil$ scales in total.
+  - Outliers in one row-group only inflate that group's scale; all other groups keep tight precision.
+- `quantize_int8_row_grouped(matrix, row_group_size=...)`
+- `quantize_int4_row_grouped(matrix, row_group_size=...)`
 
 Ranges:
 
@@ -136,7 +142,9 @@ Ranges:
 
 Zero matrices use `scale=1.0` and reconstruct exactly to zeros.
 
-Grouped quantization returns per-group scales in `QuantizationResult.scales` and the requested `group_size` in `QuantizationResult.group_size`. The scalar `scale` field is the mean group scale for summary compatibility.
+Column-grouped results store scales in `QuantizationResult.scales` (shape: `(n_col_groups,)`) and `group_size`.
+Row-grouped results store scales in `QuantizationResult.scales` (shape: `(n_cols, n_row_groups)`) and `row_group_size`.
+The scalar `scale` field is the mean of all group scales for summary compatibility.
 
 ### `quant/metrics.py`
 
@@ -364,7 +372,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-138 passed
+146 passed
 ```
 
 ## Design Conventions

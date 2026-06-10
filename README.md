@@ -56,9 +56,13 @@ quantization to reduce outlier pressure:
   factor per column so nonzero channel max-abs values share a target before
   quantization. Key functions: `column_max_abs`, `compute_channel_scaling`,
   `apply_channel_scaling`, `invert_channel_scaling`, `balance_channel_max_abs`.
-- **Grouped quantization** (`quant/quantizer.py`): quantize contiguous column
-  groups with separate symmetric scales. Key functions:
-  `grouped_symmetric_quantize`, `quantize_int8_grouped`, `quantize_int4_grouped`.
+- **Grouped quantization** (`quant/quantizer.py`): two strategies — (1) column-grouped:
+  contiguous column blocks share one scale per block; (2) row-grouped: each column
+  is split into row-groups each with their own scale (the industry-standard GPTQ/AWQ
+  approach, giving tighter precision when outliers are localised within a column).
+  Key functions: `grouped_symmetric_quantize`, `row_grouped_symmetric_quantize`,
+  `quantize_int8_grouped`, `quantize_int4_grouped`,
+  `quantize_int8_row_grouped`, `quantize_int4_row_grouped`.
 - **Rotation/scaling experiment** (`experiments/rotation_experiment.py`):
   compares baseline INT4, rotation-only INT4, scaling-only INT4, and
   rotation+scaling INT4 on one controlled outlier-heavy matrix.
@@ -89,7 +93,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-138 passed
+146 passed
 ```
 
 ## Reproduce Artifacts
