@@ -403,6 +403,10 @@ The project has produced the following working findings.
 
 Key observations from the sweep: (a) row_grouped_g4 achieves ~9× MSE reduction on average; (b) rotation adds only marginal benefit on top of row-grouped alone (0.111 vs 0.112 at g=4) — the value of rotation is realised through its combination with scaling; (c) scale_global (0.53×) outperforms column-grouped at any group size; (d) rotation alone (0.90×) barely moves the needle; (e) group size is the dominant variable for row-grouped — g=4 gives 9× improvement, g=16 gives only 3×.
 
+![Sweep dashboard](figures/sweep_dashboard.png)
+
+*Figure: Four-panel sweep dashboard. Top left — mean MSE ratio per method (green bars indicate improvement over global INT4, dashed line at 1.0). Top right — mean zero fraction per method. Bottom left — median MSE ratio vs outlier scale for key methods. Bottom right — mean MSE ratio vs row group size for row-grouped and rotate+scale+row-grouped paths.*
+
 ## 12. Limitations
 
 The current results are intentionally preliminary.
@@ -444,5 +448,6 @@ Current tracked figure references used in this draft:
 - `docs/figures/analysis_dashboard.png`
 - `docs/figures/channel_scaling_dashboard.png`
 - `docs/figures/rotation_scaling_comparison.png`
+- `docs/figures/sweep_dashboard.png`
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.
