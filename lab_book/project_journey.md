@@ -2259,3 +2259,22 @@ The user established a standing rule: **`README.md` must be updated before every
 - Expected test count in the "Run Tests" section
 
 This rule is also recorded in `project_summary.md` as item 8 of the working protocol, so any agent reading the handoff docs will see it before making a commit.
+
+## 2026-06-10 — Project Summary Stale Data Cleanup
+
+### Goal
+
+Remove stale current-facing handoff data after the project moved from Milestone 1 into Milestone 2.
+
+### Changes
+
+Updated `project_summary.md`:
+
+- corrected the environment-section test count from `72 passed` to `107 passed`
+- updated the next recommended step from the broad first rotation/scaling experiment to the more precise current path:
+  - implement `quant/scaling.py`
+  - then build `experiments/rotation_experiment.py` using the completed rotation utilities
+
+### Check
+
+Searched `README.md`, `project_summary.md`, and `lab_book/project_journey.md` for old test counts and milestone wording. Historical lab-book entries still retain their original test outputs because they are chronological records, not current-state claims.

@@ -45,7 +45,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-72 passed
+107 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -329,7 +329,7 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-Start the first rotation/scaling experiment for Milestone 2.
+Implement `quant/scaling.py` for per-channel scaling, then use it with the completed rotation utilities in `experiments/rotation_experiment.py`.
 
 Acceptance check:
 
