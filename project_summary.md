@@ -72,7 +72,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-195 passed
+196 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -413,7 +413,9 @@ Milestone 3 transformer quantization harness.
   perplexity, and perplexity ratio.
 - **Outputs**: `results/transformer_weight_metrics.csv`,
   `results/transformer_activation_metrics.csv`,
-  `results/transformer_logit_metrics.csv`, `plots/transformer_dashboard.png`.
+  `results/transformer_logit_metrics.csv`, `plots/transformer_dashboard.png`,
+  `plots/transformer_dashboard_int4.png`, and
+  `plots/transformer_dashboard_int8.png`.
 - **HF Conv1D note**: GPT-2-style Conv1D stores weights as (in, out); nn.Linear
   stores (out, in). The harness normalises both to (in, out) internally via
   `_extract_weight` / `_set_weight`.
@@ -476,7 +478,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-195 passed
+196 passed
 ```
 
 ## Design Conventions

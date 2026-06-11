@@ -572,9 +572,14 @@ versions of all configured transformer paths. The output files were:
 - `results/transformer_activation_metrics.csv`
 - `results/transformer_logit_metrics.csv`
 - `plots/transformer_dashboard.png`
+- `plots/transformer_dashboard_int4.png`
+- `plots/transformer_dashboard_int8.png`
 
-The tracked paper figure is copied to
-`docs/figures/transformer_dashboard_tiny_gpt2.png`.
+Tracked paper figures are copied to:
+
+- `docs/figures/transformer_dashboard_tiny_gpt2.png`
+- `docs/figures/transformer_dashboard_tiny_gpt2_int4.png`
+- `docs/figures/transformer_dashboard_tiny_gpt2_int8.png`
 
 ![Tiny GPT-2 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2.png)
 
@@ -582,15 +587,28 @@ The tracked paper figure is copied to
 reconstruction error, activation drift, full-model logit drift, and next-token
 loss delta across the implemented quantization paths.*
 
+![Tiny GPT-2 INT4 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2_int4.png)
+
+*Figure: INT4-only view of the all-layer `sshleifer/tiny-gpt2` run. Splitting
+the dashboard by bitwidth makes the relative behavior of row grouping, scaling,
+and sparse rotations easier to inspect.*
+
+![Tiny GPT-2 INT8 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2_int8.png)
+
+*Figure: INT8-only view of the same run. The split view avoids the much smaller
+INT8 errors being visually compressed by the INT4 scale.*
+
 Because this model is intentionally tiny, several matrices have only two input
 rows. This makes `g1` row grouping a near-lossless or exactly lossless case and
 causes saturation fractions of 1.0 for those paths. These `g1` rows are useful
 for validating the harness, but they should not be interpreted as evidence that
 one-row groups are a realistic compression strategy for larger transformers.
 
-The table below averages weight and activation metrics across the eight
-quantized layers. `Rel Fro` is relative Frobenius error. `Act rel err` is
-relative activation drift.
+The next two tables average weight and activation metrics across the eight
+quantized layers, with INT4 and INT8 shown separately. `Rel Fro` is relative
+Frobenius error. `Act rel err` is relative activation drift.
+
+**INT4 weight and activation summary**
 
 | Method | Bits | Weight MSE | Rel Fro | W cos | SNR dB | Zero frac | Sat frac | Act MSE | Act cos | Act rel err |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -610,6 +628,11 @@ relative activation drift.
 | top_width_rotate_p5_scale_row_g1 | 4 | 6.492e-19 | 0.0000 | 1.000000 | 153.59 | 0.0000 | 1.0000 | 2.096e-19 | 0.991084 | 0.0000 |
 | top_width_rotate_p5_scale_row_g2 | 4 | 5.132e-07 | 0.0293 | 0.999544 | 31.07 | 0.0000 | 0.5312 | 5.797e-10 | 0.998948 | 0.0253 |
 | top_width_rotate_p5_scale_row_g4 | 4 | 7.896e-07 | 0.0420 | 0.999060 | 27.90 | 0.0729 | 0.4453 | 3.402e-07 | 0.988519 | 0.0697 |
+
+**INT8 weight and activation summary**
+
+| Method | Bits | Weight MSE | Rel Fro | W cos | SNR dB | Zero frac | Sat frac | Act MSE | Act cos | Act rel err |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | global | 8 | 7.531e-09 | 0.0042 | 0.999991 | 47.85 | 0.0000 | 0.1146 | 8.406e-09 | 0.991153 | 0.0065 |
 | row_grouped_g1 | 8 | 0.000e+00 | 0.0000 | 1.000000 | inf | 0.0000 | 1.0000 | 0.000e+00 | 0.991084 | 0.0000 |
 | row_grouped_g2 | 8 | 3.097e-09 | 0.0023 | 0.999997 | 52.91 | 0.0000 | 0.5000 | 1.156e-12 | 0.999439 | 0.0012 |
@@ -640,11 +663,13 @@ have only two or six output channels. The `g2` top-width subset appears only on
 two projection layers and selected one rotation per layer, i.e. 100% of possible
 pairs for those two-column weights.
 
-The table below reports the all-layer full-model output comparison. The
+The next two tables report the all-layer full-model output comparison. The
 baseline original loss was 10.822957, giving original perplexity 50,159.19 on
 the short calibration text batch. All tested quantized variants preserve the
 top-5 token sets exactly on this small batch, and all perplexity ratios stay
 within about six parts per million of 1.0.
+
+**INT4 logit, loss, and perplexity summary**
 
 | Method | Bits | Logit MSE | Logit cos | Top-5 overlap | Loss delta | Perplexity | PPL ratio |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -659,6 +684,11 @@ within about six parts per million of 1.0.
 | top_width_rotate_p20_scale_row_g4 | 4 | 1.329e-09 | 0.99999887 | 1.0000 | +9.537e-07 | 50159.24 | 1.00000095 |
 | top_width_rotate_p5_scale_row_g1 | 4 | 8.882e-19 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
 | top_width_rotate_p5_scale_row_g4 | 4 | 9.920e-10 | 0.99999887 | 1.0000 | +9.537e-07 | 50159.24 | 1.00000095 |
+
+**INT8 logit, loss, and perplexity summary**
+
+| Method | Bits | Logit MSE | Logit cos | Top-5 overlap | Loss delta | Perplexity | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|---:|
 | global | 8 | 5.412e-11 | 1.00000000 | 1.0000 | +2.543e-06 | 50159.32 | 1.00000254 |
 | row_grouped_g1 | 8 | 0.000e+00 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
 | row_grouped_g4 | 8 | 8.602e-12 | 0.99999982 | 1.0000 | +1.272e-06 | 50159.25 | 1.00000127 |
@@ -729,5 +759,7 @@ Current tracked figure references used in this draft:
 - `docs/figures/sweep_dashboard_top_width_32x32.png`
 - `docs/figures/sweep_dashboard_top_width_320x320.png`
 - `docs/figures/transformer_dashboard_tiny_gpt2.png`
+- `docs/figures/transformer_dashboard_tiny_gpt2_int4.png`
+- `docs/figures/transformer_dashboard_tiny_gpt2_int8.png`
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.

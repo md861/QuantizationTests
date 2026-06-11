@@ -144,7 +144,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-195 passed
+196 passed
 ```
 
 ## Reproduce Artifacts
@@ -188,6 +188,8 @@ The transformer harness writes:
 - `results/transformer_activation_metrics.csv`
 - `results/transformer_logit_metrics.csv`
 - `plots/transformer_dashboard.png`
+- `plots/transformer_dashboard_int4.png`
+- `plots/transformer_dashboard_int8.png`
 
 To reproduce the large-matrix sweep:
 

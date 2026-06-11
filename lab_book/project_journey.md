@@ -3393,3 +3393,52 @@ parts per million of 1.0.
 Updated `docs/research_draft.md` with a new Milestone 3 result section containing
 the dashboard figure and summary tables for weight reconstruction, activation
 drift, logit similarity, loss, and perplexity.
+
+## 2026-06-11 — Split transformer INT4/INT8 reporting
+
+### Motivation
+
+The combined transformer dashboard and tables were correct but dense. INT8
+errors are much smaller than INT4 errors, so showing both bitwidths in the same
+visual scale made the INT8 result harder to inspect.
+
+### Change
+
+Updated `experiments/transformer_experiment.py` so `save_plots=True` now writes:
+
+- `plots/transformer_dashboard.png`
+- `plots/transformer_dashboard_int4.png`
+- `plots/transformer_dashboard_int8.png`
+
+The split dashboards use their own global baseline in the weight-MSE-ratio
+panel (`global INT4` for the INT4 figure, `global INT8` for the INT8 figure).
+
+Updated `docs/research_draft.md` so the tiny-gpt2 result now has separate INT4
+and INT8 dashboard figures and separate INT4/INT8 tables for both:
+
+- weight reconstruction + activation drift
+- logit/loss/perplexity metrics
+
+Tracked figure copies:
+
+- `docs/figures/transformer_dashboard_tiny_gpt2.png`
+- `docs/figures/transformer_dashboard_tiny_gpt2_int4.png`
+- `docs/figures/transformer_dashboard_tiny_gpt2_int8.png`
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_transformer_experiment.py
+```
+
+```text
+32 passed, 1 warning in 8.28s
+```
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+```text
+196 passed, 1 warning in 21.26s
+```

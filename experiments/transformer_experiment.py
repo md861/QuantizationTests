@@ -208,6 +208,28 @@ def run_transformer_experiment(
             bbox_inches="tight",
         )
         plt.close(fig)
+        for bitwidth in sorted({r.bitwidth for r in weight_records}):
+            bw_weight_records = [
+                r for r in weight_records if r.bitwidth == bitwidth
+            ]
+            bw_activation_records = [
+                r for r in activation_records if r.bitwidth == bitwidth
+            ]
+            bw_logit_records = [
+                r for r in logit_records if r.bitwidth == bitwidth
+            ]
+            fig = _plot_dashboard(
+                bw_weight_records,
+                bw_activation_records,
+                bw_logit_records,
+                title=f"Transformer quantization — INT{bitwidth}",
+            )
+            fig.savefig(
+                config.plots_dir / f"transformer_dashboard_int{bitwidth}.png",
+                dpi=120,
+                bbox_inches="tight",
+            )
+            plt.close(fig)
 
     if config.delete_hf_cache_after:
         _clear_hf_cache(config.model_name)
@@ -609,21 +631,27 @@ def _plot_dashboard(
     weight_records: list[WeightRecord],
     activation_records: list[ActivationRecord],
     logit_records: list[LogitRecord],
+    title: str = "Transformer quantization — Milestone 3 dashboard",
 ) -> plt.Figure:
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle(
-        "Transformer quantization — Milestone 3 dashboard", fontsize=12
-    )
+    fig.suptitle(title, fontsize=12)
 
     # Build label strings combining method + bitwidth for display
     def _label(method: str, bitwidth: int) -> str:
         return f"{method} (INT{bitwidth})"
 
-    # Panel 1: weight MSE ratio vs global INT4
+    bitwidths = sorted({r.bitwidth for r in weight_records})
+    baseline_bitwidth = bitwidths[0] if len(bitwidths) == 1 else 4
+
+    # Panel 1: weight MSE ratio vs global baseline
     ax = axes[0, 0]
-    global_int4_mse = float(
+    global_baseline_mse = float(
         np.mean(
-            [r.mse for r in weight_records if r.method == "global" and r.bitwidth == 4]
+            [
+                r.mse
+                for r in weight_records
+                if r.method == "global" and r.bitwidth == baseline_bitwidth
+            ]
             or [1.0]
         )
     )
@@ -635,11 +663,14 @@ def _plot_dashboard(
         seen[key] = np.mean([r2.mse for r2 in weight_records if r2.method == r.method and r2.bitwidth == r.bitwidth])
     sorted_keys = sorted(seen, key=lambda k: (k[1], seen[k]))
     labels = [_label(m, bw) for m, bw in sorted_keys]
-    ratios = [seen[k] / global_int4_mse if global_int4_mse > 0 else 1.0 for k in sorted_keys]
+    ratios = [
+        seen[k] / global_baseline_mse if global_baseline_mse > 0 else 1.0
+        for k in sorted_keys
+    ]
     colors = ["tab:green" if v < 1.0 else "tab:red" for v in ratios]
     ax.barh(labels, ratios, color=colors, alpha=0.85)
     ax.axvline(1.0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_xlabel("MSE / Global INT4 MSE  (< 1 = improvement)")
+    ax.set_xlabel(f"MSE / Global INT{baseline_bitwidth} MSE  (< 1 = improvement)")
     ax.set_title("Weight reconstruction MSE ratio")
 
     # Panel 2: activation drift (MSE) per method × bitwidth

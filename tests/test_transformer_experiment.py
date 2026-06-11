@@ -41,7 +41,7 @@ def tiny_config(tmp_path_factory):
         top_width_pair_fractions=[0.05, 0.10, 0.20],
         results_dir=tmp / "results",
         plots_dir=tmp / "plots",
-        save_plots=False,
+        save_plots=True,
         delete_hf_cache_after=False,
     )
 
@@ -295,6 +295,12 @@ def test_csv_files_written(tiny_config, experiment_results):
     assert (tiny_config.results_dir / "transformer_weight_metrics.csv").exists()
     assert (tiny_config.results_dir / "transformer_activation_metrics.csv").exists()
     assert (tiny_config.results_dir / "transformer_logit_metrics.csv").exists()
+
+
+def test_dashboard_files_written(tiny_config, experiment_results):
+    assert (tiny_config.plots_dir / "transformer_dashboard.png").exists()
+    assert (tiny_config.plots_dir / "transformer_dashboard_int4.png").exists()
+    assert (tiny_config.plots_dir / "transformer_dashboard_int8.png").exists()
 
 
 def test_logit_csv_includes_perplexity_columns(tiny_config, experiment_results):
