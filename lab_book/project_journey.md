@@ -3539,6 +3539,12 @@ are safe loader warnings for this architecture/task pairing.
 - Fixed all-layer logit/loss evaluation for models with mixed layer shapes.
   Dynamic row-group sizes create shape-specific method names, so full-model
   swaps now use only method keys common to every selected layer.
+- Added a model-wide top-width rotation cap policy after discussing why rotation
+  rows were absent from the TinyStories full-model table. The harness now lowers
+  configured `top_width_pair_fractions` as needed so the widest selected layer
+  stays under `max_rotation_pairs=1000`; duplicate effective fractions are
+  deduplicated. For TinyStories-1M, requested p5/p10/p20 all collapse to one
+  p3.0637% path, letting every layer run a common capped rotation method.
 - Removed the stale split-dashboard generation path from
   `experiments/transformer_experiment.py`; the intended output is the single
   combined dashboard.
@@ -3558,9 +3564,9 @@ are safe loader warnings for this architecture/task pairing.
 Record counts:
 
 - 48 compatible transformer layers
-- 1472 weight records
-- 1472 activation records
-- 10 all-layer logit/loss/perplexity records
+- 1008 weight records
+- 1008 activation records
+- 14 all-layer logit/loss/perplexity records
 
 ### Findings
 
@@ -3571,10 +3577,14 @@ short calibration batch:
   perplexity ratio 16.11x.
 - INT4 row-grouped g4: logit MSE 0.673, top-5 overlap 0.633, loss delta
   +0.1932, perplexity ratio 1.213x.
+- INT4 capped top-width rotate+scale+row g4 (`p3_0637`): logit MSE 0.660,
+  top-5 overlap 0.689, loss delta +0.1284, perplexity ratio 1.137x.
 - INT4 row-grouped g16: perplexity ratio 2.240x.
 - INT8 global: logit MSE 0.0165, top-5 overlap 0.939, loss delta -0.0404,
   perplexity ratio 0.960x; treat the negative loss delta as small-batch noise.
 - INT8 row-grouped g4/g16: perplexity ratios about 1.018x/1.021x.
+- INT8 capped top-width rotate+scale+row g4/g16: perplexity ratios about
+  1.014x/1.017x.
 
 Mean per-layer MSE tells the same story: row-grouped g4 is about 19x lower than
 global INT4 for weight reconstruction and about 21x lower for activation drift.
@@ -3587,5 +3597,13 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_transforme
 ```
 
 ```text
-34 passed, 1 warning in 7.65s
+36 passed, 1 warning in 7.86s
+```
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+```text
+200 passed, 1 warning in 21.06s
 ```

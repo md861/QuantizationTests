@@ -50,13 +50,16 @@ Implemented so far:
   top-5 overlap stayed 1.0 and perplexity ratios stayed within about six parts
   per million of 1.0 on the built-in calibration batch
 - first all-layer `roneneldan/TinyStories-1M` transformer run: 48 compatible
-  layers, 1472 weight records, 1472 activation records, and 10 all-layer
+  layers, 1008 weight records, 1008 activation records, and 14 all-layer
   logit/loss records; INT4 global had a 16.1x perplexity ratio on the built-in
-  calibration batch, while INT4 row-grouped g4 reduced the ratio to 1.21x; INT8
-  paths stayed close to the original model
-- all-layer logit/loss comparison now uses only method keys available for every
-  selected layer, so models with mixed weight shapes and dynamic row-group sizes
-  do not fail on shape-specific methods such as `row_grouped_g32`
+  calibration batch, INT4 row-grouped g4 reduced the ratio to 1.21x, and capped
+  top-width rotate+scale+row g4 reduced it to 1.14x; INT8 paths stayed close to
+  the original model
+- top-width rotation fractions are capped model-wide for transformer runs:
+  requested p5/p10/p20 paths are lowered when needed so the widest selected layer
+  stays within `max_rotation_pairs=1000`; for TinyStories this produced one
+  common p3.0637% rotation path instead of skipping the 256-output MLP expansion
+  layers
 
 Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Current Milestone 3 work is to run the implemented transformer harness across the remaining planned small-model benchmark set, then compare whether the TinyStories finding survives on Pythia-14M, Pythia-70M, and DistilGPT2.
 
@@ -83,7 +86,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-198 passed
+200 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -405,7 +408,9 @@ Milestone 3 transformer quantization harness.
   merged with fixed sizes and deduplicated, so a 64-row weight produces group
   sizes [4, 32, 16] while a 256-row weight produces [4, 128, 64, 16]),
   `top_width_pair_fractions` ([0.05, 0.10, 0.20]),
-  `max_rotation_pairs` (safety cap for large models),
+  `max_rotation_pairs` (safety cap for large models; transformer runs lower
+  configured top-width fractions model-wide when needed so every selected layer
+  can run the same capped rotation paths),
   `delete_hf_cache_after` (evict HF model cache after run).
 - **Records**: `WeightRecord`, `ActivationRecord`, `LogitRecord` — each carries
   a `bitwidth` field (4 or 8) alongside `method`.
@@ -414,6 +419,12 @@ Milestone 3 transformer quantization harness.
   sizes), scale+row-grouped, top-width-rotate+scale+row-grouped — and computes
   MSE, relative Frobenius error, cosine similarity, SNR, zero fraction,
   saturation fraction, and rotation metadata per layer per (method, bitwidth).
+- **Top-width cap policy**: before an all-layer run, the harness computes the
+  widest selected layer's possible channel-pair count and lowers requested
+  `top_width_pair_fractions` as needed so `round(total_pairs * fraction)` never
+  exceeds `max_rotation_pairs`. Duplicate effective fractions are deduplicated.
+  This keeps rotation method names common across layers for full-model logit/loss
+  comparisons.
 - **Activation experiment**: registers a forward hook to capture layer inputs once,
   then analytically computes the output drift for each quantized weight without
   re-running the full model. Measures activation MSE, cosine similarity, and
@@ -487,7 +498,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-198 passed
+200 passed
 ```
 
 ## Design Conventions

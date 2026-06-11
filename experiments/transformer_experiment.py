@@ -162,6 +162,12 @@ def run_transformer_experiment(
         layers = _get_linear_layers(model)
 
     print(f"Processing {len(layers)} layer(s): {list(layers.keys())}")
+    max_total_pairs = _max_total_channel_pairs(layers)
+    top_width_pair_fractions = _effective_top_width_pair_fractions(
+        config.top_width_pair_fractions,
+        max_total_pairs=max_total_pairs,
+        max_rotation_pairs=config.max_rotation_pairs,
+    )
 
     weight_records: list[WeightRecord] = []
     activation_records: list[ActivationRecord] = []
@@ -171,7 +177,9 @@ def run_transformer_experiment(
     for layer_name, module in layers.items():
         w = _extract_weight(module)
         print(f"  {layer_name}: shape={w.shape}")
-        wr, method_deqs = _run_weight_experiment(config, layer_name, w)
+        wr, method_deqs = _run_weight_experiment(
+            config, layer_name, w, top_width_pair_fractions=top_width_pair_fractions
+        )
         weight_records.extend(wr)
         all_method_deqs[layer_name] = method_deqs
         ar = _run_activation_experiment(
@@ -222,6 +230,7 @@ def _run_weight_experiment(
     config: TransformerConfig,
     layer_name: str,
     weight: np.ndarray,
+    top_width_pair_fractions: Optional[list[float]] = None,
 ) -> tuple[list[WeightRecord], dict[tuple[str, int], np.ndarray]]:
     """Quantize weight with all configured paths and bitwidths."""
     records: list[WeightRecord] = []
@@ -231,6 +240,8 @@ def _run_weight_experiment(
     all_group_sizes = _resolve_group_sizes(
         config.row_group_sizes, config.row_group_fractions, n_rows
     )
+    if top_width_pair_fractions is None:
+        top_width_pair_fractions = config.top_width_pair_fractions
 
     def _add(
         method: str,
@@ -264,6 +275,42 @@ def _run_weight_experiment(
         )
         method_deqs[(method, bitwidth)] = deq
 
+    rotation_preps = []
+    if n_cols >= 2:
+        for p in top_width_pair_fractions:
+            n_pairs = max(1, round(total_pairs * float(p)))
+            if n_pairs > config.max_rotation_pairs:
+                print(
+                    f"    Skipping top-width rotation for {layer_name} "
+                    f"(pairs={n_pairs} > max={config.max_rotation_pairs})"
+                )
+                continue
+            tag = _fraction_tag(float(p))
+            top_rotated, rotations = rotate_top_width_pairs(
+                weight.astype(np.float64),
+                top_fraction=float(p),
+                independent=True,
+                n_search=config.rotation_search_steps,
+            )
+            top_rotated = top_rotated.astype(weight.dtype)
+            inv_rots = [
+                GivensRotation(i=rot.i, j=rot.j, theta=-rot.theta)
+                for rot in reversed(rotations)
+            ]
+            rot_frac = float(len(rotations) / total_pairs) if total_pairs > 0 else 0.0
+            top_rot_scaled, top_rot_scaling = balance_channel_max_abs(top_rotated)
+            rotation_preps.append(
+                (
+                    tag,
+                    top_rot_scaled,
+                    top_rot_scaling,
+                    inv_rots,
+                    len(rotations),
+                    rot_frac,
+                    float(p),
+                )
+            )
+
     for bw in config.bitwidths:
         # Global
         r = _q_global(weight, bw)
@@ -282,46 +329,30 @@ def _run_weight_experiment(
             _add(f"scale_row_g{g}", bw, deq, r)
 
         # Top-width rotate + scale + row-grouped
-        if n_cols >= 2:
-            for p in config.top_width_pair_fractions:
-                n_pairs = max(1, round(total_pairs * float(p)))
-                if n_pairs > config.max_rotation_pairs:
-                    print(
-                        f"    Skipping top-width rotation for {layer_name} "
-                        f"(pairs={n_pairs} > max={config.max_rotation_pairs})"
-                    )
-                    continue
-                tag = _fraction_tag(float(p))
-                top_rotated, rotations = rotate_top_width_pairs(
-                    weight.astype(np.float64),
-                    top_fraction=float(p),
-                    independent=True,
-                    n_search=config.rotation_search_steps,
+        for (
+            tag,
+            top_rot_scaled,
+            top_rot_scaling,
+            inv_rots,
+            n_rot,
+            rot_frac,
+            p,
+        ) in rotation_preps:
+            for g in all_group_sizes:
+                r = _q_row_grouped(top_rot_scaled, g, bw)
+                deq = invert_channel_scaling(r.dequantized, top_rot_scaling)
+                deq = apply_sequential_rotations(
+                    deq.astype(np.float64), inv_rots
+                ).astype(weight.dtype)
+                _add(
+                    f"top_width_rotate_{tag}_scale_row_g{g}",
+                    bw,
+                    deq,
+                    r,
+                    rot_count=n_rot,
+                    rot_frac=rot_frac,
+                    rot_cand=p,
                 )
-                top_rotated = top_rotated.astype(weight.dtype)
-                n_rot = len(rotations)
-                inv_rots = [
-                    GivensRotation(i=rot.i, j=rot.j, theta=-rot.theta)
-                    for rot in reversed(rotations)
-                ]
-                rot_frac = float(n_rot / total_pairs) if total_pairs > 0 else 0.0
-                top_rot_scaled, top_rot_scaling = balance_channel_max_abs(top_rotated)
-
-                for g in all_group_sizes:
-                    r = _q_row_grouped(top_rot_scaled, g, bw)
-                    deq = invert_channel_scaling(r.dequantized, top_rot_scaling)
-                    deq = apply_sequential_rotations(
-                        deq.astype(np.float64), inv_rots
-                    ).astype(weight.dtype)
-                    _add(
-                        f"top_width_rotate_{tag}_scale_row_g{g}",
-                        bw,
-                        deq,
-                        r,
-                        rot_count=n_rot,
-                        rot_frac=rot_frac,
-                        rot_cand=float(p),
-                    )
 
     return records, method_deqs
 
@@ -516,6 +547,16 @@ def _get_linear_layers(model) -> dict:
     return layers
 
 
+def _max_total_channel_pairs(layers: dict) -> int:
+    """Return the largest channel-pair count among selected quantized layers."""
+    max_pairs = 0
+    for module in layers.values():
+        _, n_cols = _extract_weight(module).shape
+        total_pairs = n_cols * (n_cols - 1) // 2
+        max_pairs = max(max_pairs, total_pairs)
+    return max_pairs
+
+
 def _extract_weight(module) -> np.ndarray:
     """Return weight as a contiguous float32 copy in (in_features, out_features) layout.
 
@@ -566,6 +607,24 @@ def _resolve_group_sizes(
     """Combine fixed group sizes with fraction-derived sizes, deduplicated."""
     dynamic = [max(1, round(n_rows * f)) for f in fractions]
     return list(dict.fromkeys(fixed + dynamic))
+
+
+def _effective_top_width_pair_fractions(
+    configured_fractions: list[float],
+    max_total_pairs: int,
+    max_rotation_pairs: int,
+) -> list[float]:
+    """Cap top-width fractions so every selected layer can run the same paths."""
+    if max_total_pairs <= 0 or max_rotation_pairs <= 0:
+        return []
+
+    cap_fraction = max_rotation_pairs / max_total_pairs
+    effective = [
+        min(float(fraction), cap_fraction)
+        for fraction in configured_fractions
+        if float(fraction) > 0.0
+    ]
+    return list(dict.fromkeys(effective))
 
 
 # ── CSV writers ───────────────────────────────────────────────────────────────

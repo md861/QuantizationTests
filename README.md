@@ -113,9 +113,10 @@ Completed all-layer runs:
 - `roneneldan/TinyStories-1M`: 48 compatible transformer layers quantized. INT4
   global quantization damaged full-model behavior on the built-in calibration
   batch (perplexity ratio 16.1x), while INT4 row-grouped g4 reduced the hit to
-  1.21x. INT8 paths stayed close to the original model, with logit MSE far below
-  INT4. This is the first less-degenerate transformer signal, but still uses a
-  tiny evaluation batch.
+  1.21x and capped top-width rotation+scale+row g4 reduced it further to 1.14x.
+  INT8 paths stayed close to the original model, with logit MSE far below INT4.
+  This is the first less-degenerate transformer signal, but still uses a tiny
+  evaluation batch.
 
 Remaining planned benchmark models (one model in local storage at a time):
 
@@ -151,7 +152,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-198 passed
+200 passed
 ```
 
 ## Reproduce Artifacts

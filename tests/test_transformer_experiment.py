@@ -15,6 +15,7 @@ from experiments.transformer_experiment import (
     TransformerConfig,
     WeightRecord,
     _common_method_keys,
+    _effective_top_width_pair_fractions,
     _extract_weight,
     _fraction_tag,
     _get_linear_layers,
@@ -96,6 +97,25 @@ def test_fraction_tag_integer_percent():
     assert _fraction_tag(0.05) == "p5"
     assert _fraction_tag(0.10) == "p10"
     assert _fraction_tag(0.20) == "p20"
+
+
+def test_effective_top_width_pair_fractions_cap_and_dedupe():
+    fractions = _effective_top_width_pair_fractions(
+        [0.05, 0.10, 0.20],
+        max_total_pairs=32640,
+        max_rotation_pairs=1000,
+    )
+    expected_cap = 1000 / 32640
+    assert fractions == [expected_cap]
+
+
+def test_effective_top_width_pair_fractions_preserves_uncapped_values():
+    fractions = _effective_top_width_pair_fractions(
+        [0.05, 0.10],
+        max_total_pairs=2016,
+        max_rotation_pairs=1000,
+    )
+    assert fractions == [0.05, 0.10]
 
 
 def test_top5_overlap_identical():

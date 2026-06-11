@@ -709,12 +709,18 @@ blocks. The harness found 48 compatible linear layers:
 - attention `k_proj`, `v_proj`, `q_proj`, and `out_proj` layers in each block
 - MLP `c_fc` and `c_proj` layers in each block
 
-This run produced 1472 weight records, 1472 activation records, and 10
-full-model logit/loss records. It also exposed one useful harness portability
-issue: dynamic row-group sizes depend on each layer's row count, so not every
-method name exists for every layer. The all-layer logit/loss comparison now uses
-only method keys common to every selected layer. That keeps per-layer weight and
-activation CSVs rich while making full-model swaps well-defined.
+This run produced 1008 weight records, 1008 activation records, and 14
+full-model logit/loss records. It also exposed one useful harness design issue:
+full-model logit/loss rows are easiest to interpret when the same method exists
+for every selected layer. Dynamic row-group sizes and top-width rotation counts
+can otherwise create layer-specific method names. The harness now caps
+top-width rotation fractions model-wide: it computes the widest selected layer's
+possible channel-pair count and lowers each requested fraction if needed so
+`round(total_pairs * fraction)` stays within `max_rotation_pairs=1000` for every
+layer. Duplicate effective fractions are deduplicated. For TinyStories-1M,
+requested p5/p10/p20 rotations all collapse to one common p3.0637% path, which
+allows the 256-output MLP expansion layers to participate instead of being
+skipped.
 
 The output files were written under model-specific local folders:
 
@@ -732,18 +738,20 @@ The tracked paper figure is:
 *Figure: all-layer `roneneldan/TinyStories-1M` run. MSE panels use log scale,
 and the signed loss-delta panel uses symmetric log scale. The top panels
 summarize per-layer weight reconstruction and activation drift across all
-available methods. The bottom panels show only full-model methods available for
-every selected layer; top-width rotation methods are absent there because the
-MLP expansion layers exceeded the configured rotation-pair safety cap.*
+available methods. The bottom panels use method names available for every
+selected layer, including the model-wide capped p3.0637% top-width rotation
+path.*
 
 The TinyStories result is the first less-degenerate transformer signal. INT4
 global quantization strongly damages the short-batch full-model behavior:
 perplexity rises by 16.1x and top-5 token overlap drops to 0.328. Row-grouped
 INT4 substantially reduces the damage. With group size 4, the perplexity ratio
-falls to 1.213 and top-5 overlap rises to 0.633. INT8 stays much closer to the
-original model; global INT8 has much smaller logit drift than INT4 global, and
-the small negative loss delta is best treated as noise from the tiny evaluation
-batch rather than a quality improvement.
+falls to 1.213 and top-5 overlap rises to 0.633. The capped top-width
+rotate+scale+row g4 path improves this further: perplexity ratio 1.137 and
+top-5 overlap 0.689. INT8 stays much closer to the original model; global INT8
+has much smaller logit drift than INT4 global, and the small negative loss delta
+is best treated as noise from the tiny evaluation batch rather than a quality
+improvement.
 
 **TinyStories-1M all-layer logit, loss, and perplexity summary**
 
@@ -754,17 +762,23 @@ batch rather than a quality improvement.
 | row_grouped_g16 | 4 | 1.316 | 0.4278 | +0.8066 | 2.2402 |
 | scale_row_g4 | 4 | 0.673 | 0.6333 | +0.1932 | 1.2131 |
 | scale_row_g16 | 4 | 1.316 | 0.4278 | +0.8066 | 2.2403 |
+| top_width_rotate_p3_0637_scale_row_g4 | 4 | 0.660 | 0.6889 | +0.1284 | 1.1370 |
+| top_width_rotate_p3_0637_scale_row_g16 | 4 | 1.264 | 0.4722 | +0.8105 | 2.2490 |
 | global | 8 | 0.0165 | 0.9389 | -0.0404 | 0.9604 |
 | row_grouped_g4 | 8 | 0.0020 | 0.9778 | +0.0181 | 1.0182 |
 | row_grouped_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
 | scale_row_g4 | 8 | 0.0020 | 0.9778 | +0.0180 | 1.0182 |
 | scale_row_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
+| top_width_rotate_p3_0637_scale_row_g4 | 8 | 0.0019 | 0.9778 | +0.0139 | 1.0140 |
+| top_width_rotate_p3_0637_scale_row_g16 | 8 | 0.0043 | 0.9722 | +0.0167 | 1.0168 |
 
 The aggregate weight and activation results tell the same story: row-grouped g4
 is about 19x lower than global INT4 in mean weight MSE and about 21x lower in
 mean activation MSE across the 48 layers. Scaling is effectively identical to
 plain row-grouping in this run, which matches the matrix-level finding that
-group size is the dominant variable once local row groups are available.
+group size is the dominant variable once local row groups are available. The
+capped rotation result is more nuanced: it modestly improves the all-layer g4
+full-model row, but does not rescue the coarser g16 path.
 
 ## 14. Limitations
 
