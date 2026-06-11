@@ -851,7 +851,37 @@ consistent with the matrix-level finding that scaling and fine-grained row
 grouping serve the same outlier-isolation function. Group size is again the
 dominant variable: g4 gives 1.33×, g32 gives 2.52×.
 
-### 14.3 Cross-model INT4 row_grouped_g4 progression
+### 14.3 Pythia-14M INT4 capped rotation run
+
+The first post-baseline Pythia-14M rotation run used the `pythia-14m-int4-rotation`
+preset after fixing top-width pair selection for very wide layers. The run
+completed in **240.1s (4.0 min)** and wrote 325 weight records, 325 activation
+records, and 7 full-model logit/loss rows.
+
+The configured p5/p10/p20 top-width fractions collapse to a single effective
+`p0.0001%` path on this model because `embed_out` has 50,304 output channels and
+the model-wide `max_rotation_pairs=1000` cap lowers the candidate fraction to
+`7.903757175536604e-07`. Most transformer layers selected one independent pair;
+`embed_out` selected three. This is therefore a very sparse rotation test, not a
+large rotation budget.
+
+| Method | Bits | Logit MSE | Top-5 | Delta Loss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 35.666 | 0.128 | +9.621 | 8,064,445 | 15,074 |
+| row_grouped_g4 | 4 | 0.931 | 0.706 | +0.285 | 711.30 | 1.330 |
+| row_grouped_g32 | 4 | 2.470 | 0.478 | +0.923 | 1,347.06 | 2.518 |
+| scale_row_g4 | 4 | 0.928 | 0.706 | +0.276 | 705.20 | 1.318 |
+| scale_row_g32 | 4 | 2.460 | 0.478 | +0.930 | 1,356.23 | 2.535 |
+| top_width_rotate_p0_0001_scale_row_g4 | 4 | 0.987 | 0.706 | +0.264 | 696.77 | **1.302** |
+| top_width_rotate_p0_0001_scale_row_g32 | 4 | 2.443 | 0.472 | +0.955 | 1,390.07 | 2.598 |
+
+The g4 rotation result is a modest improvement over both `scale_row_g4`
+(1.302× vs 1.318×) and raw `row_grouped_g4` (1.302× vs 1.330×). The coarser g32
+rotation path moves in the wrong direction, worsening from 2.518× to 2.598×.
+This supports a narrow interpretation: sparse rotations can slightly help the
+best fine-grouped path on Pythia-14M, but they do not rescue coarser grouping.
+
+### 14.4 Cross-model INT4 row_grouped_g4 progression
 
 | Model | Param count | Orig PPL | g4 PPL | PPL ratio |
 |---|---:|---:|---:|---:|
@@ -868,7 +898,7 @@ despite being 6x larger. This confirms that architecture and weight distribution
 shape INT4 quantization quality as much as parameter count. See Sections 15 and
 16 for full results and analysis.
 
-### 14.4 Key finding: INT8 global is not assumption-safe on 14M+ models
+### 14.5 Key finding: INT8 global is not assumption-safe on 14M+ models
 
 The Pythia-14m INT8 global result (PPL ratio 1.24) is a qualitative shift from
 the earlier runs. It establishes that:
@@ -1114,7 +1144,7 @@ These limitations are useful: they define the next experiments rather than weake
 The next research steps move from harness validation to transformer-level
 evidence on less degenerate models and evaluation text.
 
-1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). ~~`distilgpt2` baselines~~ — **complete** (Section 16). Next: rotation presets on Pythia-14m, Pythia-70m, and distilgpt2.
+1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). ~~`distilgpt2` baselines~~ — **complete** (Section 16). ~~Run the first Pythia-14M INT4 rotation preset~~ — **complete** (Section 14.3). Next: rotation presets on Pythia-70m and distilgpt2.
 2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
 3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
 4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.

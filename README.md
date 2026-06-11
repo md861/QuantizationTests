@@ -24,7 +24,7 @@ complete and documented in the research draft.
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; rotation presets next | Active |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; Pythia-14m rotation ✓, larger rotation presets next | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -120,7 +120,9 @@ Completed all-layer runs:
   INT4 baselines). First model where INT8 global is not lossless (perplexity
   ratio 1.24); INT8 row-grouped g4 restores losslessness (0.994). INT4 global is
   catastrophic (perplexity ratio 15,074x); INT4 row-grouped g4 gives 1.33x.
-  Group size 4 vs 32 is a >2x quality difference at INT4.
+  Group size 4 vs 32 is a >2x quality difference at INT4. The first capped
+  top-width rotation run completed in 240.1s and improved the best INT4 g4 path
+  slightly, from scale_row_g4 PPLx 1.318 to rotate+scale_row_g4 PPLx 1.302.
 - `EleutherAI/pythia-70m`: 45 compatible transformer layers quantized (INT8 and
   INT4 baselines, ~13 min each). INT8 global degrades further (PPL ratio 1.44);
   INT8 g4 remains lossless (0.971). INT4 global catastrophic (~501 trillion PPLx);
@@ -137,8 +139,8 @@ Completed all-layer runs:
   quality; distilgpt2 quantizes 7x better than Pythia-70m at INT4 g4 despite
   being larger.
 
-All planned baseline models complete. Next: rotation presets on Pythia-14m,
-Pythia-70m, and distilgpt2.
+All planned baseline models and the Pythia-14m rotation preset are complete.
+Next: rotation presets on Pythia-70m and distilgpt2.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 all remaining models. Always launch from a detached tmux session with

@@ -62,6 +62,12 @@ Implemented so far:
   models; INT8 row_grouped_g4 restores losslessness (PPL ratio 0.994); INT4
   global is catastrophic (PPL ratio 15,074); INT4 row_grouped_g4 gives 1.33x
   and scale_row_g4 gives 1.32x; g32 is 2.52x worse than g4 for INT4
+- `EleutherAI/pythia-14m` INT4 capped top-width rotation run complete (25 layers,
+  325 weight records, 325 activation records, 7 logit/loss records): elapsed
+  240.1s (4.0 min); the effective model-wide rotation candidate fraction was
+  p0.0001% because `embed_out` has 50,304 output channels; rotate+scale_row_g4
+  modestly improved PPLx to 1.302 vs scale_row_g4 1.318 and row_grouped_g4 1.330,
+  while rotate+scale_row_g32 worsened to 2.598 vs row_grouped_g32 2.518
 - `EleutherAI/pythia-70m` INT8 and INT4 baseline runs complete (225 weight
   records, 225 activation records, 5 logit/loss records each): INT8 global
   worse than 14m (PPL ratio 1.44 vs 1.24); INT8 g4 lossless (0.971); INT4
@@ -91,7 +97,7 @@ Implemented so far:
   common p3.0637% rotation path instead of skipping the 256-output MLP expansion
   layers
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. All planned baseline models complete (tiny-gpt2, TinyStories-1M, Pythia-14m, Pythia-70m, distilgpt2). Next step: rotation presets on Pythia-14m, Pythia-70m, and distilgpt2. Always use `tmux new-session -d -s bench` and append `; tmux kill-session -t bench`. Expect several minutes for Pythia-14m rotation, not 30s; the best current estimate is ~4-6 min after the wide-layer selector fix. Expect ~13-15 min for Pythia-70m and ~11-13 min for distilgpt2 before adding rotation overhead.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. All planned baseline models complete (tiny-gpt2, TinyStories-1M, Pythia-14m, Pythia-70m, distilgpt2), and the Pythia-14m rotation preset is complete. Next step: rotation presets on Pythia-70m and distilgpt2. Always use `tmux new-session -d -s bench` and append `; tmux kill-session -t bench`. Based on current timings, expect ~13-15 min for Pythia-70m and ~11-13 min for distilgpt2 before adding rotation overhead.
 
 ## Environment
 
@@ -162,13 +168,14 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | EleutherAI/pythia-14m | 14M | 25 | INT8 | none | ~3 min | file-timestamp estimate |
 | EleutherAI/pythia-14m | 14M | 25 | INT4 | none | ~3.5 min | file-timestamp estimate |
 | EleutherAI/pythia-14m | 14M | 25 | INT4 | p0.0001% effective | failed before fix | old selector enumerated ~1.26B `embed_out` pairs and stalled at 24/25 layers |
+| EleutherAI/pythia-14m | 14M | 25 | INT4 | p0.0001% effective | 240.1s (4.0 min) | elapsed from runner log after wide-layer selector fix |
 | EleutherAI/pythia-70m | 70M | 45 | INT8 | none | ~798s (13.3 min) | file-timestamp estimate; elapsed line missed (run predates timer fix) |
 | EleutherAI/pythia-70m | 70M | 45 | INT4 | none | 780s (13.0 min) | elapsed from runner log |
 | distilgpt2 | 82M | 24 | INT8 | none | 705s (11.8 min) | elapsed from runner log |
 | distilgpt2 | 82M | 24 | INT4 | none | 679s (11.3 min) | elapsed from runner log |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
-(25 layers), Pythia-14m rotation ~4-6 min after the wide-layer selector fix,
+(25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
 Pythia-70m ~13 min (45 layers), distilgpt2 ~11-12 min (24 layers). Runtime
 scales with layer count, not parameter count — distilgpt2 is faster than Pythia-70m
 despite being larger because it has fewer compatible linear layers (24 vs 45).

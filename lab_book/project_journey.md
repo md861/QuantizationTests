@@ -4169,3 +4169,92 @@ Result:
 ```text
 81 passed, 1 warning in 7.73s
 ```
+
+---
+
+## Session: 2026-06-12 — Pythia-14m INT4 rotation run complete
+
+### Command
+
+Ran the corrected detached tmux command:
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-14m-int4-rotation --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/pythia14m_int4_rotation.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+The run auto-reset the partial CSVs, passed the previous `24/25` failure point,
+processed `embed_out`, completed the logit phase, and self-closed tmux.
+
+### Timing
+
+Runner log:
+
+```text
+elapsed: 240.1s (4.0min)
+```
+
+Benchmark Run Timings table updated with this row.
+
+### Outputs
+
+- `results/transformer_pythia_14m_int4_rotation/transformer_weight_metrics.csv`
+- `results/transformer_pythia_14m_int4_rotation/transformer_activation_metrics.csv`
+- `results/transformer_pythia_14m_int4_rotation/transformer_logit_metrics.csv`
+
+Counts:
+
+```text
+counts weight=325 activation=325 logit=7
+```
+
+The run used 25 compatible layers. The common full-model logit methods were:
+`global`, `row_grouped_g4`, `row_grouped_g32`, `scale_row_g4`, `scale_row_g32`,
+`top_width_rotate_p0_0001_scale_row_g4`, and
+`top_width_rotate_p0_0001_scale_row_g32`.
+
+The configured p5/p10/p20 fractions collapsed to one effective
+`p0.0001%` path because `embed_out` has 50,304 output channels and the model-wide
+`max_rotation_pairs=1000` cap forces
+`rotation_candidate_fraction=7.903757175536604e-07`. Actual rotation counts were
+small: one independent pair on most transformer layers and three pairs on
+`embed_out`.
+
+### Full-model result
+
+| Method | Bits | Logit MSE | Top-5 | Delta Loss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 35.666 | 0.128 | +9.621 | 8,064,445 | 15,074 |
+| row_grouped_g4 | 4 | 0.931 | 0.706 | +0.285 | 711.30 | 1.330 |
+| row_grouped_g32 | 4 | 2.470 | 0.478 | +0.923 | 1,347.06 | 2.518 |
+| scale_row_g4 | 4 | 0.928 | 0.706 | +0.276 | 705.20 | 1.318 |
+| scale_row_g32 | 4 | 2.460 | 0.478 | +0.930 | 1,356.23 | 2.535 |
+| top_width_rotate_p0_0001_scale_row_g4 | 4 | 0.987 | 0.706 | +0.264 | 696.77 | **1.302** |
+| top_width_rotate_p0_0001_scale_row_g32 | 4 | 2.443 | 0.472 | +0.955 | 1,390.07 | 2.598 |
+
+Interpretation:
+- The selector fix worked; the old `embed_out` blow-up is gone.
+- Capped rotation gives a modest improvement at g4: PPLx 1.302 vs scale_row_g4
+  1.318 and row_grouped_g4 1.330.
+- Capped rotation worsens the coarser g32 path: 2.598 vs row_grouped_g32 2.518.
+- The useful signal is small, but directionally consistent with TinyStories:
+  rotation can slightly help the strongest fine-grouped path while not rescuing
+  coarse grouping.
+
+### Next command
+
+Next target: `pythia-70m-int4-rotation`. Based on baseline timing, tell the user
+to expect at least ~13-15 min before rotation overhead.
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-70m-int4-rotation --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/pythia70m_int4_rotation.log \
+  ; tmux kill-session -t bench" Enter
+```
