@@ -755,6 +755,8 @@ improvement.
 
 **TinyStories-1M all-layer logit, loss, and perplexity summary**
 
+Bold rows mark the lowest perplexity ratio within each bitwidth.
+
 | Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL ratio |
 |---|---:|---:|---:|---:|---:|
 | global | 4 | 4.657 | 0.3278 | +2.7797 | 16.1149 |
@@ -762,15 +764,20 @@ improvement.
 | row_grouped_g16 | 4 | 1.316 | 0.4278 | +0.8066 | 2.2402 |
 | scale_row_g4 | 4 | 0.673 | 0.6333 | +0.1932 | 1.2131 |
 | scale_row_g16 | 4 | 1.316 | 0.4278 | +0.8066 | 2.2403 |
-| top_width_rotate_p3_0637_scale_row_g4 | 4 | 0.660 | 0.6889 | +0.1284 | 1.1370 |
+| **top_width_rotate_p3_0637_scale_row_g4** | **4** | **0.660** | **0.6889** | **+0.1284** | **1.1370** |
 | top_width_rotate_p3_0637_scale_row_g16 | 4 | 1.264 | 0.4722 | +0.8105 | 2.2490 |
-| global | 8 | 0.0165 | 0.9389 | -0.0404 | 0.9604 |
+| **global** | **8** | **0.0165** | **0.9389** | **-0.0404** | **0.9604** |
 | row_grouped_g4 | 8 | 0.0020 | 0.9778 | +0.0181 | 1.0182 |
 | row_grouped_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
 | scale_row_g4 | 8 | 0.0020 | 0.9778 | +0.0180 | 1.0182 |
 | scale_row_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
 | top_width_rotate_p3_0637_scale_row_g4 | 8 | 0.0019 | 0.9778 | +0.0139 | 1.0140 |
 | top_width_rotate_p3_0637_scale_row_g16 | 8 | 0.0043 | 0.9722 | +0.0167 | 1.0168 |
+
+The highlighted INT8 global row should not be interpreted as quantization
+improving the model; its below-1.0 perplexity ratio is likely small-batch noise.
+Among row-grouped/rotation INT8 paths, capped rotation g4 has the lowest
+perplexity ratio.
 
 The aggregate weight and activation results tell the same story: row-grouped g4
 is about 19x lower than global INT4 in mean weight MSE and about 21x lower in
