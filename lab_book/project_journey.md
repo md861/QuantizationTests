@@ -2921,3 +2921,41 @@ global                                   1.0000      0.7314
 - Per-channel scaling collapses from 0.531 (32×32) to 0.845 (320×320): with random scatter, almost every column has outliers, leaving no columns for scaling to balance
 - Column-grouped converges toward global (0.90–0.94) at all group sizes with random scatter
 - Group size remains the dominant variable for row-grouped across both scales
+
+## 2026-06-11 — Handover Diagnostic Refresh
+
+Ran the handover diagnostic: checked branch state, recent commits, project summary,
+README, latest lab-book entries, stale milestone wording, generated-artifact
+references, and the full test suite.
+
+### Verified State
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+157 passed in 13.98s
+```
+
+The repo is synced with `origin/main` before this documentation refresh. Recent
+work since the grouped-quantization checkpoint includes row-grouped quantization,
+the comparative sweep experiment, the 320×320 sweep, and sweep dashboard figures
+for the research draft.
+
+### Stale States Found
+
+- `project_summary.md` still described Milestone 2 as "underway" and only named
+  the first rotation/scaling experiment.
+- `README.md` marked Milestone 3 as "Active" while the codebase has not yet added
+  transformer integration. Milestone 3 is now described as the next step.
+- The handover-diagnostic shorthand existed historically in this lab book, but
+  was not yet formalized in the working protocol.
+
+### Updates
+
+Updated the README and project summary so Milestone 2 is consistently complete
+and Milestone 3 is consistently the next research step. Added the formal
+**Handover Diagnostic** shorthand to `project_summary.md` for future agents.

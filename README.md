@@ -6,10 +6,11 @@ Quantization Lab is a research-oriented educational sandbox for seeing how low-b
 quantization changes matrices, spectra, and reconstruction error.
 
 The project starts at matrix level before scaling toward transformer models.
-Milestone 1 (quantization sandbox) is complete. Milestone 2 (ParoQuant core)
-is now complete: pairwise Givens rotations, per-channel scaling, column-grouped
-and row-grouped quantization, the rotation/scaling experiment, and a full
-comparative sweep across all quantization paths are all implemented and tested.
+Milestone 1 (quantization sandbox) and Milestone 2 (ParoQuant core) are
+complete: pairwise Givens rotations, per-channel scaling, column-grouped and
+row-grouped quantization, the rotation/scaling experiment, and a full
+comparative sweep across all quantization paths are implemented and tested.
+Milestone 3 (tiny transformer integration) is the next research step.
 
 ## Project Roadmap
 
@@ -17,7 +18,7 @@ comparative sweep across all quantization paths are all implemented and tested.
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Active |
+| 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Next |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -41,9 +42,9 @@ comparative sweep across all quantization paths are all implemented and tested.
 | Comparative sweep experiment | Complete |
 | Transformer integration | Next |
 
-## Current Milestone
+## Completed Milestone 2
 
-Milestone 2 implements the ParoQuant core — transformations applied before
+Milestone 2 implemented the ParoQuant core: transformations applied before
 quantization to reduce outlier pressure:
 
 - **Pairwise Givens rotations** (`quant/rotations.py`): rotate any column pair
@@ -75,6 +76,10 @@ quantization to reduce outlier pressure:
   and a 4-panel `plots/sweep_dashboard.png`. Key finding: row-grouped and
   rotate+scale+row-grouped are the only paths that consistently beat global INT4
   for row-localised outliers; column-grouped gives no improvement at any group size.
+
+The next milestone is tiny transformer integration: apply the best current
+matrix-level path to tiny-gpt2 or DistilGPT2, then measure perplexity,
+activation drift, and output similarity.
 
 Milestone 1 built the quantization sandbox:
 

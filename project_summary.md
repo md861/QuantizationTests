@@ -4,7 +4,11 @@ This is the compact handoff document for resuming work on the Quantization Lab r
 
 ## Current State
 
-Milestone 1 is complete. Milestone 2 (ParoQuant Core) is underway: pairwise Givens rotations, per-channel scaling, grouped quantization, and the first rotation/scaling experiment are implemented and tested.
+Milestone 1 and Milestone 2 are complete at matrix level. Milestone 2
+(ParoQuant Core) now includes pairwise Givens rotations, per-channel scaling,
+column-grouped quantization, row-grouped quantization, the rotation/scaling
+experiment, and comparative sweeps across the implemented quantization paths.
+Milestone 3 (tiny transformer integration) is the next research step.
 
 Implemented so far:
 
@@ -19,8 +23,9 @@ Implemented so far:
 - integration and repository-hygiene tests
 - pairwise Givens rotation utilities (`quant/rotations.py`)
 - per-channel scaling utilities (`quant/scaling.py`)
-- grouped symmetric quantization utilities
+- grouped symmetric quantization utilities, including column-grouped and row-grouped paths
 - rotation/scaling experiment comparing four INT4 preprocessing paths
+- comparative sweep experiment comparing global, grouped, scaled, rotated, and combined INT4 paths
 - living research-paper draft in `docs/research_draft.md`
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
@@ -76,6 +81,7 @@ If another coding agent resumes this project, the safest order is:
 7. Keep docs in sync with code changes, especially this summary and the lab book, so handoff remains easy.
 8. **Always update `README.md` before every commit and push.** The README is the public-facing entry point on GitHub and must never be stale. At minimum check: milestone statuses, progress table rows, current-milestone description, and the expected test count. Treat a stale README as a broken handoff.
 9. **Keep the research draft current before every commit and push when the work changes the research story.** Update `docs/research_draft.md` with new findings, examples, caveats, and figure references. Copy any paper-ready figure resources into `docs/figures/` and commit them with the draft. Do not rely on ignored `plots/` artifacts for GitHub-visible paper figures.
+10. **Handover Diagnostic shorthand.** When the user says "handover diagnostic", do this checklist: read `project_summary.md`, skim the latest `lab_book/project_journey.md` entry, check `git status --short --branch`, inspect recent commits with `git log --oneline -12`, verify the test suite, search docs for stale milestone/test-count/output references, then report what changed since the last session, current stale states, and the next recommended step.
 
 Typical publish flow:
 
@@ -430,7 +436,7 @@ The living paper-style draft is:
 docs/research_draft.md
 ```
 
-It currently summarizes the matrix-level sandbox, INT8/INT4 examples, metrics, outlier failure modes, result-analysis dashboards, rotation/scaling tests, and current Milestone 2 findings. Tracked paper figures live under `docs/figures/`. Keep claims cautious unless they are supported by sweeps or repeated evidence.
+It currently summarizes the matrix-level sandbox, INT8/INT4 examples, metrics, outlier failure modes, result-analysis dashboards, rotation/scaling tests, row-grouped quantization, and Milestone 2 sweep findings. Tracked paper figures live under `docs/figures/`. Keep claims cautious unless they are supported by sweeps or repeated evidence.
 
 ## Current Baseline Result
 
