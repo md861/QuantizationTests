@@ -755,7 +755,9 @@ improvement.
 
 **TinyStories-1M all-layer logit, loss, and perplexity summary**
 
-Bold rows mark the lowest perplexity ratio within each bitwidth.
+Bold rows mark the best rotation/grouping story within each bitwidth. The red
+INT8 global row marks the lowest PPL ratio, but it is treated as small-batch
+noise rather than a real improvement.
 
 | Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL ratio |
 |---|---:|---:|---:|---:|---:|
@@ -766,12 +768,12 @@ Bold rows mark the lowest perplexity ratio within each bitwidth.
 | scale_row_g16 | 4 | 1.316 | 0.4278 | +0.8066 | 2.2403 |
 | **top_width_rotate_p3_0637_scale_row_g4** | **4** | **0.660** | **0.6889** | **+0.1284** | **1.1370** |
 | top_width_rotate_p3_0637_scale_row_g16 | 4 | 1.264 | 0.4722 | +0.8105 | 2.2490 |
-| **global** | **8** | **0.0165** | **0.9389** | **-0.0404** | **0.9604** |
+| <span style="color:red">**global**</span> | <span style="color:red">**8**</span> | <span style="color:red">**0.0165**</span> | <span style="color:red">**0.9389**</span> | <span style="color:red">**-0.0404**</span> | <span style="color:red">**0.9604**</span> |
 | row_grouped_g4 | 8 | 0.0020 | 0.9778 | +0.0181 | 1.0182 |
 | row_grouped_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
 | scale_row_g4 | 8 | 0.0020 | 0.9778 | +0.0180 | 1.0182 |
 | scale_row_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
-| top_width_rotate_p3_0637_scale_row_g4 | 8 | 0.0019 | 0.9778 | +0.0139 | 1.0140 |
+| **top_width_rotate_p3_0637_scale_row_g4** | **8** | **0.0019** | **0.9778** | **+0.0139** | **1.0140** |
 | top_width_rotate_p3_0637_scale_row_g16 | 8 | 0.0043 | 0.9722 | +0.0167 | 1.0168 |
 
 The highlighted INT8 global row should not be interpreted as quantization
