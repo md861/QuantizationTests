@@ -15,6 +15,8 @@ Config knobs:
   top_width_pair_fractions — fractions of channel pairs for sparse rotations
                              (e.g. [0.05, 0.10, 0.20])
   single_layer_name      — quantize one named layer only; None = all layers
+  local_files_only       — load Hugging Face artifacts from local cache only
+  incremental_results    — append CSV records during the run for partial recovery
   delete_hf_cache_after  — evict model from HF cache after the run (one model
                            at a time on constrained hardware)
 """
@@ -81,6 +83,8 @@ class TransformerConfig:
     results_dir: Path = field(default_factory=lambda: Path("results"))
     plots_dir: Path = field(default_factory=lambda: Path("plots"))
     save_plots: bool = True
+    local_files_only: bool = False
+    incremental_results: bool = False
     delete_hf_cache_after: bool = False
 
 
@@ -142,8 +146,14 @@ def run_transformer_experiment(
     tuples to avoid collisions when the same method runs at multiple bitwidths.
     """
     print(f"Loading {config.model_name}...")
-    model = AutoModelForCausalLM.from_pretrained(config.model_name)
-    tokenizer = AutoTokenizer.from_pretrained(config.model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        config.model_name,
+        local_files_only=config.local_files_only,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        config.model_name,
+        local_files_only=config.local_files_only,
+    )
     model.eval()
 
     if tokenizer.pad_token is None:
@@ -172,6 +182,12 @@ def run_transformer_experiment(
     weight_records: list[WeightRecord] = []
     activation_records: list[ActivationRecord] = []
     config.results_dir.mkdir(parents=True, exist_ok=True)
+    weight_csv_path = config.results_dir / "transformer_weight_metrics.csv"
+    activation_csv_path = config.results_dir / "transformer_activation_metrics.csv"
+    logit_csv_path = config.results_dir / "transformer_logit_metrics.csv"
+    if config.incremental_results:
+        _reset_incremental_csvs(weight_csv_path, activation_csv_path, logit_csv_path)
+
     method_keys_by_layer: dict[str, dict[tuple[str, int], None]] = {}
 
     for layer_name, module in layers.items():
@@ -194,6 +210,9 @@ def run_transformer_experiment(
             config.model_name,
         )
         activation_records.extend(ar)
+        if config.incremental_results:
+            _append_weight_csv(weight_csv_path, wr)
+            _append_activation_csv(activation_csv_path, ar)
         method_keys_by_layer[layer_name] = dict.fromkeys(method_deqs)
         del method_deqs
 
@@ -210,17 +229,13 @@ def run_transformer_experiment(
         method_keys_by_layer,
         scope,
         top_width_pair_fractions=top_width_pair_fractions,
+        incremental_logit_path=logit_csv_path if config.incremental_results else None,
     )
 
-    _write_weight_csv(
-        config.results_dir / "transformer_weight_metrics.csv", weight_records
-    )
-    _write_activation_csv(
-        config.results_dir / "transformer_activation_metrics.csv", activation_records
-    )
-    _write_logit_csv(
-        config.results_dir / "transformer_logit_metrics.csv", logit_records
-    )
+    if not config.incremental_results:
+        _write_weight_csv(weight_csv_path, weight_records)
+        _write_activation_csv(activation_csv_path, activation_records)
+        _write_logit_csv(logit_csv_path, logit_records)
 
     if config.save_plots:
         config.plots_dir.mkdir(parents=True, exist_ok=True)
@@ -446,6 +461,7 @@ def _run_logit_experiment(
     method_keys_by_layer: dict[str, dict[tuple[str, int], object]],
     scope: str,
     top_width_pair_fractions: Optional[list[float]] = None,
+    incremental_logit_path: Optional[Path] = None,
 ) -> list[LogitRecord]:
     """Run full-model passes while regenerating one method's weights at a time."""
     orig_logits, orig_loss = _forward_pass(model, token_inputs)
@@ -483,23 +499,24 @@ def _run_logit_experiment(
         top5 = _top5_overlap(orig_logits, q_logits)
         q_perplexity = math.exp(q_loss)
 
-        records.append(
-            LogitRecord(
-                model_name=config.model_name,
-                scope=scope,
-                method=method,
-                bitwidth=bitwidth,
-                logit_mse=logit_mse,
-                logit_cosine_similarity=logit_cos,
-                top5_token_overlap=top5,
-                loss=q_loss,
-                original_loss=orig_loss,
-                loss_delta=q_loss - orig_loss,
-                perplexity=q_perplexity,
-                original_perplexity=orig_perplexity,
-                perplexity_ratio=q_perplexity / orig_perplexity,
-            )
+        record = LogitRecord(
+            model_name=config.model_name,
+            scope=scope,
+            method=method,
+            bitwidth=bitwidth,
+            logit_mse=logit_mse,
+            logit_cosine_similarity=logit_cos,
+            top5_token_overlap=top5,
+            loss=q_loss,
+            original_loss=orig_loss,
+            loss_delta=q_loss - orig_loss,
+            perplexity=q_perplexity,
+            original_perplexity=orig_perplexity,
+            perplexity_ratio=q_perplexity / orig_perplexity,
         )
+        records.append(record)
+        if incremental_logit_path is not None:
+            _append_logit_csv(incremental_logit_path, [record])
 
     return records
 
@@ -733,51 +750,75 @@ def _effective_top_width_pair_fractions(
 
 # ── CSV writers ───────────────────────────────────────────────────────────────
 
+_WEIGHT_CSV_FIELDS = [
+    "model_name", "layer_name", "weight_shape", "method", "bitwidth",
+    "rotation_count", "rotation_pair_fraction", "rotation_candidate_fraction",
+    "mse", "relative_frobenius_error", "cosine_similarity",
+    "snr_db", "zero_fraction", "saturation_fraction",
+]
+
+_ACTIVATION_CSV_FIELDS = [
+    "model_name", "layer_name", "method", "bitwidth",
+    "activation_mse", "activation_cosine_similarity", "activation_relative_error",
+]
+
+_LOGIT_CSV_FIELDS = [
+    "model_name", "scope", "method", "bitwidth",
+    "logit_mse", "logit_cosine_similarity", "top5_token_overlap",
+    "loss", "original_loss", "loss_delta",
+    "perplexity", "original_perplexity", "perplexity_ratio",
+]
+
 
 def _write_weight_csv(path: Path, records: list[WeightRecord]) -> None:
-    if not records:
-        return
-    fields = [
-        "model_name", "layer_name", "weight_shape", "method", "bitwidth",
-        "rotation_count", "rotation_pair_fraction", "rotation_candidate_fraction",
-        "mse", "relative_frobenius_error", "cosine_similarity",
-        "snr_db", "zero_fraction", "saturation_fraction",
-    ]
-    with path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader()
-        for r in records:
-            w.writerow({k: getattr(r, k) for k in fields})
+    _write_records_csv(path, _WEIGHT_CSV_FIELDS, records)
 
 
 def _write_activation_csv(path: Path, records: list[ActivationRecord]) -> None:
-    if not records:
-        return
-    fields = [
-        "model_name", "layer_name", "method", "bitwidth",
-        "activation_mse", "activation_cosine_similarity", "activation_relative_error",
-    ]
-    with path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader()
-        for r in records:
-            w.writerow({k: getattr(r, k) for k in fields})
+    _write_records_csv(path, _ACTIVATION_CSV_FIELDS, records)
 
 
 def _write_logit_csv(path: Path, records: list[LogitRecord]) -> None:
+    _write_records_csv(path, _LOGIT_CSV_FIELDS, records)
+
+
+def _append_weight_csv(path: Path, records: list[WeightRecord]) -> None:
+    _append_records_csv(path, _WEIGHT_CSV_FIELDS, records)
+
+
+def _append_activation_csv(path: Path, records: list[ActivationRecord]) -> None:
+    _append_records_csv(path, _ACTIVATION_CSV_FIELDS, records)
+
+
+def _append_logit_csv(path: Path, records: list[LogitRecord]) -> None:
+    _append_records_csv(path, _LOGIT_CSV_FIELDS, records)
+
+
+def _write_records_csv(path: Path, fields: list[str], records: list[object]) -> None:
     if not records:
         return
-    fields = [
-        "model_name", "scope", "method", "bitwidth",
-        "logit_mse", "logit_cosine_similarity", "top5_token_overlap",
-        "loss", "original_loss", "loss_delta",
-        "perplexity", "original_perplexity", "perplexity_ratio",
-    ]
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         for r in records:
             w.writerow({k: getattr(r, k) for k in fields})
+
+
+def _append_records_csv(path: Path, fields: list[str], records: list[object]) -> None:
+    if not records:
+        return
+    write_header = not path.exists() or path.stat().st_size == 0
+    with path.open("a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        if write_header:
+            w.writeheader()
+        for r in records:
+            w.writerow({k: getattr(r, k) for k in fields})
+
+
+def _reset_incremental_csvs(*paths: Path) -> None:
+    for path in paths:
+        path.unlink(missing_ok=True)
 
 
 # ── dashboard ─────────────────────────────────────────────────────────────────

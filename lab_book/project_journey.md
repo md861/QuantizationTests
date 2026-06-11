@@ -3740,3 +3740,71 @@ The next agent should implement the benchmark runner/preflight detour before
 running Pythia again. Treat a successful tiny-gpt2 smoke test as evidence that
 the streaming implementation works, but not as evidence that the WSL2/editor
 disconnect problem is fully solved.
+
+---
+
+## 2026-06-11 — Detour implementation: safer transformer benchmark runner
+
+### Change
+
+Implemented the disconnect-mitigation runner and supporting harness options:
+
+- Added `experiments/run_transformer_benchmark.py` with conservative presets:
+  `tiny-gpt2-smoke`, `pythia-14m-int8-baseline`,
+  `pythia-14m-int4-baseline`, `pythia-70m-int8-baseline`, and
+  `pythia-70m-int4-baseline`.
+- Added runner options:
+  - `--download-only` to prepare Hugging Face artifacts before the heavy run;
+  - `--local-files-only` to avoid surprise network calls during cached runs;
+  - `--torch-threads N` to throttle Torch CPU usage inside WSL2;
+  - `--no-incremental-results` to opt out of default incremental CSV writing.
+- Extended `TransformerConfig` with:
+  - `local_files_only`, passed through to model/tokenizer `from_pretrained`;
+  - `incremental_results`, which appends weight, activation, and logit CSV rows
+    during the run instead of waiting until the end.
+
+The runner defaults to incremental CSVs for the heavy presets, so a dropped
+editor connection or interrupted run should leave completed records on disk.
+
+### Verification
+
+```bash
+.venv/bin/python -m pytest tests/test_run_transformer_benchmark.py tests/test_transformer_experiment.py
+```
+
+```text
+42 passed, 1 warning in 10.64s
+```
+
+Full suite after the runner and incremental-results changes:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+```text
+206 passed, 1 warning in 21.74s
+```
+
+### Next commands
+
+Run these from a standalone WSL terminal or `tmux`, not from the VS Code/Codex
+interactive path:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --download-only
+```
+
+Then run from cache with CPU throttling:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --local-files-only --torch-threads 2
+```
+
+If that succeeds, repeat with:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int4-baseline --local-files-only --torch-threads 2
+```
+
+Keep rotations disabled until both baseline Pythia-14M runs are stable.

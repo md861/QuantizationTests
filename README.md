@@ -126,6 +126,15 @@ Remaining planned benchmark models (one model in local storage at a time):
 | `EleutherAI/pythia-70m` | 70M |
 | `distilgpt2` | 82M |
 
+For Pythia runs, use the safer benchmark runner instead of an ad hoc inline
+Python command. It supports pre-downloads, cached/offline runs, CPU throttling,
+and incremental CSV output:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --download-only
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --local-files-only --torch-threads 2
+```
+
 Milestone 1 built the quantization sandbox:
 
 - matrix generation for Gaussian, heavy-tailed, and outlier-heavy data

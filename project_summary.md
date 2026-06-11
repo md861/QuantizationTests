@@ -86,7 +86,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-200 passed
+206 passed, 1 warning
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -411,6 +411,10 @@ Milestone 3 transformer quantization harness.
   `max_rotation_pairs` (safety cap for large models; transformer runs lower
   configured top-width fractions model-wide when needed so every selected layer
   can run the same capped rotation paths),
+  `local_files_only` (load Hugging Face model/tokenizer artifacts from cache
+  only),
+  `incremental_results` (append CSV rows during the run so partial long runs
+  preserve completed records),
   `delete_hf_cache_after` (evict HF model cache after run).
 - **Records**: `WeightRecord`, `ActivationRecord`, `LogitRecord` — each carries
   a `bitwidth` field (4 or 8) alongside `method`.
@@ -444,6 +448,35 @@ Milestone 3 transformer quantization harness.
 - **Hardware note**: `lm_head` is excluded from quantization (embedding-tied,
   not a typical quantization target). Set `max_rotation_pairs` (default 1000) to
   avoid slow top-width rotation on large weight matrices in bigger models.
+
+### `experiments/run_transformer_benchmark.py`
+
+Safer runner for the temporary Pythia disconnect detour. It wraps
+`run_transformer_experiment` with conservative named presets, explicit
+Hugging Face cache modes, CPU-thread throttling, and incremental CSV output.
+
+Current presets:
+
+- `tiny-gpt2-smoke`
+- `pythia-14m-int8-baseline`
+- `pythia-14m-int4-baseline`
+- `pythia-70m-int8-baseline`
+- `pythia-70m-int4-baseline`
+
+Important options:
+
+- `--download-only`: prepare Hugging Face model/tokenizer artifacts and exit.
+- `--local-files-only`: require cached Hugging Face files during the run.
+- `--torch-threads N`: call `torch.set_num_threads(N)` and set
+  `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, and `TORCH_NUM_THREADS` for the process.
+- `--no-incremental-results`: opt out of the default incremental CSV append.
+
+Recommended Pythia flow:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --download-only
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --local-files-only --torch-threads 2
+```
 
 ### `experiments/rotation_experiment.py`
 
@@ -500,8 +533,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-Focused transformer suite: 37 passed, 1 warning
-Full suite before the streaming-logit refactor: 200 passed
+206 passed, 1 warning
 ```
 
 ## Design Conventions
@@ -554,36 +586,24 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-The transformer harness is implemented and now uses streaming logit/loss
-evaluation to avoid storing a full dequantized layer/method grid.
+The transformer harness now uses streaming logit/loss evaluation and the
+temporary Pythia disconnect detour runner is implemented.
 
-Temporary priority before continuing Milestone 3: harden the Pythia benchmark
-workflow to mitigate VS Code/Codex disconnects in WSL2. Implement a dedicated
-runner/preflight path before attempting more Pythia runs:
+Next steps:
 
-1. Add `experiments/run_transformer_benchmark.py` with conservative named presets
-   such as `pythia-14m-int8-baseline`, `pythia-14m-int4-baseline`, and
-   `pythia-70m-int8-baseline`.
-2. Add `--download-only`, `--local-files-only`, and `--torch-threads` options so
-   model download/cache population, offline cached runs, and CPU throttling are
-   explicit.
-3. Add checkpointing or incremental CSV append so partial long runs preserve
-   completed records.
-4. Document WSL guidance: use standalone WSL terminal or `tmux`, pre-download
-   models, start with INT8/no-rotation presets, and clear Hugging Face cache only
-   after successful runs.
-5. After the runner is in place, run the conservative Pythia-14M baseline before
-   the full default benchmark: `bitwidths=[8]`, `top_width_pair_fractions=[]`,
-   `save_plots=False`, and `delete_hf_cache_after=False`.
-6. If that succeeds, repeat Pythia-14M with `bitwidths=[4]` and rotations still
-   disabled. Add capped rotations only after the baseline paths are stable.
-7. Continue the remaining planned benchmark models one at a time:
+1. From a standalone WSL terminal or `tmux`, pre-download the Pythia-14M preset:
+   `MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --download-only`
+2. Run the conservative cached baseline:
+   `MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --local-files-only --torch-threads 2`
+3. If that succeeds, repeat Pythia-14M with `pythia-14m-int4-baseline`.
+4. Add capped rotations only after the baseline paths are stable.
+5. Continue the remaining planned benchmark models one at a time:
    `EleutherAI/pythia-70m`, `distilgpt2`.
-8. Add a larger held-out text batch for loss/perplexity evaluation.
-9. Extend the Milestone 3 research section in `docs/research_draft.md` to compare whether
+6. Add a larger held-out text batch for loss/perplexity evaluation.
+7. Extend the Milestone 3 research section in `docs/research_draft.md` to compare whether
    the matrix-level findings (row-grouped dominates, scaling degrades with large
    models, rotation adds marginal benefit) survive on real weights.
-10. Commit tracked figures to `docs/figures/` when the section is ready.
+8. Commit tracked figures to `docs/figures/` when the section is ready.
 
 Acceptance check for Milestone 2 artifacts:
 
