@@ -55,13 +55,23 @@ Implemented so far:
   calibration batch, INT4 row-grouped g4 reduced the ratio to 1.21x, and capped
   top-width rotate+scale+row g4 reduced it to 1.14x; INT8 paths stayed close to
   the original model
+- `EleutherAI/pythia-14m` INT8 and INT4 baseline runs complete (225 weight
+  records, 225 activation records, 5 logit/loss records each): INT8 global is
+  NOT lossless here (PPL ratio 1.24, top-5 overlap 0.672), unlike the smaller
+  models; INT8 row_grouped_g4 restores losslessness (PPL ratio 0.994); INT4
+  global is catastrophic (PPL ratio 15,074); INT4 row_grouped_g4 gives 1.33x
+  and scale_row_g4 gives 1.32x; g32 is 2.52x worse than g4 for INT4
+- safer benchmark runner at `experiments/run_transformer_benchmark.py` with
+  disconnect-safe presets, `--local-files-only`, `--torch-threads`, `--download-only`,
+  and incremental CSV writes; run all heavy benchmarks from this runner in a
+  detached tmux session, not from the VSCode integrated terminal
 - top-width rotation fractions are capped model-wide for transformer runs:
   requested p5/p10/p20 paths are lowered when needed so the widest selected layer
   stays within `max_rotation_pairs=1000`; for TinyStories this produced one
   common p3.0637% rotation path instead of skipping the 256-output MLP expansion
   layers
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Current Milestone 3 work is to run the implemented transformer harness across the remaining planned small-model benchmark set, then compare whether the TinyStories finding survives on Pythia-14M, Pythia-70M, and DistilGPT2.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Pythia-14M baselines are now complete. Next step: pre-download and run Pythia-70M (INT8 then INT4 baseline), then DistilGPT2. Always use `tmux new-session -d -s bench` and append `; tmux kill-session -t bench` to the sent command so sessions self-destruct on completion. Run with `--local-files-only --torch-threads 2` after a `--download-only` preflight. See latest lab book entry for exact commands.
 
 ## Environment
 

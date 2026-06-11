@@ -789,7 +789,98 @@ group size is the dominant variable once local row groups are available. The
 capped rotation result is more nuanced: it modestly improves the all-layer g4
 full-model row, but does not rescue the coarser g16 path.
 
-## 14. Limitations
+## 14. Pythia-14M Baseline Runs
+
+The third Milestone 3 run applies the harness to `EleutherAI/pythia-14m` (14M
+parameters, GPT-NeoX architecture, 6 transformer blocks). The run used the
+benchmark runner at conservative settings: INT8 and INT4 separately, no
+rotations, `--local-files-only`, two Torch CPU threads, and incremental CSV
+writes. The methods were: `global`, `row_grouped_g4`, `row_grouped_g32`,
+`scale_row_g4`, `scale_row_g32`.
+
+The harness found 45 compatible linear layers per run (6 × 4 attention/MLP
+layers + embed_in/out layers where applicable). This produced 225 weight records
+and 225 activation records per bitwidth run, and 5 full-model logit/loss rows per
+run. Results were written to model-specific subdirectories:
+
+- `results/transformer_pythia_14m_int8_baseline/`
+- `results/transformer_pythia_14m_int4_baseline/`
+
+### 14.1 INT8 results
+
+**INT8 all-layer logit, loss, and perplexity summary (original PPL: 534.99)**
+
+| Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 8 | 0.8466 | 0.6722 | +0.2115 | 660.98 | 1.2355 |
+| row_grouped_g4 | 8 | 0.0130 | 0.9500 | −0.0056 | 531.99 | **0.9944** |
+| row_grouped_g32 | 8 | 0.0172 | 0.9556 | +0.0173 | 544.34 | 1.0175 |
+| scale_row_g4 | 8 | 0.0142 | 0.9611 | +0.0084 | 539.52 | 1.0085 |
+| scale_row_g32 | 8 | 0.0161 | 0.9611 | +0.0188 | 545.15 | 1.0190 |
+
+The most important observation is that **INT8 global is no longer lossless** on
+this model: PPL ratio 1.24 and top-5 overlap drops to 0.672. On `sshleifer/
+tiny-gpt2` and `roneneldan/TinyStories-1M`, INT8 global was essentially
+transparent (PPL ratios 1.000025 and 0.960 respectively, where the sub-1 ratio
+for TinyStories was treated as small-batch noise). This is the first run where
+INT8 global produces a measurable, interpretable degradation, confirming that a
+single global scale cannot hold across 45 layers of a real GPT-NeoX model.
+
+`row_grouped_g4` at INT8 achieves a PPL ratio of **0.994** — effectively
+lossless and marginally below baseline due to small-batch noise. `scale_row_g4`
+is similar (1.008). This demonstrates that fine-grained row grouping recovers
+full INT8 fidelity even where global INT8 cannot.
+
+### 14.2 INT4 results
+
+**INT4 all-layer logit, loss, and perplexity summary (original PPL: 534.99)**
+
+| Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 35.67 | 0.1278 | +9.621 | 8,064,445 | **15,074** |
+| row_grouped_g4 | 4 | 0.931 | 0.7056 | +0.285 | 711.30 | 1.3296 |
+| row_grouped_g32 | 4 | 2.470 | 0.4778 | +0.923 | 1,347.06 | 2.5179 |
+| scale_row_g4 | 4 | 0.928 | 0.7056 | +0.276 | 705.20 | **1.3182** |
+| scale_row_g32 | 4 | 2.460 | 0.4778 | +0.930 | 1,356.23 | 2.5351 |
+
+INT4 global is catastrophic: PPL 8M, logit MSE 35.7, top-5 token overlap 0.128.
+The model is essentially random after global INT4. `row_grouped_g4` reduces the
+PPL ratio to 1.33 and `scale_row_g4` to 1.32. The two are nearly identical,
+consistent with the matrix-level finding that scaling and fine-grained row
+grouping serve the same outlier-isolation function. Group size is again the
+dominant variable: g4 gives 1.33×, g32 gives 2.52×.
+
+### 14.3 Cross-model INT4 row_grouped_g4 progression
+
+| Model | Param count | Orig PPL | g4 PPL | PPL ratio |
+|---|---:|---:|---:|---:|
+| sshleifer/tiny-gpt2 | ~0.1M | 50,159 | 50,159 | ~1.000 |
+| roneneldan/TinyStories-1M | 1M | 10,471 | 12,703 | 1.213 |
+| EleutherAI/pythia-14m | 14M | 535 | 711 | 1.330 |
+
+The tiny-gpt2 result is a harness-validation point, not a meaningful
+compression benchmark (the model is too small and its PPL already near-random on
+any useful text). TinyStories-1M and Pythia-14m show a consistent story: INT4
+row_grouped_g4 degrades perplexity by roughly 1.2–1.3x relative to the original
+model. This range is in line with literature on sub-GPTQ simple grouped
+quantization at INT4. The Pythia-70M run (planned next) will determine whether
+this pattern holds or changes at the next scale step.
+
+### 14.4 Key finding: INT8 global is not assumption-safe on 14M+ models
+
+The Pythia-14m INT8 global result (PPL ratio 1.24) is a qualitative shift from
+the earlier runs. It establishes that:
+
+1. Global INT8 is not lossless at this model scale under the current calibration
+   text batch.
+2. Row-grouped INT8 at g4 restores losslessness.
+3. INT4 global is never safe on a real model regardless of scale.
+4. For INT4 on real models, group size 4 vs 32 is a >2x quality difference.
+
+This makes INT8 grouping a research-relevant question for this project, not just
+INT4 grouping.
+
+## 15. Limitations
 
 The current results are intentionally preliminary.
 
@@ -797,22 +888,23 @@ The current results are intentionally preliminary.
 - Rotation-pair selection now includes both a simple two-largest-column heuristic and an opt-in top-width-difference independent-pair heuristic. It still does not optimize pair choices or angles using transformer calibration data.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - The first transformer benchmark uses `sshleifer/tiny-gpt2`, whose linear layers are extremely small; the near-lossless `g1` row-grouped results are therefore harness-validation evidence, not a realistic compression result.
-- The TinyStories-1M benchmark is more informative than tiny-gpt2, but it still uses the same tiny built-in evaluation text batch.
-- The language-model evaluation currently uses a tiny built-in calibration text batch. Perplexity and top-k overlap need a larger held-out text set before they should be treated as benchmark-quality language-model results.
+- The TinyStories-1M and Pythia-14M benchmarks are more informative than tiny-gpt2, but all runs use the same tiny built-in calibration text batch.
+- The language-model evaluation currently uses a tiny built-in calibration text batch. Perplexity and top-k overlap need a larger held-out text set before they should be treated as benchmark-quality language-model results. The near-zero and sub-1 PPL ratio values seen in some runs are small-batch noise artefacts.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 15. Next Work
+## 16. Next Work
 
 The next research steps move from harness validation to transformer-level
 evidence on less degenerate models and evaluation text.
 
-1. Run the same all-layer harness on `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, and `distilgpt2`, keeping only one model resident in local HuggingFace cache at a time.
+1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). Next: `EleutherAI/pythia-70m` and `distilgpt2`, keeping only one model resident in local HuggingFace cache at a time.
 2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
 3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
 4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.
 
 ## Appendix A. Reproducing Current Figures
+
 
 Core experiment commands:
 

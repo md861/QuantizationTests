@@ -13,9 +13,9 @@ comparative sweep across all quantization paths are implemented and tested.
 Milestone 3 (tiny transformer integration) is underway: the transformer
 harness (`experiments/transformer_experiment.py`) is implemented and tested,
 covering weight reconstruction, activation drift, logit/loss, and perplexity
-across INT4 and INT8 paths on any HuggingFace causal LM. The first benchmark
-runs on `sshleifer/tiny-gpt2` and `roneneldan/TinyStories-1M` are complete and
-documented in the research draft.
+across INT4 and INT8 paths on any HuggingFace causal LM. Benchmark
+runs on `sshleifer/tiny-gpt2`, `roneneldan/TinyStories-1M`, and
+`EleutherAI/pythia-14m` are complete and documented in the research draft.
 
 ## Project Roadmap
 
@@ -23,7 +23,7 @@ documented in the research draft.
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`; measure weight reconstruction, activation drift, perplexity | Active |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m`, `distilgpt2`; measure weight reconstruction, activation drift, perplexity | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -115,24 +115,29 @@ Completed all-layer runs:
   batch (perplexity ratio 16.1x), while INT4 row-grouped g4 reduced the hit to
   1.21x and capped top-width rotation+scale+row g4 reduced it further to 1.14x.
   INT8 paths stayed close to the original model, with logit MSE far below INT4.
-  This is the first less-degenerate transformer signal, but still uses a tiny
-  evaluation batch.
+- `EleutherAI/pythia-14m`: 45 compatible transformer layers quantized (INT8 and
+  INT4 baselines). First model where INT8 global is not lossless (perplexity
+  ratio 1.24); INT8 row-grouped g4 restores losslessness (0.994). INT4 global is
+  catastrophic (perplexity ratio 15,074x); INT4 row-grouped g4 gives 1.33x.
+  Group size 4 vs 32 is a >2x quality difference at INT4.
 
 Remaining planned benchmark models (one model in local storage at a time):
 
 | Model | Parameters |
 | --- | --- |
-| `EleutherAI/pythia-14m` | 14M |
 | `EleutherAI/pythia-70m` | 70M |
 | `distilgpt2` | 82M |
 
-For Pythia runs, use the safer benchmark runner instead of an ad hoc inline
-Python command. It supports pre-downloads, cached/offline runs, CPU throttling,
-and incremental CSV output:
+Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
+all remaining models. Always launch from a detached tmux session with
+`; tmux kill-session -t bench` appended so the session self-destructs on
+completion. Pre-download each model with `--download-only` before the heavy run:
 
 ```bash
-MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --download-only
-MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --local-files-only --torch-threads 2
+tmux new-session -d -s bench && tmux send-keys -t bench \
+  "MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-70m-int8-baseline --download-only 2>&1 | tee /tmp/pythia70m_download.log \
+  ; tmux kill-session -t bench" Enter
 ```
 
 Milestone 1 built the quantization sandbox:
@@ -161,7 +166,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-200 passed
+206 passed, 1 warning
 ```
 
 ## Reproduce Artifacts

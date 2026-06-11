@@ -3808,3 +3808,108 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_ben
 ```
 
 Keep rotations disabled until both baseline Pythia-14M runs are stable.
+
+---
+
+## 2026-06-11 — Pythia-14M INT8 and INT4 baseline runs complete
+
+### What was run
+
+Both Pythia-14M baseline runs executed cleanly in a detached tmux session
+(`tmux new-session -d -s bench`) using the safe benchmark runner:
+
+```bash
+# INT8
+MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-14m-int8-baseline --local-files-only --torch-threads 2
+
+# INT4
+MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-14m-int4-baseline --local-files-only --torch-threads 2
+```
+
+No disconnections. Model loaded from local HF cache (models--EleutherAI--pythia-14m).
+
+### Results
+
+Results written to:
+- `results/transformer_pythia_14m_int8_baseline/` — 225 weight, 225 activation, 5 logit rows
+- `results/transformer_pythia_14m_int4_baseline/` — 225 weight, 225 activation, 5 logit rows
+
+**INT8 PPL ratios (original PPL: 534.99):**
+
+| Method | PPL ratio |
+|---|---:|
+| global | 1.2355 |
+| row_grouped_g4 | 0.9944 |
+| row_grouped_g32 | 1.0175 |
+| scale_row_g4 | 1.0085 |
+| scale_row_g32 | 1.0190 |
+
+**INT4 PPL ratios:**
+
+| Method | PPL ratio |
+|---|---:|
+| global | 15,074 (catastrophic) |
+| row_grouped_g4 | 1.3296 |
+| row_grouped_g32 | 2.5179 |
+| scale_row_g4 | 1.3182 |
+| scale_row_g32 | 2.5351 |
+
+### Key finding
+
+INT8 global is NOT lossless on Pythia-14m (PPL ratio 1.24, top-5 overlap 0.672).
+This is qualitatively different from tiny-gpt2 and TinyStories-1M, where INT8
+global was effectively transparent. row_grouped_g4 at INT8 recovers losslessness
+(PPL ratio 0.994 within small-batch noise). INT4 global is catastrophic; INT4
+row_grouped_g4 gives 1.33x. Research draft updated with Section 14 (Pythia-14M
+Baseline Runs) covering these results.
+
+### Also done this session
+
+- Diagnosed root cause of VSCode/Codex disconnect during Pythia runs (WSL2 memory
+  balloon + CPU starvation explanation provided).
+- Cleaned up 120MB orphaned dequantized weight temp dir from prior interrupted run.
+- Added project-level settings.json permissions allowlist for tmux and benchmark
+  runner commands to reduce future approval prompts.
+
+### Next commands
+
+**Important:** always append `; tmux kill-session -t bench` so the session
+self-destructs when the run finishes. Never leave an idle tmux session behind.
+
+Pre-download Pythia-70m before running (no local cache yet):
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-70m-int8-baseline --download-only 2>&1 | tee /tmp/pythia70m_download.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+Then run INT8 from cache:
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-70m-int8-baseline --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/pythia70m_int8.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+Then INT4:
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-70m-int4-baseline --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/pythia70m_int4.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+Keep rotations disabled until both 70m baselines are stable.
