@@ -858,13 +858,14 @@ dominant variable: g4 gives 1.33×, g32 gives 2.52×.
 | roneneldan/TinyStories-1M | 1M | 10,471 | 12,703 | 1.213 |
 | EleutherAI/pythia-14m | 14M | 535 | 711 | 1.330 |
 | EleutherAI/pythia-70m | 70M | 165 | 1,243 | 7.520 |
+| distilgpt2 | 82M | 477 | 505 | 1.058 |
 
-The tiny-gpt2 result is a harness-validation point, not a meaningful
-compression benchmark (the model is too small and its PPL already near-random on
-any useful text). TinyStories-1M and Pythia-14m show a consistent degradation of
-1.2–1.3x at INT4 row_grouped_g4. Pythia-70m breaks this trend sharply: the PPL
-ratio jumps to 7.52x despite the model having a much lower original PPL (165 vs
-535). See Section 15 for full Pythia-70m results and analysis.
+The tiny-gpt2 result is a harness-validation point. TinyStories-1M and
+Pythia-14m show 1.2–1.3x degradation. Pythia-70m breaks the trend sharply
+(7.52x). distilgpt2 at 82M reverses it entirely: 1.058x, better than Pythia-14m
+despite being 6x larger. This confirms that architecture and weight distribution
+shape INT4 quantization quality as much as parameter count. See Sections 15 and
+16 for full results and analysis.
 
 ### 14.4 Key finding: INT8 global is not assumption-safe on 14M+ models
 
@@ -991,7 +992,110 @@ quantization. This motivates either finer grouping (g1 or g2), rotation
 pre-processing to reduce outlier energy, or a combination of both before INT4 is
 practically usable on models of this size.
 
-## 16. Limitations
+## 16. distilgpt2 Baseline Runs
+
+The fifth Milestone 3 run applies the harness to `distilgpt2` (82M parameters,
+GPT-2 architecture distilled from GPT-2 medium, 6 transformer blocks). Run
+settings matched prior baselines: INT8 and INT4 separately, no rotations,
+`--local-files-only`, two Torch CPU threads, incremental CSV writes. The harness
+found 24 compatible linear layers — fewer than Pythia-70m's 45 because distilgpt2
+has only 6 attention blocks and its projection layers differ structurally. Methods
+were: `global`, `row_grouped_g4`, `row_grouped_g192`, `scale_row_g4`,
+`scale_row_g192` (group sizes auto-selected by the harness based on layer shape).
+
+Run timings: INT8 = 705s (11.8 min); INT4 = 679s (11.3 min). Both faster than
+Pythia-70m (~13 min) despite similar parameter count, reflecting the lower layer
+count (24 vs 45 layers).
+
+Results were written to:
+
+- `results/transformer_distilgpt2_int8_baseline/`
+- `results/transformer_distilgpt2_int4_baseline/`
+
+### 16.1 INT8 results
+
+**INT8 all-layer logit, loss, and perplexity summary (original PPL: 477.19)**
+
+| Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 8 | 8.209 | 0.844 | −0.038 | 459.41 | 0.963 |
+| row_grouped_g4 | 8 | 0.00461 | 1.000 | −0.001 | 476.48 | **0.999** |
+| row_grouped_g192 | 8 | 0.0488 | 0.989 | +0.004 | 479.17 | 1.004 |
+| scale_row_g4 | 8 | 0.00461 | 1.000 | −0.001 | 476.48 | 0.999 |
+| scale_row_g192 | 8 | 0.0486 | 0.989 | +0.004 | 479.19 | 1.004 |
+
+INT8 global produces a PPL ratio of 0.963 (sub-1, within small-batch noise) but
+a logit MSE of 8.209 and top-5 overlap of only 0.844 — indicating real
+degradation in the predicted token distribution even though the PPL estimator
+happens to land below baseline. This is the same sub-1 pattern seen for
+row-grouped methods on Pythia-70m and should be interpreted as noise, not
+improvement. The key signal is the logit MSE and top-5 overlap, which clearly
+show INT8 global is not transparent here.
+
+`row_grouped_g4` achieves logit MSE 0.00461 and perfect top-5 overlap — fully
+lossless at INT8. `row_grouped_g192` is nearly as good (MSE 0.049, overlap 0.989).
+
+### 16.2 INT4 results
+
+**INT4 all-layer logit, loss, and perplexity summary (original PPL: 477.19)**
+
+| Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 988.1 | 0.272 | +3.889 | 23,310 | 48.85 |
+| row_grouped_g4 | 4 | 1.862 | 0.906 | +0.057 | 505.04 | **1.058** |
+| row_grouped_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.48 | 1.208 |
+| scale_row_g4 | 4 | 1.863 | 0.906 | +0.057 | 505.07 | 1.058 |
+| scale_row_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.50 | 1.208 |
+
+The headline result is `row_grouped_g4` at INT4: PPL ratio **1.058**, top-5
+overlap 0.906. This is the best INT4 result of any real model in this study,
+better than Pythia-14m (1.33x) and dramatically better than Pythia-70m (7.52x),
+despite distilgpt2 having 82M parameters.
+
+INT4 global gives PPLx 48.85 — still catastrophic, but several orders of
+magnitude less so than Pythia-70m (~501 trillion) or Pythia-14m (15,074). The
+relative robustness of distilgpt2 to global quantization likely reflects the
+knowledge-distillation training objective, which regularises weights toward
+smaller and more uniform distributions.
+
+Group size effect at INT4: g4 vs g192 gives 1.058 vs 1.208 — only a 14%
+relative difference. This contrasts sharply with Pythia-70m's g4/g128 ratio of
+478x. distilgpt2's weight matrices tolerate coarser row grouping at INT4.
+
+`scale_row` provides essentially no benefit over `row_grouped` at any group size
+(differences in the 4th decimal place), continuing the pattern seen at all model
+scales.
+
+### 16.3 Architecture vs scale: distilgpt2 vs Pythia-70m
+
+| Metric | Pythia-70m | distilgpt2 | Notes |
+|---|---:|---:|---|
+| Parameters | 70M | 82M | distilgpt2 larger |
+| Compatible layers | 45 | 24 | GPT-NeoX vs GPT-2 |
+| Original PPL | 165 | 477 | Pythia stronger LM |
+| INT8 global PPLx | 1.44 | ~0.96† | †sub-1 = noise |
+| INT8 g4 PPLx | 0.971 | 0.999 | both lossless |
+| INT4 global PPLx | ~501 trillion | 48.85 | distilgpt2 far more robust |
+| INT4 g4 PPLx | 7.520 | **1.058** | 7× better despite larger size |
+| INT4 g4 top-5 | 0.200 | 0.906 | qualitative difference |
+| INT4 g/large PPLx | 3,593 (g128) | 1.208 (g192) | coarse grouping safe on distilgpt2 |
+
+The most important finding from this comparison: **model architecture and
+training regime dominate over parameter count for INT4 quantization quality.**
+Pythia-70m is a stronger language model (lower original PPL) but quantizes far
+worse at INT4. distilgpt2's knowledge-distillation training produces weight
+matrices that are more amenable to coarse-grained quantization.
+
+### 16.4 Key finding: distilgpt2 is unexpectedly INT4-robust
+
+distilgpt2 INT4 row_grouped_g4 (PPLx 1.058, top-5 0.906) is near-usable in
+practice — the first model in this study where INT4 g4 would be deployable
+without significant quality loss. This result motivates investigating whether
+the INT4 robustness generalises to other distilled or regularised models, and
+whether applying Givens rotations before INT4 quantization can push the 1.058x
+ratio further toward 1.0.
+
+## 17. Limitations
 
 The current results are intentionally preliminary.
 
@@ -1004,12 +1108,12 @@ The current results are intentionally preliminary.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 17. Next Work
+## 18. Next Work
 
 The next research steps move from harness validation to transformer-level
 evidence on less degenerate models and evaluation text.
 
-1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). Next: `distilgpt2` baselines, then rotation presets on both 14m and 70m.
+1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). ~~`distilgpt2` baselines~~ — **complete** (Section 16). Next: rotation presets on Pythia-14m, Pythia-70m, and distilgpt2.
 2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
 3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
 4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.

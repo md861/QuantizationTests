@@ -23,7 +23,7 @@ runs on `sshleifer/tiny-gpt2`, `roneneldan/TinyStories-1M`, and
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2`; measure weight reconstruction, activation drift, perplexity | Active |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; rotation presets next | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -128,11 +128,16 @@ Completed all-layer runs:
   take identical wall-clock time (~13 min), confirming runtime is dominated by
   weight passes not bitwidth arithmetic.
 
-Remaining planned benchmark models (one model in local storage at a time):
+- `distilgpt2`: 24 compatible transformer layers quantized (INT8 and INT4
+  baselines, ~11–12 min each). INT8 g4 fully lossless (PPLx 0.999, top-5 1.000).
+  INT4 g4 gives **1.058x** — best INT4 result of any real model in this study.
+  INT4 global: 48.85x (catastrophic but less so than Pythia models). Key finding:
+  architecture and distillation training dominate over parameter count for INT4
+  quality; distilgpt2 quantizes 7x better than Pythia-70m at INT4 g4 despite
+  being larger.
 
-| Model | Parameters |
-| --- | --- |
-| `distilgpt2` | 82M |
+All planned baseline models complete. Next: rotation presets on Pythia-14m,
+Pythia-70m, and distilgpt2.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 all remaining models. Always launch from a detached tmux session with

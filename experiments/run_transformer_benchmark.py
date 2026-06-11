@@ -68,6 +68,20 @@ PRESETS: dict[str, BenchmarkPreset] = {
         results_dir=Path("results/transformer_pythia_70m_int4_baseline"),
         plots_dir=Path("plots/transformer_pythia_70m_int4_baseline"),
     ),
+    "distilgpt2-int8-baseline": BenchmarkPreset(
+        model_name="distilgpt2",
+        bitwidths=[8],
+        top_width_pair_fractions=[],
+        results_dir=Path("results/transformer_distilgpt2_int8_baseline"),
+        plots_dir=Path("plots/transformer_distilgpt2_int8_baseline"),
+    ),
+    "distilgpt2-int4-baseline": BenchmarkPreset(
+        model_name="distilgpt2",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        results_dir=Path("results/transformer_distilgpt2_int4_baseline"),
+        plots_dir=Path("plots/transformer_distilgpt2_int4_baseline"),
+    ),
 }
 
 

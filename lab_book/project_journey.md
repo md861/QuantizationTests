@@ -3976,3 +3976,58 @@ tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl \
 
 (Note: `distilgpt2-int8-baseline` and `distilgpt2-int4-baseline` presets need to be
 added to `run_transformer_benchmark.py` PRESETS dict before running.)
+
+---
+
+## Session: 2026-06-11 (continued) — distilgpt2 INT8/INT4 baselines complete
+
+### distilgpt2 results
+
+Both runs chained back-to-back in a single tmux session (download → INT8 → INT4).
+24 compatible linear layers found (fewer than Pythia-70m's 45 due to GPT-2 vs
+GPT-NeoX architecture).
+
+**INT8 elapsed: 705s (11.8 min). Original PPL: 477.19**
+
+| Method | Bits | Logit MSE | Top-5 | ΔLoss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 8 | 8.209 | 0.844 | −0.038 | 459.41 | 0.963 |
+| row_grouped_g4 | 8 | 0.00461 | 1.000 | −0.001 | 476.48 | 0.999 |
+| row_grouped_g192 | 8 | 0.0488 | 0.989 | +0.004 | 479.17 | 1.004 |
+| scale_row_g4 | 8 | 0.00461 | 1.000 | −0.001 | 476.48 | 0.999 |
+| scale_row_g192 | 8 | 0.0486 | 0.989 | +0.004 | 479.19 | 1.004 |
+
+**INT4 elapsed: 679s (11.3 min)**
+
+| Method | Bits | Logit MSE | Top-5 | ΔLoss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 988.1 | 0.272 | +3.889 | 23,310 | 48.85 |
+| row_grouped_g4 | 4 | 1.862 | 0.906 | +0.057 | 505.04 | 1.058 |
+| row_grouped_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.48 | 1.208 |
+| scale_row_g4 | 4 | 1.863 | 0.906 | +0.057 | 505.07 | 1.058 |
+| scale_row_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.50 | 1.208 |
+
+Key findings:
+- INT4 g4 PPLx 1.058 — best of any real model in this study
+- 7x better than Pythia-70m (7.52x) despite being larger (82M vs 70M)
+- Architecture and distillation training dominate over parameter count
+- Group size effect at INT4: g4 vs g192 only 14% difference (vs 478x for Pythia-70m)
+- scale_row provides no benefit over row_grouped at any group size (consistent with all prior runs)
+- Runtime scales with layer count not params: 24 layers → ~11 min vs 45 layers → ~13 min
+
+### All planned baselines complete
+
+Cross-model INT4 g4 progression:
+
+| Model | Params | Orig PPL | g4 PPLx |
+|---|---:|---:|---:|
+| sshleifer/tiny-gpt2 | ~0.1M | 50,159 | ~1.000 |
+| roneneldan/TinyStories-1M | 1M | 10,471 | 1.213 |
+| EleutherAI/pythia-14m | 14M | 535 | 1.330 |
+| distilgpt2 | 82M | 477 | 1.058 |
+| EleutherAI/pythia-70m | 70M | 165 | 7.520 |
+
+### Next step: rotation presets
+
+Stopping point per user instruction — rotation presets require explicit approval.
+Models to target: Pythia-14m, Pythia-70m, distilgpt2.
