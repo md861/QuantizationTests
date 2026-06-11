@@ -3442,3 +3442,46 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 ```text
 196 passed, 1 warning in 21.26s
 ```
+
+---
+
+## 2026-06-11 — Dashboard visibility fix: log scale on MSE panels
+
+### Context
+
+Investigating the combined transformer dashboard (`transformer_dashboard_tiny_gpt2.png`) revealed two categories of invisible bars:
+
+1. **`row_grouped_g1 (INT4)`**: group size 1 means every value gets its own scale, making quantization lossless. Weight MSE, activation MSE, and logit MSE are all exactly `0.0`. A zero-height bar is invisible by definition — not a display bug.
+
+2. **`global (INT8)`**: INT8 errors are ~300× smaller than INT4 errors on this model. The shared linear x-axis was anchored to the INT4 scale, compressing all INT8 bars to near-zero width.
+
+### Fix
+
+Switched panels 1–3 of `_plot_dashboard` (weight MSE ratio, activation MSE, logit MSE) from linear to log scale. Added a `_LOG_FLOOR = 1e-20` clamp so lossless paths (exact zero MSE) render as a minimal bar at the far left edge rather than breaking the log axis. Panel 4 (loss delta, signed values) stays linear.
+
+### Outcome
+
+All methods now visible in the combined dashboard. The split `_int4` and `_int8` dashboards also benefit since their per-method relative differences are easier to read on log scale.
+
+Dashboard figures regenerated and committed to `docs/figures/`. Commits: `44bc627` (log scale), `24010ef` (regenerated figures).
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+```text
+196 passed, 1 warning in 23.82s
+```
+
+---
+
+## 2026-06-11 — Session housekeeping
+
+Fixed two stale doc references carried forward from the previous session:
+
+- `README.md` intro: "four INT4 paths" → correct INT4+INT8 scope and perplexity mention (`b9d7d03`)
+- `project_summary.md` figures: added `_int4` and `_int8` split figure names (`b9d7d03`)
+- `README.md` Milestone 3 roadmap row: now lists all five benchmark models explicitly with tiny-gpt2 marked done (`acc7551`)
+- `project_summary.md` harness description: updated to reflect INT4+INT8 and log-scale dashboard

@@ -39,11 +39,12 @@ Implemented so far:
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 - Milestone 3 transformer harness (`experiments/transformer_experiment.py`): loads
-  any HuggingFace causal LM, quantizes linear layers with global INT4, row-grouped
-  INT4, scale+row-grouped INT4, and top-width rotate+scale+row-grouped INT4;
-  measures weight reconstruction, activation drift, full-model logit/loss, and
-  perplexity; writes three CSVs and a 4-panel dashboard; supports single-layer
-  and all-layer modes; `delete_hf_cache_after=True` evicts the model after each run
+  any HuggingFace causal LM, quantizes linear layers at INT4 and INT8 across
+  global, row-grouped, scale+row-grouped, and top-width rotate+scale+row-grouped
+  paths; measures weight reconstruction, activation drift, full-model logit/loss,
+  and perplexity; writes three CSVs and a 4-panel log-scale dashboard (plus
+  per-bitwidth split dashboards); supports single-layer and all-layer modes;
+  `delete_hf_cache_after=True` evicts the model after each run
 - first all-layer `sshleifer/tiny-gpt2` transformer run: eight compatible
   layers, 196 weight records, 196 activation records, and 22 logit/loss records;
   top-5 overlap stayed 1.0 and perplexity ratios stayed within about six parts
