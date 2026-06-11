@@ -11,10 +11,12 @@ quantization, row-grouped quantization, the rotation/scaling experiment, and
 comparative sweeps across the implemented quantization paths.
 Milestone 3 (tiny transformer integration) is underway. The transformer harness
 (`experiments/transformer_experiment.py`) is implemented and tested: it loads any
-HuggingFace causal LM, runs four INT4 paths on each linear layer, and measures
+HuggingFace causal LM, runs INT4 and INT8 paths on each linear layer, and measures
 weight reconstruction, activation drift, logit/loss quality, and perplexity.
 The first all-layer run on `sshleifer/tiny-gpt2` is complete and documented in
-`docs/research_draft.md` with `docs/figures/transformer_dashboard_tiny_gpt2.png`.
+`docs/research_draft.md` with figures `docs/figures/transformer_dashboard_tiny_gpt2.png`,
+`docs/figures/transformer_dashboard_tiny_gpt2_int4.png`, and
+`docs/figures/transformer_dashboard_tiny_gpt2_int8.png`.
 
 Implemented so far:
 
