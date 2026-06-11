@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import math
+
 import numpy as np
 import pytest
 import torch
@@ -268,6 +271,13 @@ def test_logit_records_fields_valid(experiment_results):
         assert np.isfinite(r.logit_mse)
         assert np.isfinite(r.loss)
         assert r.loss_delta == pytest.approx(r.loss - r.original_loss, abs=1e-5)
+        assert r.perplexity == pytest.approx(math.exp(r.loss), rel=1e-6)
+        assert r.original_perplexity == pytest.approx(
+            math.exp(r.original_loss), rel=1e-6
+        )
+        assert r.perplexity_ratio == pytest.approx(
+            r.perplexity / r.original_perplexity, rel=1e-6
+        )
         assert 0.0 <= r.top5_token_overlap <= 1.0
         assert r.bitwidth in (4, 8)
 
@@ -285,6 +295,16 @@ def test_csv_files_written(tiny_config, experiment_results):
     assert (tiny_config.results_dir / "transformer_weight_metrics.csv").exists()
     assert (tiny_config.results_dir / "transformer_activation_metrics.csv").exists()
     assert (tiny_config.results_dir / "transformer_logit_metrics.csv").exists()
+
+
+def test_logit_csv_includes_perplexity_columns(tiny_config, experiment_results):
+    path = tiny_config.results_dir / "transformer_logit_metrics.csv"
+    with path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        assert reader.fieldnames is not None
+        assert "perplexity" in reader.fieldnames
+        assert "original_perplexity" in reader.fieldnames
+        assert "perplexity_ratio" in reader.fieldnames
 
 
 def test_int8_activation_drift_le_int4(experiment_results):

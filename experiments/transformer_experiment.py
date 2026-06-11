@@ -4,7 +4,7 @@ Loads a small HuggingFace causal LM, quantizes its linear layer weights with
 multiple quantization paths and bitwidths, and measures:
   - weight reconstruction per layer
   - activation drift per layer (captured inputs, no second forward pass)
-  - full-model logit similarity and next-token loss
+  - full-model logit similarity, next-token loss, and perplexity
 
 Config knobs:
   bitwidths              — [4, 8] by default; runs every path at each bitwidth
@@ -22,6 +22,7 @@ Config knobs:
 from __future__ import annotations
 
 import csv
+import math
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -124,6 +125,9 @@ class LogitRecord:
     loss: float
     original_loss: float
     loss_delta: float
+    perplexity: float
+    original_perplexity: float
+    perplexity_ratio: float
 
 
 def run_transformer_experiment(
@@ -398,6 +402,7 @@ def _run_logit_experiment(
 ) -> list[LogitRecord]:
     """Run full-model forward passes: original once, then once per (method, bitwidth)."""
     orig_logits, orig_loss = _forward_pass(model, token_inputs)
+    orig_perplexity = math.exp(orig_loss)
 
     method_keys = list(next(iter(all_method_deqs.values())).keys())
     records: list[LogitRecord] = []
@@ -420,6 +425,7 @@ def _run_logit_experiment(
         norm_q = np.linalg.norm(q_flat)
         logit_cos = float(np.dot(o_flat, q_flat) / (norm_o * norm_q + 1e-8))
         top5 = _top5_overlap(orig_logits, q_logits)
+        q_perplexity = math.exp(q_loss)
 
         records.append(
             LogitRecord(
@@ -433,6 +439,9 @@ def _run_logit_experiment(
                 loss=q_loss,
                 original_loss=orig_loss,
                 loss_delta=q_loss - orig_loss,
+                perplexity=q_perplexity,
+                original_perplexity=orig_perplexity,
+                perplexity_ratio=q_perplexity / orig_perplexity,
             )
         )
 
@@ -584,6 +593,7 @@ def _write_logit_csv(path: Path, records: list[LogitRecord]) -> None:
         "model_name", "scope", "method", "bitwidth",
         "logit_mse", "logit_cosine_similarity", "top5_token_overlap",
         "loss", "original_loss", "loss_delta",
+        "perplexity", "original_perplexity", "perplexity_ratio",
     ]
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
@@ -729,13 +739,15 @@ def print_summary(
     if logit_records:
         print(
             f"\n{'Method':<38} {'BW':>4} {'Logit MSE':>12} "
-            f"{'Top5':>8} {'Loss':>10} {'ΔLoss':>10}"
+            f"{'Top5':>8} {'Loss':>10} {'ΔLoss':>10} {'PPL':>10} {'PPLx':>8}"
         )
-        print("-" * 86)
+        print("-" * 106)
         for r in sorted(logit_records, key=lambda r: (r.bitwidth, r.method)):
             print(
                 f"{r.method:<38} {r.bitwidth:>4} {r.logit_mse:>12.6f} "
-                f"{r.top5_token_overlap:>8.4f} {r.loss:>10.4f} {r.loss_delta:>10.4f}"
+                f"{r.top5_token_overlap:>8.4f} {r.loss:>10.4f} "
+                f"{r.loss_delta:>10.4f} {r.perplexity:>10.4f} "
+                f"{r.perplexity_ratio:>8.4f}"
             )
 
 

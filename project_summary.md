@@ -12,7 +12,9 @@ comparative sweeps across the implemented quantization paths.
 Milestone 3 (tiny transformer integration) is underway. The transformer harness
 (`experiments/transformer_experiment.py`) is implemented and tested: it loads any
 HuggingFace causal LM, runs four INT4 paths on each linear layer, and measures
-weight reconstruction, activation drift, and logit/loss quality.
+weight reconstruction, activation drift, logit/loss quality, and perplexity.
+The first all-layer run on `sshleifer/tiny-gpt2` is complete and documented in
+`docs/research_draft.md` with `docs/figures/transformer_dashboard_tiny_gpt2.png`.
 
 Implemented so far:
 
@@ -37,11 +39,15 @@ Implemented so far:
 - Milestone 3 transformer harness (`experiments/transformer_experiment.py`): loads
   any HuggingFace causal LM, quantizes linear layers with global INT4, row-grouped
   INT4, scale+row-grouped INT4, and top-width rotate+scale+row-grouped INT4;
-  measures weight reconstruction, activation drift, and full-model logit/loss;
-  writes three CSVs and a 4-panel dashboard; supports single-layer and all-layer
-  modes; `delete_hf_cache_after=True` evicts the model after each run
+  measures weight reconstruction, activation drift, full-model logit/loss, and
+  perplexity; writes three CSVs and a 4-panel dashboard; supports single-layer
+  and all-layer modes; `delete_hf_cache_after=True` evicts the model after each run
+- first all-layer `sshleifer/tiny-gpt2` transformer run: eight compatible
+  layers, 196 weight records, 196 activation records, and 22 logit/loss records;
+  top-5 overlap stayed 1.0 and perplexity ratios stayed within about six parts
+  per million of 1.0 on the built-in calibration batch
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Next milestone work is Milestone 3: build a tiny-transformer harness, starting with `sshleifer/tiny-gpt2`, one linear layer, weight reconstruction metrics, activation drift, logits/loss comparison, then expanding to all compatible linear layers.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Current Milestone 3 work is to run the implemented transformer harness across the remaining planned small-model benchmark set, then compare whether the tiny-gpt2 harness-validation findings survive on less degenerate models.
 
 ## Environment
 
@@ -66,7 +72,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-194 passed
+195 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -403,7 +409,8 @@ Milestone 3 transformer quantization harness.
   relative error.
 - **Logit/loss experiment**: temporarily swaps all selected layer weights per
   method, runs full-model forward passes, and measures logit MSE, cosine
-  similarity, top-5 token overlap, and next-token loss delta.
+  similarity, top-5 token overlap, next-token loss delta, perplexity, original
+  perplexity, and perplexity ratio.
 - **Outputs**: `results/transformer_weight_metrics.csv`,
   `results/transformer_activation_metrics.csv`,
   `results/transformer_logit_metrics.csv`, `plots/transformer_dashboard.png`.
@@ -469,7 +476,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-194 passed
+195 passed
 ```
 
 ## Design Conventions
@@ -524,12 +531,11 @@ Key observation from the first run:
 
 The transformer harness is implemented. Next steps:
 
-1. Run `experiments/transformer_experiment.py` on `sshleifer/tiny-gpt2` in all-layers
-   mode (`single_layer_name=None`) and record the findings.
-2. Repeat for the other four planned benchmark models, one at a time
+1. Repeat the all-layer run for the other four planned benchmark models, one at a time
    (`delete_hf_cache_after=True` between runs):
    `roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`.
-3. Write a Milestone 3 section in `docs/research_draft.md` summarising whether
+2. Add a larger held-out text batch for loss/perplexity evaluation.
+3. Extend the Milestone 3 research section in `docs/research_draft.md` to compare whether
    the matrix-level findings (row-grouped dominates, scaling degrades with large
    models, rotation adds marginal benefit) survive on real weights.
 4. Commit tracked figures to `docs/figures/` when the section is ready.

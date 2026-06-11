@@ -98,13 +98,21 @@ all-layer modes, comparing global INT4, row-grouped INT4, scale+row-grouped INT4
 and top-width rotate+scale+row-grouped INT4 across any HuggingFace causal LM.
 It measures weight reconstruction (MSE, cosine similarity, SNR), activation drift
 (MSE, cosine similarity, relative error), and full-model logit/loss quality
-(logit MSE, top-5 token overlap, next-token loss delta).
+(logit MSE, top-5 token overlap, next-token loss delta, perplexity, and
+perplexity ratio).
 
-Planned benchmark models (one model in local storage at a time):
+First all-layer run completed:
+
+- `sshleifer/tiny-gpt2`: eight compatible transformer layers quantized; all
+  tested paths preserved top-5 token overlap on the built-in calibration batch,
+  and perplexity ratios stayed within about six parts per million of 1.0. This
+  is treated as harness validation because the model's linear layers are
+  extremely small.
+
+Remaining planned benchmark models (one model in local storage at a time):
 
 | Model | Parameters |
 | --- | --- |
-| `sshleifer/tiny-gpt2` | ~1M |
 | `roneneldan/TinyStories-1M` | ~1M |
 | `EleutherAI/pythia-14m` | 14M |
 | `EleutherAI/pythia-70m` | 70M |
@@ -136,7 +144,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-194 passed
+195 passed
 ```
 
 ## Reproduce Artifacts
@@ -173,6 +181,13 @@ The sweep experiment writes:
 - `results/sweep_metrics_top_width_320x320.csv` and `plots/sweep_dashboard_top_width_320x320.png`
 
 The top-width sparse-rotation sweeps use `top_width_pair_fractions=[0.05, 0.10, 0.20]`.
+
+The transformer harness writes:
+
+- `results/transformer_weight_metrics.csv`
+- `results/transformer_activation_metrics.csv`
+- `results/transformer_logit_metrics.csv`
+- `plots/transformer_dashboard.png`
 
 To reproduce the large-matrix sweep:
 

@@ -3313,3 +3313,83 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
 ```text
 194 passed in 18.21s
 ```
+
+## 2026-06-11 — Transformer perplexity metrics
+
+### Change
+
+Extended the Milestone 3 transformer harness so `LogitRecord` and
+`results/transformer_logit_metrics.csv` now include explicit perplexity fields:
+
+- `perplexity`
+- `original_perplexity`
+- `perplexity_ratio`
+
+These are derived from the already measured next-token losses with
+`perplexity = exp(loss)`, while `loss` and `loss_delta` remain the primary
+numerically stable language-model metrics.
+
+Updated `print_summary(...)` to show perplexity and perplexity ratio beside
+logit MSE, top-5 overlap, loss, and loss delta. Updated README/project summary
+wording so the documented Milestone 3 metrics now match the CSV schema.
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_transformer_experiment.py
+```
+
+```text
+31 passed, 1 warning in 8.90s
+```
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
+```
+
+```text
+195 passed, 1 warning in 19.89s
+```
+
+## 2026-06-11 — Tiny GPT-2 all-layer transformer run
+
+### Command
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -c "from experiments.transformer_experiment import TransformerConfig, run_transformer_experiment, print_summary; config=TransformerConfig(model_name='sshleifer/tiny-gpt2', single_layer_name=None, save_plots=True, delete_hf_cache_after=False); wr, ar, lr = run_transformer_experiment(config); print_summary(wr, ar, lr)"
+```
+
+The run loaded local `sshleifer/tiny-gpt2` weights successfully. HuggingFace
+attempted to fetch an optional `generation_config.json` and hit a temporary DNS
+failure, but the model run completed.
+
+### Outputs
+
+- `results/transformer_weight_metrics.csv`
+- `results/transformer_activation_metrics.csv`
+- `results/transformer_logit_metrics.csv`
+- `plots/transformer_dashboard.png`
+- tracked copy: `docs/figures/transformer_dashboard_tiny_gpt2.png`
+
+### Record counts
+
+- 8 compatible transformer layers
+- 196 weight records
+- 196 activation records
+- 22 all-layer logit/loss/perplexity records
+
+### Findings
+
+This is a harness-validation result more than a model-quality benchmark.
+`sshleifer/tiny-gpt2` has extremely small linear layers, including many 2-row
+weights, so `g1` row grouping can be exact or near-exact and should not be
+interpreted as a realistic compression finding.
+
+On the built-in calibration text batch, all tested paths preserved top-5 token
+overlap at 1.0. The original loss was 10.822957 and original perplexity was
+50,159.19. All tested quantized paths had perplexity ratios within roughly six
+parts per million of 1.0.
+
+Updated `docs/research_draft.md` with a new Milestone 3 result section containing
+the dashboard figure and summary tables for weight reconstruction, activation
+drift, logit similarity, loss, and perplexity.

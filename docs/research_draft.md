@@ -554,23 +554,152 @@ failure mode more directly than column-pair rotations. The result does not rule
 out ParoQuant-style rotations for transformer layers, where calibration-aware
 angle optimization and activation structure may change the tradeoff.
 
-## 12. Limitations
+## 12. First Tiny Transformer Run
+
+The first Milestone 3 transformer run applies the harness to all compatible
+linear layers in `sshleifer/tiny-gpt2`. The model has two transformer blocks,
+and the harness quantized eight GPT-2 `Conv1D` layers:
+
+- `transformer.h.{0,1}.attn.c_attn`
+- `transformer.h.{0,1}.attn.c_proj`
+- `transformer.h.{0,1}.mlp.c_fc`
+- `transformer.h.{0,1}.mlp.c_proj`
+
+The run used the built-in calibration text batch and compared INT4 and INT8
+versions of all configured transformer paths. The output files were:
+
+- `results/transformer_weight_metrics.csv`
+- `results/transformer_activation_metrics.csv`
+- `results/transformer_logit_metrics.csv`
+- `plots/transformer_dashboard.png`
+
+The tracked paper figure is copied to
+`docs/figures/transformer_dashboard_tiny_gpt2.png`.
+
+![Tiny GPT-2 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2.png)
+
+*Figure: all-layer `sshleifer/tiny-gpt2` run. The panels summarize mean weight
+reconstruction error, activation drift, full-model logit drift, and next-token
+loss delta across the implemented quantization paths.*
+
+Because this model is intentionally tiny, several matrices have only two input
+rows. This makes `g1` row grouping a near-lossless or exactly lossless case and
+causes saturation fractions of 1.0 for those paths. These `g1` rows are useful
+for validating the harness, but they should not be interpreted as evidence that
+one-row groups are a realistic compression strategy for larger transformers.
+
+The table below averages weight and activation metrics across the eight
+quantized layers. `Rel Fro` is relative Frobenius error. `Act rel err` is
+relative activation drift.
+
+| Method | Bits | Weight MSE | Rel Fro | W cos | SNR dB | Zero frac | Sat frac | Act MSE | Act cos | Act rel err |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| global | 4 | 2.595e-06 | 0.0811 | 0.996680 | 22.29 | 0.1719 | 0.1146 | 2.175e-06 | 0.986809 | 0.1094 |
+| row_grouped_g1 | 4 | 0.000e+00 | 0.0000 | 1.000000 | inf | 0.0000 | 1.0000 | 0.000e+00 | 0.991084 | 0.0000 |
+| row_grouped_g2 | 4 | 7.593e-07 | 0.0365 | 0.999353 | 29.02 | 0.0625 | 0.5000 | 4.597e-10 | 0.999453 | 0.0217 |
+| row_grouped_g4 | 4 | 9.314e-07 | 0.0440 | 0.998964 | 27.48 | 0.1042 | 0.4453 | 3.941e-07 | 0.988157 | 0.0718 |
+| scale_row_g1 | 4 | 1.915e-19 | 0.0000 | 1.000000 | 158.03 | 0.0000 | 1.0000 | 1.989e-19 | 0.991084 | 0.0000 |
+| scale_row_g2 | 4 | 7.593e-07 | 0.0365 | 0.999353 | 29.02 | 0.0625 | 0.5000 | 4.597e-10 | 0.999453 | 0.0217 |
+| scale_row_g4 | 4 | 9.314e-07 | 0.0440 | 0.998964 | 27.48 | 0.1042 | 0.4453 | 3.941e-07 | 0.988157 | 0.0718 |
+| top_width_rotate_p10_scale_row_g1 | 4 | 6.492e-19 | 0.0000 | 1.000000 | 153.59 | 0.0000 | 1.0000 | 2.096e-19 | 0.991084 | 0.0000 |
+| top_width_rotate_p10_scale_row_g2 | 4 | 5.132e-07 | 0.0293 | 0.999544 | 31.07 | 0.0000 | 0.5312 | 5.797e-10 | 0.998948 | 0.0253 |
+| top_width_rotate_p10_scale_row_g4 | 4 | 7.896e-07 | 0.0420 | 0.999060 | 27.90 | 0.0729 | 0.4453 | 3.402e-07 | 0.988519 | 0.0697 |
+| top_width_rotate_p20_scale_row_g1 | 4 | 6.531e-19 | 0.0000 | 1.000000 | 153.36 | 0.0000 | 1.0000 | 2.186e-19 | 0.991084 | 0.0000 |
+| top_width_rotate_p20_scale_row_g2 | 4 | 5.132e-07 | 0.0293 | 0.999544 | 31.07 | 0.0000 | 0.5312 | 5.797e-10 | 0.998948 | 0.0253 |
+| top_width_rotate_p20_scale_row_g4 | 4 | 8.080e-07 | 0.0430 | 0.999020 | 27.66 | 0.0807 | 0.4453 | 3.708e-07 | 0.988496 | 0.0707 |
+| top_width_rotate_p5_scale_row_g1 | 4 | 6.492e-19 | 0.0000 | 1.000000 | 153.59 | 0.0000 | 1.0000 | 2.096e-19 | 0.991084 | 0.0000 |
+| top_width_rotate_p5_scale_row_g2 | 4 | 5.132e-07 | 0.0293 | 0.999544 | 31.07 | 0.0000 | 0.5312 | 5.797e-10 | 0.998948 | 0.0253 |
+| top_width_rotate_p5_scale_row_g4 | 4 | 7.896e-07 | 0.0420 | 0.999060 | 27.90 | 0.0729 | 0.4453 | 3.402e-07 | 0.988519 | 0.0697 |
+| global | 8 | 7.531e-09 | 0.0042 | 0.999991 | 47.85 | 0.0000 | 0.1146 | 8.406e-09 | 0.991153 | 0.0065 |
+| row_grouped_g1 | 8 | 0.000e+00 | 0.0000 | 1.000000 | inf | 0.0000 | 1.0000 | 0.000e+00 | 0.991084 | 0.0000 |
+| row_grouped_g2 | 8 | 3.097e-09 | 0.0023 | 0.999997 | 52.91 | 0.0000 | 0.5000 | 1.156e-12 | 0.999439 | 0.0012 |
+| row_grouped_g4 | 8 | 2.497e-09 | 0.0024 | 0.999997 | 52.82 | 0.0000 | 0.4375 | 1.176e-09 | 0.991151 | 0.0037 |
+| scale_row_g1 | 8 | 1.915e-19 | 0.0000 | 1.000000 | 158.03 | 0.0000 | 1.0000 | 1.989e-19 | 0.991084 | 0.0000 |
+| scale_row_g2 | 8 | 3.097e-09 | 0.0023 | 0.999997 | 52.91 | 0.0000 | 0.5000 | 1.156e-12 | 0.999439 | 0.0012 |
+| scale_row_g4 | 8 | 2.497e-09 | 0.0024 | 0.999997 | 52.82 | 0.0000 | 0.4375 | 1.176e-09 | 0.991151 | 0.0037 |
+| top_width_rotate_p10_scale_row_g1 | 8 | 6.492e-19 | 0.0000 | 1.000000 | 153.59 | 0.0000 | 1.0000 | 2.096e-19 | 0.991084 | 0.0000 |
+| top_width_rotate_p10_scale_row_g2 | 8 | 2.417e-09 | 0.0023 | 0.999997 | 52.75 | 0.0000 | 0.5000 | 2.119e-12 | 0.999437 | 0.0016 |
+| top_width_rotate_p10_scale_row_g4 | 8 | 2.363e-09 | 0.0023 | 0.999997 | 53.20 | 0.0000 | 0.4375 | 1.048e-09 | 0.991098 | 0.0042 |
+| top_width_rotate_p20_scale_row_g1 | 8 | 6.531e-19 | 0.0000 | 1.000000 | 153.36 | 0.0000 | 1.0000 | 2.186e-19 | 0.991084 | 0.0000 |
+| top_width_rotate_p20_scale_row_g2 | 8 | 2.417e-09 | 0.0023 | 0.999997 | 52.75 | 0.0000 | 0.5000 | 2.119e-12 | 0.999437 | 0.0016 |
+| top_width_rotate_p20_scale_row_g4 | 8 | 2.312e-09 | 0.0022 | 0.999997 | 53.38 | 0.0000 | 0.4375 | 9.624e-10 | 0.991098 | 0.0042 |
+| top_width_rotate_p5_scale_row_g1 | 8 | 6.492e-19 | 0.0000 | 1.000000 | 153.59 | 0.0000 | 1.0000 | 2.096e-19 | 0.991084 | 0.0000 |
+| top_width_rotate_p5_scale_row_g2 | 8 | 2.417e-09 | 0.0023 | 0.999997 | 52.75 | 0.0000 | 0.5000 | 2.119e-12 | 0.999437 | 0.0016 |
+| top_width_rotate_p5_scale_row_g4 | 8 | 2.363e-09 | 0.0023 | 0.999997 | 53.20 | 0.0000 | 0.4375 | 1.048e-09 | 0.991098 | 0.0042 |
+
+The `g2` rows appear only for the two 8-row projection layers where dynamic row
+group resolution produced group size 2. Non-rotation rows have
+`rotation_count=0`, `rotation_pair_fraction=0.0`, and
+`rotation_candidate_fraction=0.0`. Top-width rows record the configured
+candidate fractions in the method name: p5, p10, and p20 correspond to
+`rotation_candidate_fraction` 0.05, 0.10, and 0.20. On this tiny model, these
+paths selected roughly one independent rotation per layer on average; p5/p10
+selected 1.00 rotations per layer and p20 selected 1.125. The average actual
+pair fraction was about 52.6% for p5/p10 and 53.0% for p20 because many layers
+have only two or six output channels. The `g2` top-width subset appears only on
+two projection layers and selected one rotation per layer, i.e. 100% of possible
+pairs for those two-column weights.
+
+The table below reports the all-layer full-model output comparison. The
+baseline original loss was 10.822957, giving original perplexity 50,159.19 on
+the short calibration text batch. All tested quantized variants preserve the
+top-5 token sets exactly on this small batch, and all perplexity ratios stay
+within about six parts per million of 1.0.
+
+| Method | Bits | Logit MSE | Logit cos | Top-5 overlap | Loss delta | Perplexity | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| global | 4 | 2.143e-10 | 1.00000000 | 1.0000 | -2.225e-06 | 50159.08 | 0.99999777 |
+| row_grouped_g1 | 4 | 0.000e+00 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| row_grouped_g4 | 4 | 1.575e-09 | 0.99999785 | 1.0000 | +5.404e-06 | 50159.46 | 1.00000540 |
+| scale_row_g1 | 4 | 1.362e-18 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| scale_row_g4 | 4 | 1.575e-09 | 0.99999785 | 1.0000 | +5.404e-06 | 50159.46 | 1.00000540 |
+| top_width_rotate_p10_scale_row_g1 | 4 | 8.882e-19 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| top_width_rotate_p10_scale_row_g4 | 4 | 9.920e-10 | 0.99999887 | 1.0000 | +9.537e-07 | 50159.24 | 1.00000095 |
+| top_width_rotate_p20_scale_row_g1 | 4 | 9.350e-19 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| top_width_rotate_p20_scale_row_g4 | 4 | 1.329e-09 | 0.99999887 | 1.0000 | +9.537e-07 | 50159.24 | 1.00000095 |
+| top_width_rotate_p5_scale_row_g1 | 4 | 8.882e-19 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| top_width_rotate_p5_scale_row_g4 | 4 | 9.920e-10 | 0.99999887 | 1.0000 | +9.537e-07 | 50159.24 | 1.00000095 |
+| global | 8 | 5.412e-11 | 1.00000000 | 1.0000 | +2.543e-06 | 50159.32 | 1.00000254 |
+| row_grouped_g1 | 8 | 0.000e+00 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| row_grouped_g4 | 8 | 8.602e-12 | 0.99999982 | 1.0000 | +1.272e-06 | 50159.25 | 1.00000127 |
+| scale_row_g1 | 8 | 1.362e-18 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| scale_row_g4 | 8 | 8.602e-12 | 0.99999982 | 1.0000 | +1.272e-06 | 50159.25 | 1.00000127 |
+| top_width_rotate_p10_scale_row_g1 | 8 | 8.882e-19 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| top_width_rotate_p10_scale_row_g4 | 8 | 1.750e-11 | 0.99999988 | 1.0000 | +1.589e-06 | 50159.27 | 1.00000159 |
+| top_width_rotate_p20_scale_row_g1 | 8 | 9.350e-19 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| top_width_rotate_p20_scale_row_g4 | 8 | 1.800e-11 | 0.99999988 | 1.0000 | +1.272e-06 | 50159.25 | 1.00000127 |
+| top_width_rotate_p5_scale_row_g1 | 8 | 8.882e-19 | 1.00000000 | 1.0000 | +0.000e+00 | 50159.19 | 1.00000000 |
+| top_width_rotate_p5_scale_row_g4 | 8 | 1.750e-11 | 0.99999988 | 1.0000 | +1.589e-06 | 50159.27 | 1.00000159 |
+
+The first transformer result is best read as an integration validation rather
+than a performance claim. It confirms that the matrix-level quantization paths,
+rotation metadata, activation drift measurement, logit similarity, loss, and
+perplexity accounting all run on a real HuggingFace causal LM. The result is
+also deliberately conservative: `sshleifer/tiny-gpt2` is too small and too weak
+for its perplexity values to be substantively meaningful. The useful signal is
+that the measurement pipeline is now complete; the next question is whether the
+same patterns survive on larger tiny models such as TinyStories-1M, Pythia-14M,
+Pythia-70M, and DistilGPT2.
+
+## 13. Limitations
 
 The current results are intentionally preliminary.
 
 - Matrices are synthetic. Outliers are placed at uniformly random positions, not with the spatial structure seen in transformer activations.
 - Rotation-pair selection now includes both a simple two-largest-column heuristic and an opt-in top-width-difference independent-pair heuristic. It still does not optimize pair choices or angles using transformer calibration data.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
-- No transformer-layer or language-model benchmark has been run yet.
+- The first transformer benchmark uses `sshleifer/tiny-gpt2`, whose linear layers are extremely small; the near-lossless `g1` row-grouped results are therefore harness-validation evidence, not a realistic compression result.
+- The language-model evaluation currently uses a tiny built-in calibration text batch. Perplexity and top-k overlap need a larger held-out text set before they should be treated as benchmark-quality language-model results.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 13. Next Work
+## 14. Next Work
 
-The next research steps move from matrix-level evidence to transformer-level evidence.
+The next research steps move from harness validation to transformer-level
+evidence on less degenerate models and evaluation text.
 
-1. Apply the best-performing pipeline (rotation + scaling + row-grouped INT4) to weight matrices from a tiny transformer (tiny-gpt2 or DistilGPT2).
-2. Measure perplexity and activation drift before and after quantization across methods.
+1. Run the same all-layer harness on `roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, and `distilgpt2`, keeping only one model resident in local HuggingFace cache at a time.
+2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
 3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
 4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.
 
@@ -584,6 +713,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/rotation_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/sweep_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/transformer_experiment.py
 ```
 
 Current tracked figure references used in this draft:
@@ -598,5 +728,6 @@ Current tracked figure references used in this draft:
 - `docs/figures/sweep_dashboard_320x320.png`
 - `docs/figures/sweep_dashboard_top_width_32x32.png`
 - `docs/figures/sweep_dashboard_top_width_320x320.png`
+- `docs/figures/transformer_dashboard_tiny_gpt2.png`
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.
