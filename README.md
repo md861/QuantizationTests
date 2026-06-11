@@ -84,6 +84,8 @@ quantization to reduce outlier pressure:
   the top percentage of max-abs width differences.
   Sweep CSV rows include `rotation_count`, `rotation_pair_fraction`, and
   `rotation_candidate_fraction` so rotation-heavy comparisons remain interpretable.
+  Summary tables report condition-wise mean and standard deviation for MSE ratio
+  and zero fraction; dashboard error bars show the same cross-condition spread.
 
 The next milestone is tiny transformer integration: apply the best current
 matrix-level path to tiny-gpt2 or DistilGPT2, then measure perplexity,

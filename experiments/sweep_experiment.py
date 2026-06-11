@@ -161,19 +161,25 @@ def methods_in_config(config: SweepConfig) -> list[str]:
 
 
 def print_summary(records: list[SweepRecord]) -> None:
-    """Print a compact per-method summary averaged over all conditions."""
+    """Print a compact per-method summary over all sweep conditions."""
     ratios = _mse_ratios(records)
     zf: dict[str, list[float]] = {}
     for r in records:
         zf.setdefault(r.method, []).append(r.zero_fraction)
 
     methods = sorted(ratios, key=lambda m: float(np.mean(ratios[m])))
-    print(f"\n{'Method':<35}  {'MSE ratio':>10}  {'Zero frac':>10}")
-    print("-" * 60)
+    print(
+        f"\n{'Method':<35}  {'MSE mean':>10}  {'MSE std':>9}  "
+        f"{'Zero mean':>10}  {'Zero std':>9}"
+    )
+    print("-" * 82)
     for m in methods:
+        zero_values = zf.get(m, [0.0])
         print(
             f"{m:<35}  {float(np.mean(ratios[m])):>10.4f}  "
-            f"{float(np.mean(zf.get(m, [0]))):>10.4f}"
+            f"{float(np.std(ratios[m])):>9.4f}  "
+            f"{float(np.mean(zero_values)):>10.4f}  "
+            f"{float(np.std(zero_values)):>9.4f}"
         )
 
 
@@ -380,11 +386,12 @@ def _plot_dashboard(
     # Panel 1: mean MSE ratio per method
     ax = axes[0, 0]
     means = [float(np.mean(ratios[m])) for m in sorted_methods]
+    stds = [float(np.std(ratios[m])) for m in sorted_methods]
     colors = ["tab:green" if v < 1.0 else "tab:red" for v in means]
-    ax.barh(sorted_methods, means, color=colors)
+    ax.barh(sorted_methods, means, xerr=stds, color=colors, alpha=0.88)
     ax.axvline(1.0, color="black", linewidth=0.8, linestyle="--")
     ax.set_xlabel("MSE / Global INT4 MSE  (< 1 = improvement)")
-    ax.set_title("Mean MSE ratio vs global INT4")
+    ax.set_title("Mean MSE ratio vs global INT4 (error bars = std)")
 
     # Panel 2: mean zero fraction per method
     ax = axes[0, 1]
@@ -392,9 +399,10 @@ def _plot_dashboard(
     for r in records:
         zf.setdefault(r.method, []).append(r.zero_fraction)
     zf_means = [float(np.mean(zf.get(m, [0.0]))) for m in sorted_methods]
-    ax.barh(sorted_methods, zf_means, color="tab:blue")
+    zf_stds = [float(np.std(zf.get(m, [0.0]))) for m in sorted_methods]
+    ax.barh(sorted_methods, zf_means, xerr=zf_stds, color="tab:blue", alpha=0.88)
     ax.set_xlabel("Mean zero fraction")
-    ax.set_title("Mean zero fraction by method")
+    ax.set_title("Mean zero fraction by method (error bars = std)")
 
     # Panel 3: MSE ratio vs outlier_scale for key methods
     ax = axes[1, 0]

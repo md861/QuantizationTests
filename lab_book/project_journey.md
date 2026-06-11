@@ -3126,3 +3126,36 @@ conclusion: row-grouped quantization is the strongest lever in these synthetic
 outlier sweeps. More rotations can slightly worsen row-grouped paths, suggesting
 that once local row-group scales isolate outliers, extra column-pair mixing is
 not automatically beneficial under the current max-abs angle objective.
+
+## 2026-06-11 — Sweep Summary Standard Deviations and Error Bars
+
+### Motivation
+
+The user asked whether the research draft should make explicit that each summary
+table entry is an aggregate across sweep conditions, not a selected single run,
+and whether standard deviations would help reveal spread. This is important
+because the sweep varies seeds, outlier fractions, and outlier scales; the spread
+therefore reflects condition sensitivity as well as seed variation.
+
+### Implementation
+
+Updated `experiments/sweep_experiment.py`:
+
+- `print_summary(...)` now reports MSE-ratio mean/std and zero-fraction mean/std.
+- dashboard panel 1 now shows standard-deviation error bars on mean MSE ratio.
+- dashboard panel 2 now shows standard-deviation error bars on mean zero fraction.
+
+Regenerated the 32×32, 320×320, and top-width sparse-rotation dashboards, then
+copied the refreshed figures into `docs/figures/`.
+
+Updated `docs/research_draft.md`:
+
+- clarified that MSE ratios are computed condition-wise relative to global INT4
+  on the same matrix, then averaged across all conditions
+- added standard-deviation columns beside MSE ratio and zero fraction
+- clarified that the std values are spread across sweep conditions, not
+  confidence intervals
+- updated figure captions to explain the error bars
+
+Updated `README.md` and `project_summary.md` to document the aggregation
+semantics and dashboard error bars.
