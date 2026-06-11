@@ -68,6 +68,27 @@ PRESETS: dict[str, BenchmarkPreset] = {
         results_dir=Path("results/transformer_pythia_70m_int4_baseline"),
         plots_dir=Path("plots/transformer_pythia_70m_int4_baseline"),
     ),
+    "pythia-14m-int4-rotation": BenchmarkPreset(
+        model_name="EleutherAI/pythia-14m",
+        bitwidths=[4],
+        top_width_pair_fractions=[0.05, 0.10, 0.20],
+        results_dir=Path("results/transformer_pythia_14m_int4_rotation"),
+        plots_dir=Path("plots/transformer_pythia_14m_int4_rotation"),
+    ),
+    "pythia-70m-int4-rotation": BenchmarkPreset(
+        model_name="EleutherAI/pythia-70m",
+        bitwidths=[4],
+        top_width_pair_fractions=[0.05, 0.10, 0.20],
+        results_dir=Path("results/transformer_pythia_70m_int4_rotation"),
+        plots_dir=Path("plots/transformer_pythia_70m_int4_rotation"),
+    ),
+    "distilgpt2-int4-rotation": BenchmarkPreset(
+        model_name="distilgpt2",
+        bitwidths=[4],
+        top_width_pair_fractions=[0.05, 0.10, 0.20],
+        results_dir=Path("results/transformer_distilgpt2_int4_rotation"),
+        plots_dir=Path("plots/transformer_distilgpt2_int4_rotation"),
+    ),
     "distilgpt2-int8-baseline": BenchmarkPreset(
         model_name="distilgpt2",
         bitwidths=[8],

@@ -4031,3 +4031,78 @@ Cross-model INT4 g4 progression:
 
 Stopping point per user instruction — rotation presets require explicit approval.
 Models to target: Pythia-14m, Pythia-70m, distilgpt2.
+
+**Note on failed rotation run (2026-06-11 22:56):** A partial pythia-14m-int4-rotation
+run exists in `results/transformer_pythia_14m_int4_rotation/` (weight + activation CSVs
+only, no logit CSV — killed at 24/25 layers). Root cause: command was run directly in
+the main shell with `; tmux kill-session -t bench` appended, copied from the baseline
+run pattern. That suffix killed the tmux bench session the script may have been running
+in, or was a stale artefact. Re-run will clean up automatically via `_reset_incremental_csvs`.
+
+**Always use the `tmux send-keys` pattern below** — the `; tmux kill-session -t bench`
+must be inside the quoted string passed to `send-keys`, not appended to the outer shell
+command. Running it in the outer shell kills the session the script is running in.
+
+### Next commands — rotation presets
+
+Pythia-14m (fast, ~30s, all models already cached):
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-14m-int4-rotation --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/pythia14m_int4_rotation.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+Pythia-70m (expect ~13–15 min):
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-70m-int4-rotation --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/pythia70m_int4_rotation.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+distilgpt2 (expect ~11–13 min):
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  distilgpt2-int4-rotation --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/distilgpt2_int4_rotation.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+---
+
+## Session: 2026-06-11 — Handover diagnostics & rotation preset prep
+
+### Diagnostics
+
+- Confirmed all planned baselines complete (tiny-gpt2, TinyStories-1M, Pythia-14M, Pythia-70M, distilgpt2)
+- Unstaged change in `experiments/run_transformer_benchmark.py`: `pythia-14m-int4-rotation` preset added
+- Identified partial failed rotation run in `results/transformer_pythia_14m_int4_rotation/` (weight + activation CSVs only, no logit CSV, killed at 24/25 layers at 22:56 on 2026-06-11)
+
+### Root cause of failed run
+
+Shell history confirmed: the rotation run was launched directly in the main shell (not via `tmux send-keys`) with `; tmux kill-session -t bench` appended to the outer command — copied from the baseline run pattern. The `tmux kill-session` ran in the wrong context and killed the session the script was running in before it could complete the 25th layer and logit phase.
+
+Fix: lab book "Next commands" section updated with the correct `tmux new-session -d -s bench && tmux send-keys "... ; tmux kill-session -t bench" Enter` pattern and an explicit warning. The `; tmux kill-session` must always be inside the quoted string passed to `send-keys`.
+
+### Rotation presets added
+
+Added `pythia-70m-int4-rotation` and `distilgpt2-int4-rotation` presets to
+`experiments/run_transformer_benchmark.py` (matching `pythia-14m-int4-rotation`:
+bitwidths=[4], top_width_pair_fractions=[0.05, 0.10, 0.20]). All three rotation
+presets are now registered and verified via `--list-presets`.
+
+### Next step
+
+Run rotation presets in order: pythia-14m (~30s) → pythia-70m (~13–15 min) →
+distilgpt2 (~11–13 min). Use commands in "Next commands — rotation presets" above.
+Re-run of pythia-14m-int4-rotation will auto-reset the partial results directory.
