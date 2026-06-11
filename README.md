@@ -94,10 +94,10 @@ quantization to reduce outlier pressure:
 
 ## Active Milestone 3
 
-Milestone 3 applies the ParoQuant INT4 pipeline to real transformer weights.
+Milestone 3 applies the ParoQuant INT4/INT8 pipeline to real transformer weights.
 The harness (`experiments/transformer_experiment.py`) supports single-layer and
-all-layer modes, comparing global INT4, row-grouped INT4, scale+row-grouped INT4,
-and top-width rotate+scale+row-grouped INT4 across any HuggingFace causal LM.
+all-layer modes, comparing global, row-grouped, scale+row-grouped, and top-width
+rotate+scale+row-grouped paths across both bitwidths on any HuggingFace causal LM.
 It measures weight reconstruction (MSE, cosine similarity, SNR), activation drift
 (MSE, cosine similarity, relative error), and full-model logit/loss quality
 (logit MSE, top-5 token overlap, next-token loss delta, perplexity, and
