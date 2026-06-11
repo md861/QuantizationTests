@@ -23,7 +23,7 @@ runs on `sshleifer/tiny-gpt2`, `roneneldan/TinyStories-1M`, and
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m`, `distilgpt2`; measure weight reconstruction, activation drift, perplexity | Active |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2`; measure weight reconstruction, activation drift, perplexity | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -120,12 +120,18 @@ Completed all-layer runs:
   ratio 1.24); INT8 row-grouped g4 restores losslessness (0.994). INT4 global is
   catastrophic (perplexity ratio 15,074x); INT4 row-grouped g4 gives 1.33x.
   Group size 4 vs 32 is a >2x quality difference at INT4.
+- `EleutherAI/pythia-70m`: 45 compatible transformer layers quantized (INT8 and
+  INT4 baselines, ~13 min each). INT8 global degrades further (PPL ratio 1.44);
+  INT8 g4 remains lossless (0.971). INT4 global catastrophic (~501 trillion PPLx);
+  INT4 row-grouped g4 gives 7.52x — a qualitative jump from 14m's 1.33x.
+  Group size effect at INT4: g4 vs g128 is a 478x quality gap. INT8 and INT4
+  take identical wall-clock time (~13 min), confirming runtime is dominated by
+  weight passes not bitwidth arithmetic.
 
 Remaining planned benchmark models (one model in local storage at a time):
 
 | Model | Parameters |
 | --- | --- |
-| `EleutherAI/pythia-70m` | 70M |
 | `distilgpt2` | 82M |
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for

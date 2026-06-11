@@ -188,6 +188,32 @@ def print_presets() -> None:
         )
 
 
+def _make_progress_callback(label: str):
+    try:
+        from tqdm import tqdm as _tqdm
+    except ImportError:
+        return None
+
+    _bars: dict = {}
+    _prev_phase: list = [None]
+
+    def _callback(phase: str, current: int, total: int) -> None:
+        if phase not in _bars:
+            prev = _prev_phase[0]
+            if prev is not None and prev in _bars:
+                _bars[prev].close()
+            _bars[phase] = _tqdm(
+                total=total,
+                desc=f"{label} {phase}s",
+                unit=phase,
+                dynamic_ncols=True,
+            )
+        _bars[phase].update(1)
+        _prev_phase[0] = phase
+
+    return _callback
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -209,14 +235,23 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"Incremental CSVs: {config.incremental_results}")
 
     if args.download_only:
+        import time as _time
+        t0 = _time.time()
         download_artifacts(config.model_name, local_files_only=config.local_files_only)
+        print(f"download elapsed: {_time.time() - t0:.1f}s")
         return 0
 
+    import time as _time
     from experiments.transformer_experiment import print_summary, run_transformer_experiment
 
+    config.on_progress = _make_progress_callback(args.preset)
+
+    t0 = _time.time()
     wr, ar, lr = run_transformer_experiment(config)
+    elapsed = _time.time() - t0
     print_summary(wr, ar, lr)
     print(f"counts weight={len(wr)} activation={len(ar)} logit={len(lr)}")
+    print(f"elapsed: {elapsed:.1f}s ({elapsed/60:.1f}min)")
     return 0
 
 

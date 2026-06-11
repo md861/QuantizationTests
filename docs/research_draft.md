@@ -857,14 +857,14 @@ dominant variable: g4 gives 1.33×, g32 gives 2.52×.
 | sshleifer/tiny-gpt2 | ~0.1M | 50,159 | 50,159 | ~1.000 |
 | roneneldan/TinyStories-1M | 1M | 10,471 | 12,703 | 1.213 |
 | EleutherAI/pythia-14m | 14M | 535 | 711 | 1.330 |
+| EleutherAI/pythia-70m | 70M | 165 | 1,243 | 7.520 |
 
 The tiny-gpt2 result is a harness-validation point, not a meaningful
 compression benchmark (the model is too small and its PPL already near-random on
-any useful text). TinyStories-1M and Pythia-14m show a consistent story: INT4
-row_grouped_g4 degrades perplexity by roughly 1.2–1.3x relative to the original
-model. This range is in line with literature on sub-GPTQ simple grouped
-quantization at INT4. The Pythia-70M run (planned next) will determine whether
-this pattern holds or changes at the next scale step.
+any useful text). TinyStories-1M and Pythia-14m show a consistent degradation of
+1.2–1.3x at INT4 row_grouped_g4. Pythia-70m breaks this trend sharply: the PPL
+ratio jumps to 7.52x despite the model having a much lower original PPL (165 vs
+535). See Section 15 for full Pythia-70m results and analysis.
 
 ### 14.4 Key finding: INT8 global is not assumption-safe on 14M+ models
 
@@ -880,7 +880,118 @@ the earlier runs. It establishes that:
 This makes INT8 grouping a research-relevant question for this project, not just
 INT4 grouping.
 
-## 15. Limitations
+## 15. Pythia-70M Baseline Runs
+
+The fourth Milestone 3 run applies the harness to `EleutherAI/pythia-70m` (70M
+parameters, GPT-NeoX architecture, 6 transformer blocks). The run used identical
+settings to Pythia-14m: INT8 and INT4 separately, no rotations,
+`--local-files-only`, two Torch CPU threads, incremental CSV writes. Methods
+were: `global`, `row_grouped_g4`, `row_grouped_g128`, `scale_row_g4`,
+`scale_row_g128`. The harness found 45 compatible linear layers per run,
+producing 225 weight records, 225 activation records, and 5 logit/loss rows.
+
+Run timings: INT8 ≈ 798s (13.3 min); INT4 = 780s (13.0 min). Both bitwidths
+took essentially the same wall-clock time, confirming that quantization runtime
+is dominated by weight passes, not bitwidth arithmetic.
+
+Results were written to model-specific subdirectories:
+
+- `results/transformer_pythia_70m_int8_baseline/`
+- `results/transformer_pythia_70m_int4_baseline/`
+
+### 15.1 INT8 results
+
+**INT8 all-layer logit, loss, and perplexity summary (original PPL: 165.34)**
+
+| Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 8 | 54.52 | 0.600 | +0.365 | 238.26 | 1.441 |
+| row_grouped_g4 | 8 | 1.685 | 0.744 | −0.029 | 160.55 | **0.971** |
+| row_grouped_g128 | 8 | 1.514 | 0.728 | −0.120 | 146.59 | 0.887 |
+| scale_row_g4 | 8 | 1.448 | 0.750 | −0.057 | 156.21 | 0.945 |
+| scale_row_g128 | 8 | 1.591 | 0.756 | −0.127 | 145.68 | 0.881 |
+
+INT8 global degrades further on the 70m model: PPL ratio 1.44 vs 1.24 on 14m.
+The logit MSE of 54.52 is substantially higher than the 14m value (0.847), and
+top-5 overlap drops to 0.60. This confirms the per-scale degradation trend with
+model size: a single global scale cannot hold across the weight diversity of a
+larger model.
+
+All row-grouped and scale-row methods produce sub-1 PPL ratios, which under a
+small calibration batch means effectively lossless or within noise. The sub-1
+values here (0.97–0.88) are slightly larger in magnitude than those seen in
+14m runs, suggesting the small-batch PPL estimator has more variance at 70m's
+lower baseline PPL of 165.
+
+### 15.2 INT4 results
+
+**INT4 all-layer logit, loss, and perplexity summary (original PPL: 165.34)**
+
+| Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL | PPL ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 195,102 | 0.000 | +33.85 | 8.28×10¹⁶ | ~501 trillion |
+| row_grouped_g4 | 4 | 16.671 | 0.200 | +2.018 | 1,243.3 | **7.520** |
+| row_grouped_g128 | 4 | 108.342 | 0.100 | +8.187 | 594,052 | 3,593 |
+| scale_row_g4 | 4 | 16.116 | 0.244 | +2.038 | 1,268.6 | 7.673 |
+| scale_row_g128 | 4 | 111.297 | 0.083 | +8.166 | 582,012 | 3,520 |
+
+INT4 global destroys the model entirely (PPLx ~501 trillion, top-5 overlap
+zero). This mirrors Pythia-14m and TinyStories-1M — INT4 global is
+universally catastrophic on real models.
+
+The striking result is `row_grouped_g4`, which gives PPL ratio **7.52x** on 70m
+versus 1.33x on 14m. The absolute PPL rises from 165 to 1,243. This is a
+substantial regression: INT4 g4 that was near-usable on 14m is clearly degraded
+on 70m. Several contributing factors:
+
+1. **Larger matrices**: Pythia-70m has hidden size 512 and MLP intermediate 2048
+   vs 128/512 in 14m. Row dimension is 4x larger, but g4 still captures only 4
+   rows per group — the same absolute granularity on a much more complex weight
+   distribution.
+2. **Lower original PPL**: A model with PPL 165 has more learned structure to
+   lose. Small quantization errors that push the model off its manifold produce
+   larger absolute PPL increases when the baseline is low.
+3. **Weight distribution diversity**: 70m has 5x more parameters distributed
+   across the same 6 blocks, resulting in larger and more heterogeneous
+   weight tensors where a fixed small group size captures less of the local
+   variance structure.
+
+The group-size effect remains extreme at INT4: g4 gives 7.52x but g128 gives
+3,593x — a 478x difference from changing only the group boundary. This
+dwarfs the 1.9x g4/g32 ratio on 14m and establishes group size as the
+dominant quantization variable at 70m scale.
+
+`scale_row` (per-column scaling before row grouping) provides negligible
+additional benefit over raw row grouping at both INT4 g4 (7.67 vs 7.52) and g128
+(3,520 vs 3,593), consistent with the matrix-level finding that these two
+mechanisms serve the same outlier-suppression role.
+
+### 15.3 Scaling behaviour: 14m → 70m
+
+| Metric | Pythia-14m | Pythia-70m | Change |
+|---|---:|---:|---|
+| Original PPL | 534.99 | 165.34 | 3.2× lower (stronger model) |
+| INT8 global PPLx | 1.24 | 1.44 | +16% worse |
+| INT8 g4 PPLx | 0.994 | 0.971 | within noise |
+| INT4 global PPLx | 15,074 | ~501 trillion | much worse |
+| INT4 g4 PPLx | 1.330 | 7.520 | 5.65× worse |
+| INT4 g4 top-5 | 0.706 | 0.200 | sharply lower |
+
+INT8 with fine grouping remains safe. INT4 with g4 degrades much faster than
+model scale suggests — the 70m model quantizes worse at g4 than the 14m model
+despite being a stronger language model.
+
+### 15.4 Key finding: INT4 g4 does not scale safely to 70m
+
+The 14m runs established that INT4 row_grouped_g4 is near-usable (1.33x PPL).
+The 70m data shows this does not hold at the next scale step. The degradation is
+qualitative, not just quantitative: top-5 overlap drops from 0.71 to 0.20,
+meaning 80% of the model's top-5 next-token predictions are wrong after g4
+quantization. This motivates either finer grouping (g1 or g2), rotation
+pre-processing to reduce outlier energy, or a combination of both before INT4 is
+practically usable on models of this size.
+
+## 16. Limitations
 
 The current results are intentionally preliminary.
 
@@ -893,12 +1004,12 @@ The current results are intentionally preliminary.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 16. Next Work
+## 17. Next Work
 
 The next research steps move from harness validation to transformer-level
 evidence on less degenerate models and evaluation text.
 
-1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). Next: `EleutherAI/pythia-70m` and `distilgpt2`, keeping only one model resident in local HuggingFace cache at a time.
+1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). Next: `distilgpt2` baselines, then rotation presets on both 14m and 70m.
 2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
 3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
 4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.

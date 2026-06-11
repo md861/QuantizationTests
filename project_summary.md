@@ -61,6 +61,17 @@ Implemented so far:
   models; INT8 row_grouped_g4 restores losslessness (PPL ratio 0.994); INT4
   global is catastrophic (PPL ratio 15,074); INT4 row_grouped_g4 gives 1.33x
   and scale_row_g4 gives 1.32x; g32 is 2.52x worse than g4 for INT4
+- `EleutherAI/pythia-70m` INT8 and INT4 baseline runs complete (225 weight
+  records, 225 activation records, 5 logit/loss records each): INT8 global
+  worse than 14m (PPL ratio 1.44 vs 1.24); INT8 g4 lossless (0.971); INT4
+  global catastrophic (~501 trillion PPLx); INT4 g4 gives 7.52x — much
+  worse than 14m's 1.33x; g4 vs g128 at INT4 is a 478x quality gap;
+  scale_row provides negligible benefit over raw row_grouped at this scale;
+  timing: INT8 ~798s, INT4 780s (both ≈ 13 min, confirming bitwidth does not
+  affect wall-clock runtime)
+- tqdm progress bars wired into benchmark runner: two sequential bars
+  (layers phase, then logit phase) driven by `on_progress` callback in
+  `TransformerConfig`; falls back to no-op if tqdm not installed
 - safer benchmark runner at `experiments/run_transformer_benchmark.py` with
   disconnect-safe presets, `--local-files-only`, `--torch-threads`, `--download-only`,
   and incremental CSV writes; run all heavy benchmarks from this runner in a
@@ -71,7 +82,7 @@ Implemented so far:
   common p3.0637% rotation path instead of skipping the 256-output MLP expansion
   layers
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Pythia-14M baselines are now complete. Next step: pre-download and run Pythia-70M (INT8 then INT4 baseline), then DistilGPT2. Always use `tmux new-session -d -s bench` and append `; tmux kill-session -t bench` to the sent command so sessions self-destruct on completion. Run with `--local-files-only --torch-threads 2` after a `--download-only` preflight. See latest lab book entry for exact commands.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Pythia-14M and Pythia-70M baselines are now complete. Next step: run `distilgpt2` baselines (INT8 then INT4), then rotation presets on 14m and 70m. Always use `tmux new-session -d -s bench` and append `; tmux kill-session -t bench` to the sent command so sessions self-destruct on completion. Run with `--local-files-only --torch-threads 2` after a `--download-only` preflight. Expect ~13–15 min per bitwidth run for distilgpt2 (82M, similar to 70m). See latest lab book entry for exact commands.
 
 ## Environment
 
@@ -123,7 +134,35 @@ If another coding agent resumes this project, the safest order is:
 8. **Always update `README.md` before every commit and push.** The README is the public-facing entry point on GitHub and must never be stale. At minimum check: milestone statuses, progress table rows, current-milestone description, and the expected test count. Treat a stale README as a broken handoff.
 9. **Keep the research draft current before every commit and push when the work changes the research story.** Update `docs/research_draft.md` with new findings, examples, caveats, and figure references. Copy any paper-ready figure resources into `docs/figures/` and commit them with the draft. Do not rely on ignored `plots/` artifacts for GitHub-visible paper figures.
 10. **Always record rotation metadata for rotation experiments.** Any experiment, CSV, table, figure caption, or research-draft claim involving rotations must state the number of pair rotations applied per matrix/layer and the actual percentage/fraction of possible channel pairs used. For non-rotation baselines, record `rotation_count=0` and `rotation_pair_fraction=0.0`. For top-width sparse rotations, also record the configured candidate percentage as `rotation_candidate_fraction` and distinguish it from the actual independent rotation count/fraction.
-11. **Handover Diagnostic shorthand.** When the user says "handover diagnostic", do this checklist: read `project_summary.md`, skim the latest `lab_book/project_journey.md` entry, check `git status --short --branch`, inspect recent commits with `git log --oneline -12`, verify the test suite, search docs for stale milestone/test-count/output references, then report what changed since the last session, current stale states, and the next recommended step.
+11. **Handover Diagnostic shorthand.** When the user says "handover diagnostic", do this checklist: read `project_summary.md`, skim the latest `lab_book/project_journey.md` entry, check `git status --short --branch`, inspect recent commits with `git log --oneline -12`, verify the test suite, search docs for stale milestone/test-count/output references, **check the Benchmark Run Timings table below and flag any missing entries**, then report what changed since the last session, current stale states, and the next recommended step.
+12. **Always record wall-clock timing for every benchmark run.** When launching a run, state the estimated duration upfront based on the timings table below. When the run completes, copy the `elapsed: Xs (Ymin)` line from the runner log into both the lab book session entry and the Benchmark Run Timings table. If timing was not captured, write "timing not captured" explicitly — never leave the table entry blank. Before launching any new run, tell the user the expected duration based on the table.
+
+## Benchmark Run Timings
+
+This table is the authoritative record of wall-clock runtimes for benchmark
+runs. Update it every time a run completes. Use it to give the user upfront
+duration estimates before launching any new run.
+
+Hardware context: WSL2 on Windows, 32 GB RAM, CPU-only (no GPU), 2 Torch
+threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
+
+| Model | Params | Layers | Bitwidth | Rotations | Elapsed | Notes |
+|---|---:|---:|---|---|---:|---|
+| sshleifer/tiny-gpt2 | ~0.1M | 8 | INT4+INT8 | p5/p10/p20 | timing not captured | run predates timer |
+| roneneldan/TinyStories-1M | 1M | 48 | INT4+INT8 | p3.0637% | timing not captured | run predates timer |
+| EleutherAI/pythia-14m | 14M | 45 | INT8 | none | ~3 min | file-timestamp estimate |
+| EleutherAI/pythia-14m | 14M | 45 | INT4 | none | ~3.5 min | file-timestamp estimate |
+| EleutherAI/pythia-70m | 70M | 45 | INT8 | none | ~798s (13.3 min) | file-timestamp estimate; elapsed line missed (run predates timer fix) |
+| EleutherAI/pythia-70m | 70M | 45 | INT4 | none | 780s (13.0 min) | elapsed from runner log |
+| distilgpt2 | 82M | ~48 | INT8 | none | TBD | not yet run |
+| distilgpt2 | 82M | ~48 | INT4 | none | TBD | not yet run |
+
+**Prediction rule (update as more data arrives):** Pythia-14m ~3 min, Pythia-70m
+~13 min — roughly 4.3× runtime for 5× parameters. Runtime scales sub-linearly
+with params (larger layers amortise per-layer overhead). INT8 and INT4 take
+identical wall-clock time (both ~780–800s for 70m), confirming runtime is
+dominated by weight passes not bitwidth arithmetic. Expected: distilgpt2
+(82M, similar to 70m) ~13–15 min per bitwidth run.
 
 Typical publish flow:
 

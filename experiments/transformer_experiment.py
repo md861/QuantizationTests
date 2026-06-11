@@ -86,6 +86,9 @@ class TransformerConfig:
     local_files_only: bool = False
     incremental_results: bool = False
     delete_hf_cache_after: bool = False
+    # Optional progress callback: on_progress(phase, done, total)
+    # phase is "layer" or "logit"; done and total are int counts.
+    on_progress: object = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -189,8 +192,9 @@ def run_transformer_experiment(
         _reset_incremental_csvs(weight_csv_path, activation_csv_path, logit_csv_path)
 
     method_keys_by_layer: dict[str, dict[tuple[str, int], None]] = {}
+    n_layers = len(layers)
 
-    for layer_name, module in layers.items():
+    for layer_idx, (layer_name, module) in enumerate(layers.items()):
         w = _extract_weight(module)
         print(f"  {layer_name}: shape={w.shape}")
         wr, method_deqs = _run_weight_experiment(
@@ -215,6 +219,8 @@ def run_transformer_experiment(
             _append_activation_csv(activation_csv_path, ar)
         method_keys_by_layer[layer_name] = dict.fromkeys(method_deqs)
         del method_deqs
+        if config.on_progress is not None:
+            config.on_progress("layer", layer_idx + 1, n_layers)
 
     scope = (
         f"single_layer:{config.single_layer_name}"
@@ -230,6 +236,7 @@ def run_transformer_experiment(
         scope,
         top_width_pair_fractions=top_width_pair_fractions,
         incremental_logit_path=logit_csv_path if config.incremental_results else None,
+        on_progress=config.on_progress,
     )
 
     if not config.incremental_results:
@@ -462,18 +469,20 @@ def _run_logit_experiment(
     scope: str,
     top_width_pair_fractions: Optional[list[float]] = None,
     incremental_logit_path: Optional[Path] = None,
+    on_progress=None,
 ) -> list[LogitRecord]:
     """Run full-model passes while regenerating one method's weights at a time."""
     orig_logits, orig_loss = _forward_pass(model, token_inputs)
     orig_perplexity = math.exp(orig_loss)
 
     method_keys = _common_method_keys(method_keys_by_layer)
+    n_methods = len(method_keys)
     original_weights = {
         lname: _extract_weight(module).copy() for lname, module in layers.items()
     }
     records: list[LogitRecord] = []
 
-    for (method, bitwidth) in method_keys:
+    for method_idx, (method, bitwidth) in enumerate(method_keys):
         try:
             for lname, module in layers.items():
                 deq = _dequantize_method(
@@ -517,6 +526,8 @@ def _run_logit_experiment(
         records.append(record)
         if incremental_logit_path is not None:
             _append_logit_csv(incremental_logit_path, [record])
+        if on_progress is not None:
+            on_progress("logit", method_idx + 1, n_methods)
 
     return records
 

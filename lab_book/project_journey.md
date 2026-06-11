@@ -3913,3 +3913,66 @@ tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_N
 ```
 
 Keep rotations disabled until both 70m baselines are stable.
+
+---
+
+## Session: 2026-06-11 (continued) — Pythia-70m INT4 complete; tqdm progress bars
+
+### Pythia-70m INT4 results
+
+Run completed at ~22:12 (started 21:59:13). Elapsed from runner log: **780s (13.0 min)**.
+
+**INT4 all-layer logit summary (original PPL: 165.34)**
+
+| Method | Bits | Logit MSE | Top-5 | ΔLoss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 195,102 | 0.000 | +33.85 | 8.28×10¹⁶ | ~501 trillion |
+| row_grouped_g4 | 4 | 16.671 | 0.200 | +2.018 | 1,243.3 | **7.520** |
+| row_grouped_g128 | 4 | 108.342 | 0.100 | +8.187 | 594,052 | 3,593 |
+| scale_row_g4 | 4 | 16.116 | 0.244 | +2.038 | 1,268.6 | 7.673 |
+| scale_row_g128 | 4 | 111.297 | 0.083 | +8.166 | 582,012 | 3,520 |
+
+Key findings:
+- INT4 g4 PPLx = 7.52 on 70m vs 1.33 on 14m — qualitative degradation at this scale
+- g4 vs g128 at INT4: 7.52 vs 3,593 (478x quality gap — group size dominates)
+- scale_row provides no meaningful benefit over row_grouped here
+- INT8 and INT4 both took ~13 min — bitwidth does not affect wall-clock runtime
+
+### Benchmark Run Timings update
+
+Updated timings table in `project_summary.md`:
+- Pythia-70m INT8: ~798s (13.3 min, file-timestamp estimate)
+- Pythia-70m INT4: 780s (13.0 min, from runner log)
+
+### tqdm progress bars
+
+Implemented tqdm two-phase progress display in `run_transformer_benchmark.py`:
+- `_make_progress_callback(label)` returns a closure that creates lazy tqdm bars
+- Phase 1 bar: `{preset} layers` (one tick per quantized layer)
+- Phase 2 bar: `{preset} logits` (one tick per logit method); automatically closes layers bar on first logit call
+- Graceful fallback to `None` if tqdm not installed
+- Wired via `config.on_progress = _make_progress_callback(args.preset)` in `main()`
+- Smoke-tested on `tiny-gpt2-smoke` preset: completed in 0.9s with correct output
+
+### Research draft
+
+Added Section 15 (Pythia-70M Baseline Runs) with INT8 and INT4 tables, scaling
+analysis, and key finding that INT4 g4 does not scale safely to 70m. Updated
+Section 14.3 cross-model progression table with 70m row. Renumbered Limitations
+→ Section 16, Next Work → Section 17. Updated Next Work item 1 to mark 70m
+baselines as complete.
+
+### Next commands
+
+Pre-download and run `distilgpt2` baselines (expect ~13–15 min per bitwidth):
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  distilgpt2-int8-baseline --download-only 2>&1 | tee /tmp/distilgpt2_download.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+(Note: `distilgpt2-int8-baseline` and `distilgpt2-int4-baseline` presets need to be
+added to `run_transformer_benchmark.py` PRESETS dict before running.)
