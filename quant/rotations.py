@@ -117,6 +117,77 @@ def rotate_channel_pair(
     return apply_rotation(matrix, i, j, theta), theta
 
 
+def channel_widths(matrix: np.ndarray) -> np.ndarray:
+    """Return the max-abs width of each channel/column."""
+    _validate_matrix(matrix)
+    return np.max(np.abs(matrix), axis=0).astype(np.float64)
+
+
+def top_width_channel_pairs(
+    matrix: np.ndarray,
+    *,
+    top_fraction: float = 0.10,
+    independent: bool = True,
+) -> list[tuple[int, int]]:
+    """Select channel pairs with the largest max-abs width differences.
+
+    ``top_fraction`` is applied to all possible unordered channel pairs.  When
+    ``independent`` is true, pairs are greedily filtered so each channel appears
+    in at most one returned pair, matching ParoQuant's independent-rotation
+    constraint.
+    """
+    _validate_matrix(matrix)
+    _validate_top_fraction(top_fraction)
+
+    n_cols = matrix.shape[1]
+    if n_cols < 2:
+        return []
+
+    widths = channel_widths(matrix)
+    scored_pairs: list[tuple[float, int, int]] = []
+    for i in range(n_cols - 1):
+        for j in range(i + 1, n_cols):
+            scored_pairs.append((abs(float(widths[i] - widths[j])), i, j))
+
+    scored_pairs.sort(key=lambda item: (-item[0], item[1], item[2]))
+    n_candidates = max(1, int(np.ceil(top_fraction * len(scored_pairs))))
+    candidates = scored_pairs[:n_candidates]
+
+    if not independent:
+        return [(i, j) for _, i, j in candidates]
+
+    selected: list[tuple[int, int]] = []
+    used: set[int] = set()
+    for _, i, j in candidates:
+        if i in used or j in used:
+            continue
+        selected.append((i, j))
+        used.update((i, j))
+    return selected
+
+
+def rotate_top_width_pairs(
+    matrix: np.ndarray,
+    *,
+    top_fraction: float = 0.10,
+    independent: bool = True,
+    n_search: int = 360,
+) -> tuple[np.ndarray, list[GivensRotation]]:
+    """Rotate selected top-width-difference channel pairs in sequence."""
+    pairs = top_width_channel_pairs(
+        matrix,
+        top_fraction=top_fraction,
+        independent=independent,
+    )
+    result = matrix
+    rotations: list[GivensRotation] = []
+    for i, j in pairs:
+        theta = optimal_angle(result, i, j, n_search=n_search)
+        result = apply_rotation(result, i, j, theta)
+        rotations.append(GivensRotation(i=i, j=j, theta=theta))
+    return result, rotations
+
+
 def apply_sequential_rotations(
     matrix: np.ndarray,
     rotations: list[GivensRotation],
@@ -143,3 +214,10 @@ def _validate_channel_pair(n_cols: int, i: int, j: int) -> None:
         raise ValueError(f"channel index j={j} is out of range for n_cols={n_cols}")
     if i == j:
         raise ValueError("channel indices i and j must be distinct")
+
+
+def _validate_top_fraction(top_fraction: float) -> None:
+    if not np.isfinite(top_fraction):
+        raise ValueError("top_fraction must be finite")
+    if not (0.0 < top_fraction <= 1.0):
+        raise ValueError("top_fraction must be in the interval (0, 1]")

@@ -36,6 +36,7 @@ Milestone 3 (tiny transformer integration) is the next research step.
 | Histogram visualizations | Complete |
 | Results analysis helper | Complete |
 | Pairwise Givens rotation module | Complete |
+| Top-width sparse rotation selection | Complete |
 | Per-channel scaling | Complete |
 | Grouped quantization | Complete |
 | Rotation/scaling experiment | Complete |
@@ -51,6 +52,7 @@ quantization to reduce outlier pressure:
   by an angle that minimises the joint max-abs, redistributing outlier energy
   across channels before INT4/INT8 quantization.  Key functions:
   `rotation_matrix`, `apply_rotation`, `optimal_angle`, `rotate_channel_pair`,
+  `channel_widths`, `top_width_channel_pairs`, `rotate_top_width_pairs`,
   `apply_sequential_rotations`.
 - Verified via entry-zeroing (arctan2 angle analytically zeros a target entry),
   full Givens QR decomposition (Q@R=A cross-checked against `numpy.linalg.qr`),
@@ -76,6 +78,12 @@ quantization to reduce outlier pressure:
   and a 4-panel `plots/sweep_dashboard.png`. Key finding: row-grouped and
   rotate+scale+row-grouped are the only paths that consistently beat global INT4
   for row-localised outliers; column-grouped gives no improvement at any group size.
+  Optional `top_width_pair_fractions` add ParoQuant-style sparse rotation paths
+  such as `top_width_rotate_p10_global` and
+  `top_width_rotate_scale_p10_row_g4`, selecting independent channel pairs from
+  the top percentage of max-abs width differences.
+  Sweep CSV rows include `rotation_count`, `rotation_pair_fraction`, and
+  `rotation_candidate_fraction` so rotation-heavy comparisons remain interpretable.
 
 The next milestone is tiny transformer integration: apply the best current
 matrix-level path to tiny-gpt2 or DistilGPT2, then measure perplexity,
@@ -107,7 +115,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-157 passed
+164 passed
 ```
 
 ## Reproduce Artifacts
@@ -139,6 +147,10 @@ The sweep experiment writes:
 
 - `results/sweep_metrics.csv` and `plots/sweep_dashboard.png` (32×32, seeds 0–4)
 - `results/sweep_metrics_320x320.csv` and `plots/sweep_dashboard_320x320.png` (320×320, seeds 5–9)
+- `results/sweep_metrics_top_width_32x32.csv` and `plots/sweep_dashboard_top_width_32x32.png`
+- `results/sweep_metrics_top_width_320x320.csv` and `plots/sweep_dashboard_top_width_320x320.png`
+
+The top-width sparse-rotation sweeps use `top_width_pair_fractions=[0.05, 0.10, 0.20]`.
 
 To reproduce the large-matrix sweep:
 

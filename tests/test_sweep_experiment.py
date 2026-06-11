@@ -60,6 +60,9 @@ def test_sweep_writes_csv(tmp_path: Path) -> None:
         rows = list(csv.DictReader(f))
     assert len(rows) == len(records)
     assert "method" in rows[0]
+    assert "rotation_count" in rows[0]
+    assert "rotation_pair_fraction" in rows[0]
+    assert "rotation_candidate_fraction" in rows[0]
     assert "mse" in rows[0]
 
 
@@ -96,6 +99,64 @@ def test_methods_in_config_matches_actual_method_names(tmp_path: Path) -> None:
     expected = set(methods_in_config(config))
     actual = {r.method for r in records}
     assert expected == actual
+
+
+def test_sweep_includes_top_width_rotation_paths(tmp_path: Path) -> None:
+    config = SweepConfig(
+        shape=(8, 8),
+        seeds=[0],
+        outlier_fractions=[0.05],
+        outlier_scales=[10.0],
+        row_group_sizes=[4],
+        col_group_sizes=[],
+        top_width_pair_fractions=[0.10, 0.25],
+        results_dir=tmp_path / "results",
+        plots_dir=tmp_path / "plots",
+        save_plots=False,
+    )
+    method_names = set(methods_in_config(config))
+    assert "top_width_rotate_p10_global" in method_names
+    assert "top_width_rotate_scale_p10_row_g4" in method_names
+    assert "top_width_rotate_p25_global" in method_names
+
+    records = run_sweep_experiment(config)
+    actual = {r.method for r in records}
+    assert method_names == actual
+
+
+def test_sweep_records_rotation_metadata(tmp_path: Path) -> None:
+    config = SweepConfig(
+        shape=(8, 8),
+        seeds=[0],
+        outlier_fractions=[0.05],
+        outlier_scales=[10.0],
+        row_group_sizes=[4],
+        col_group_sizes=[],
+        top_width_pair_fractions=[0.25],
+        results_dir=tmp_path / "results",
+        plots_dir=tmp_path / "plots",
+        save_plots=False,
+    )
+    records = run_sweep_experiment(config)
+
+    global_record = next(r for r in records if r.method == "global")
+    assert global_record.rotation_count == 0
+    assert global_record.rotation_pair_fraction == 0.0
+    assert global_record.rotation_candidate_fraction == 0.0
+
+    rotate_record = next(r for r in records if r.method == "rotate_global")
+    assert rotate_record.rotation_count == 1
+    assert rotate_record.rotation_pair_fraction == pytest.approx(1 / 28)
+    assert rotate_record.rotation_candidate_fraction == 0.0
+
+    top_width_record = next(
+        r for r in records if r.method == "top_width_rotate_p25_global"
+    )
+    assert top_width_record.rotation_count > 0
+    assert top_width_record.rotation_pair_fraction == pytest.approx(
+        top_width_record.rotation_count / 28
+    )
+    assert top_width_record.rotation_candidate_fraction == pytest.approx(0.25)
 
 
 def test_global_mse_ratio_is_one(tmp_path: Path) -> None:

@@ -2959,3 +2959,170 @@ for the research draft.
 Updated the README and project summary so Milestone 2 is consistently complete
 and Milestone 3 is consistently the next research step. Added the formal
 **Handover Diagnostic** shorthand to `project_summary.md` for future agents.
+
+## 2026-06-11 — Top-Width Sparse Rotation Paths
+
+### Motivation
+
+The user pointed out an important ParoQuant detail: rotating all possible channel
+pairs is unnecessary, and the paper motivates sparse rotations by focusing on
+channel pairs with large magnitude/width differences. The existing sandbox only
+rotated the two columns with largest max-abs values, so it lacked a way to test
+"top few percent of channel-pair widths" as its own quantization path.
+
+### Implementation
+
+Extended `quant/rotations.py` with:
+
+- `channel_widths(matrix)` — max-abs width per channel
+- `top_width_channel_pairs(matrix, top_fraction, independent=True)` — scores all
+  unordered pairs by absolute width difference, keeps the top percentage, and
+  optionally greedily filters to an independent set
+- `rotate_top_width_pairs(matrix, top_fraction, independent=True, n_search=...)`
+  — applies the selected pairs sequentially and records `GivensRotation` metadata
+
+Extended `experiments/sweep_experiment.py` with opt-in
+`SweepConfig.top_width_pair_fractions`. When configured, the sweep adds methods:
+
+- `top_width_rotate_p{pct}_global`
+- `top_width_rotate_scale_p{pct}_global`
+- `top_width_rotate_scale_p{pct}_row_g{g}`
+
+The new paths apply independent sparse rotations, quantize in the transformed
+space, then invert the recorded rotations in reverse order before computing
+metrics against the original matrix.
+
+### Tests
+
+Added tests for:
+
+- column width computation
+- top-width pair ordering
+- independent-pair filtering
+- norm preservation and angle recording for sparse rotations
+- invalid fraction validation
+- sweep method visibility for `p10` and `p25` top-width paths
+
+Focused verification:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_rotations.py tests/test_sweep_experiment.py -q
+```
+
+Output:
+
+```text
+49 passed in 1.76s
+```
+
+### Notes
+
+`top_width_pair_fractions` is intentionally opt-in so the historical 32×32 and
+320×320 sweep figures remain comparable and the large sweep does not become
+unexpectedly expensive. The next useful experiment is to run a small p10/p25
+sweep and compare whether sparse multi-pair rotations improve over the older
+single-pair `rotate_*` paths.
+
+## 2026-06-11 — Rotation Metadata Reporting Protocol
+
+### Motivation
+
+The user requested that future experiments always state how many pair rotations
+were applied and what percentage of possible channel pairs was used. This matters
+because a single-pair rotation and a ParoQuant-style sparse multi-pair rotation
+can share similar method names unless the rotation budget is explicit.
+
+### Implementation
+
+Extended `experiments/sweep_experiment.py` so every `SweepRecord` and CSV row
+now includes:
+
+- `rotation_count`
+- `rotation_pair_fraction`
+- `rotation_candidate_fraction`
+
+Conventions:
+
+- non-rotation paths record `rotation_count=0` and `rotation_pair_fraction=0.0`
+- historical single-pair `rotate_*` paths record `rotation_count=1` and
+  `rotation_pair_fraction = 1 / (n_cols * (n_cols - 1) / 2)`
+- top-width sparse paths record the actual independent `rotation_count`, the
+  actual selected-pair fraction in `rotation_pair_fraction`, and the configured
+  candidate percentage in `rotation_candidate_fraction`
+
+Updated `project_summary.md` working protocol so future agents must include
+these metadata in any rotation experiment, CSV, table, figure caption, or
+research-draft claim. Updated `docs/research_draft.md` to state, directly
+beside the 32×32 and 320×320 sweep tables and figure captions, that those
+historical results used one pair rotation per matrix: 1/496 pairs (0.2016%) for
+32×32 and 1/51,040 pairs (0.0020%) for 320×320.
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+Output:
+
+```text
+164 passed in 13.34s
+```
+
+## 2026-06-11 — Top-Width Sparse Rotation Sweeps at 32×32 and 320×320
+
+### Motivation
+
+Rerun the matrix sweeps with ParoQuant-style top-width sparse rotations enabled
+at candidate percentages 5%, 10%, and 20%. The goal was to test whether using
+more high-width-difference channel pairs changes the earlier conclusion that
+row-grouped quantization dominates.
+
+### Commands
+
+32×32:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -c "from experiments.sweep_experiment import SweepConfig, run_sweep_experiment, print_summary; config = SweepConfig(top_width_pair_fractions=[0.05, 0.10, 0.20], csv_name='sweep_metrics_top_width_32x32.csv', plot_name='sweep_dashboard_top_width_32x32.png'); records = run_sweep_experiment(config); print_summary(records)"
+```
+
+320×320:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -c "from experiments.sweep_experiment import SweepConfig, run_sweep_experiment, print_summary; config = SweepConfig(shape=(320, 320), seeds=[5,6,7,8,9], outlier_fractions=[0.02,0.07,0.15], outlier_scales=[7.5,15.0,30.0], row_group_sizes=[4,8,16,32], col_group_sizes=[4,8,16], top_width_pair_fractions=[0.05, 0.10, 0.20], csv_name='sweep_metrics_top_width_320x320.csv', plot_name='sweep_dashboard_top_width_320x320.png'); records = run_sweep_experiment(config); print_summary(records)"
+```
+
+Copied generated dashboards into tracked paper-figure paths:
+
+- `docs/figures/sweep_dashboard_top_width_32x32.png`
+- `docs/figures/sweep_dashboard_top_width_320x320.png`
+
+### Results
+
+32×32:
+
+- p5/p10/p20 selected 2.42/3.78/5.24 independent rotations on average.
+- `top_width_rotate_p20_global` improves rotation-only global to 0.811 MSE ratio
+  versus 0.902 for the old single-pair `rotate_global`.
+- `top_width_rotate_scale_p20_global` reaches 0.515, close to but slightly worse
+  than single-pair `rotate_scale_global` at 0.507.
+- Row-grouped remains dominant: `rotate_scale_row_g4` is 0.111 and
+  `row_grouped_g4` is 0.112.
+
+320×320:
+
+- p5/p10/p20 selected 24.53/37.33/56.47 independent rotations on average.
+- `top_width_rotate_scale_p20_global` improves to 0.820 versus 0.844 for
+  single-pair `rotate_scale_global` and 0.845 for `scale_global`.
+- Top-width row-grouped paths do not beat row-grouped alone:
+  `row_grouped_g4` and `rotate_scale_row_g4` remain 0.143, while
+  `top_width_rotate_scale_p20_row_g4` is 0.146.
+
+### Interpretation
+
+Sparse top-width rotations are useful for global rotation paths, especially at
+larger matrix size and with scaling, but they do not change the main matrix-level
+conclusion: row-grouped quantization is the strongest lever in these synthetic
+outlier sweeps. More rotations can slightly worsen row-grouped paths, suggesting
+that once local row-group scales isolate outliers, extra column-pair mixing is
+not automatically beneficial under the current max-abs angle objective.

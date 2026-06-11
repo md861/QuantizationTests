@@ -9,9 +9,12 @@ from quant.rotations import (
     GivensRotation,
     apply_rotation,
     apply_sequential_rotations,
+    channel_widths,
     optimal_angle,
     rotate_channel_pair,
+    rotate_top_width_pairs,
     rotation_matrix,
+    top_width_channel_pairs,
 )
 
 
@@ -182,6 +185,73 @@ def test_rotate_channel_pair_returns_angle_from_valid_range() -> None:
     matrix = rng.standard_normal((6, 6)).astype(np.float64)
     _, theta = rotate_channel_pair(matrix, 0, 5)
     assert 0.0 <= theta < np.pi
+
+
+# ── top-width pair selection ─────────────────────────────────────────────────
+
+def test_channel_widths_returns_column_max_abs() -> None:
+    matrix = np.array(
+        [
+            [1.0, -5.0, 2.0],
+            [-3.0, 4.0, -7.0],
+        ],
+        dtype=np.float64,
+    )
+    np.testing.assert_allclose(channel_widths(matrix), np.array([3.0, 5.0, 7.0]))
+
+
+def test_top_width_channel_pairs_selects_largest_width_differences() -> None:
+    matrix = np.array(
+        [
+            [1.0, 10.0, 4.0, 7.0],
+            [1.0, 10.0, 4.0, 7.0],
+        ],
+        dtype=np.float64,
+    )
+    pairs = top_width_channel_pairs(matrix, top_fraction=0.34, independent=False)
+    assert pairs == [(0, 1), (0, 3), (1, 2)]
+
+
+def test_top_width_channel_pairs_can_enforce_independence() -> None:
+    matrix = np.array(
+        [
+            [1.0, 10.0, 4.0, 7.0],
+            [1.0, 10.0, 4.0, 7.0],
+        ],
+        dtype=np.float64,
+    )
+    pairs = top_width_channel_pairs(matrix, top_fraction=1.0, independent=True)
+    used: set[int] = set()
+    for i, j in pairs:
+        assert i not in used
+        assert j not in used
+        used.update((i, j))
+    assert pairs[0] == (0, 1)
+
+
+def test_rotate_top_width_pairs_preserves_norm_and_records_angles() -> None:
+    rng = np.random.default_rng(123)
+    matrix = rng.standard_normal((8, 8)).astype(np.float64)
+    matrix[0, 0] = 40.0
+    rotated, rotations = rotate_top_width_pairs(
+        matrix,
+        top_fraction=0.25,
+        independent=True,
+        n_search=72,
+    )
+    assert rotations
+    assert all(0.0 <= r.theta < np.pi for r in rotations)
+    np.testing.assert_allclose(
+        np.linalg.norm(rotated), np.linalg.norm(matrix), rtol=1e-10
+    )
+
+
+def test_top_width_channel_pairs_rejects_invalid_fraction() -> None:
+    matrix = np.ones((4, 4), dtype=np.float64)
+    with pytest.raises(ValueError, match="top_fraction"):
+        top_width_channel_pairs(matrix, top_fraction=0.0)
+    with pytest.raises(ValueError, match="top_fraction"):
+        top_width_channel_pairs(matrix, top_fraction=1.5)
 
 
 # ── apply_sequential_rotations ────────────────────────────────────────────────

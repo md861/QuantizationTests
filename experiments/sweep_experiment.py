@@ -22,7 +22,13 @@ from quant.quantizer import (
     quantize_int4_grouped,
     quantize_int4_row_grouped,
 )
-from quant.rotations import apply_rotation, rotate_channel_pair
+from quant.rotations import (
+    GivensRotation,
+    apply_rotation,
+    apply_sequential_rotations,
+    rotate_channel_pair,
+    rotate_top_width_pairs,
+)
 from quant.scaling import balance_channel_max_abs, invert_channel_scaling
 
 
@@ -40,6 +46,8 @@ class SweepConfig:
     )
     row_group_sizes: Sequence[int] = field(default_factory=lambda: [4, 8, 16])
     col_group_sizes: Sequence[int] = field(default_factory=lambda: [4, 8])
+    top_width_pair_fractions: Sequence[float] = field(default_factory=list)
+    rotation_search_steps: int = 360
     results_dir: Path = field(default_factory=lambda: Path("results"))
     plots_dir: Path = field(default_factory=lambda: Path("plots"))
     save_plots: bool = True
@@ -60,6 +68,9 @@ class SweepRecord:
     snr_db: float
     zero_fraction: float
     saturation_fraction: float | None
+    rotation_count: int
+    rotation_pair_fraction: float
+    rotation_candidate_fraction: float
 
 
 def run_sweep_experiment(
@@ -84,7 +95,12 @@ def run_sweep_experiment(
                     outlier_scale=float(scale),
                     seed=seed,
                 )
-                for method, deq, result in _quantize_all_methods(matrix, config):
+                for method_result in _quantize_all_methods(matrix, config):
+                    method, deq, result = (
+                        method_result.method,
+                        method_result.dequantized,
+                        method_result.quantization,
+                    )
                     m = compute_quantization_metrics(
                         matrix,
                         deq,
@@ -105,6 +121,11 @@ def run_sweep_experiment(
                                 m.zero_fraction if m.zero_fraction is not None else 0.0
                             ),
                             saturation_fraction=m.saturation_fraction,
+                            rotation_count=method_result.rotation_count,
+                            rotation_pair_fraction=method_result.rotation_pair_fraction,
+                            rotation_candidate_fraction=(
+                                method_result.rotation_candidate_fraction
+                            ),
                         )
                     )
 
@@ -126,6 +147,16 @@ def methods_in_config(config: SweepConfig) -> list[str]:
     names += [f"row_grouped_g{g}" for g in config.row_group_sizes]
     names += ["scale_global", "rotate_global", "rotate_scale_global"]
     names += [f"rotate_scale_row_g{g}" for g in config.row_group_sizes]
+    for p in config.top_width_pair_fractions:
+        tag = _fraction_tag(float(p))
+        names += [
+            f"top_width_rotate_{tag}_global",
+            f"top_width_rotate_scale_{tag}_global",
+        ]
+        names += [
+            f"top_width_rotate_scale_{tag}_row_g{g}"
+            for g in config.row_group_sizes
+        ]
     return names
 
 
@@ -148,32 +179,42 @@ def print_summary(records: list[SweepRecord]) -> None:
 
 # ── private helpers ───────────────────────────────────────────────────────────
 
+@dataclass(frozen=True)
+class _MethodOutput:
+    method: str
+    dequantized: np.ndarray
+    quantization: QuantizationResult
+    rotation_count: int = 0
+    rotation_pair_fraction: float = 0.0
+    rotation_candidate_fraction: float = 0.0
+
+
 def _quantize_all_methods(
     matrix: np.ndarray,
     config: SweepConfig,
-) -> list[tuple[str, np.ndarray, QuantizationResult]]:
-    out: list[tuple[str, np.ndarray, QuantizationResult]] = []
+) -> list[_MethodOutput]:
+    out: list[_MethodOutput] = []
 
     # Global INT4
     r = quantize_int4(matrix)
-    out.append(("global", r.dequantized, r))
+    out.append(_MethodOutput("global", r.dequantized, r))
 
     # Column-grouped INT4
     for g in config.col_group_sizes:
         r = quantize_int4_grouped(matrix, group_size=g)
-        out.append((f"col_grouped_g{g}", r.dequantized, r))
+        out.append(_MethodOutput(f"col_grouped_g{g}", r.dequantized, r))
 
     # Row-grouped INT4
     for g in config.row_group_sizes:
         r = quantize_int4_row_grouped(matrix, row_group_size=g)
-        out.append((f"row_grouped_g{g}", r.dequantized, r))
+        out.append(_MethodOutput(f"row_grouped_g{g}", r.dequantized, r))
 
     # Rotation metadata shared across all rotation paths
     col_maxabs = np.max(np.abs(matrix), axis=0)
     top2 = np.argsort(col_maxabs)[-2:]
     rot_i, rot_j = int(top2[0]), int(top2[1])
     rotated, theta = rotate_channel_pair(
-        matrix.astype(np.float64), rot_i, rot_j
+        matrix.astype(np.float64), rot_i, rot_j, n_search=config.rotation_search_steps
     )
     rotated = rotated.astype(matrix.dtype)
 
@@ -181,14 +222,22 @@ def _quantize_all_methods(
     scaled, scaling = balance_channel_max_abs(matrix)
     r = quantize_int4(scaled)
     deq = invert_channel_scaling(r.dequantized, scaling)
-    out.append(("scale_global", deq, r))
+    out.append(_MethodOutput("scale_global", deq, r))
 
     # Rotation + global INT4
     r = quantize_int4(rotated)
     deq = apply_rotation(
         r.dequantized.astype(np.float64), rot_i, rot_j, -theta
     ).astype(matrix.dtype)
-    out.append(("rotate_global", deq, r))
+    out.append(
+        _MethodOutput(
+            "rotate_global",
+            deq,
+            r,
+            rotation_count=1,
+            rotation_pair_fraction=_pair_fraction_from_count(matrix, 1),
+        )
+    )
 
     # Rotation + scaling + global INT4
     rot_scaled, rot_scaling = balance_channel_max_abs(rotated)
@@ -197,7 +246,15 @@ def _quantize_all_methods(
     deq = apply_rotation(deq.astype(np.float64), rot_i, rot_j, -theta).astype(
         matrix.dtype
     )
-    out.append(("rotate_scale_global", deq, r))
+    out.append(
+        _MethodOutput(
+            "rotate_scale_global",
+            deq,
+            r,
+            rotation_count=1,
+            rotation_pair_fraction=_pair_fraction_from_count(matrix, 1),
+        )
+    )
 
     # Rotation + scaling + row-grouped INT4
     for g in config.row_group_sizes:
@@ -206,7 +263,86 @@ def _quantize_all_methods(
         deq = apply_rotation(
             deq.astype(np.float64), rot_i, rot_j, -theta
         ).astype(matrix.dtype)
-        out.append((f"rotate_scale_row_g{g}", deq, r))
+        out.append(
+            _MethodOutput(
+                f"rotate_scale_row_g{g}",
+                deq,
+                r,
+                rotation_count=1,
+                rotation_pair_fraction=_pair_fraction_from_count(matrix, 1),
+            )
+        )
+
+    # Top-width-difference independent rotations + quantization paths
+    for p in config.top_width_pair_fractions:
+        tag = _fraction_tag(float(p))
+        top_rotated, rotations = rotate_top_width_pairs(
+            matrix.astype(np.float64),
+            top_fraction=float(p),
+            independent=True,
+            n_search=config.rotation_search_steps,
+        )
+        top_rotated = top_rotated.astype(matrix.dtype)
+        rotation_count = len(rotations)
+        inverse_rotations = [
+            GivensRotation(i=r.i, j=r.j, theta=-r.theta)
+            for r in reversed(rotations)
+        ]
+
+        r = quantize_int4(top_rotated)
+        deq = apply_sequential_rotations(
+            r.dequantized.astype(np.float64), inverse_rotations
+        ).astype(matrix.dtype)
+        out.append(
+            _MethodOutput(
+                f"top_width_rotate_{tag}_global",
+                deq,
+                r,
+                rotation_count=rotation_count,
+                rotation_pair_fraction=_pair_fraction_from_count(
+                    matrix, rotation_count
+                ),
+                rotation_candidate_fraction=float(p),
+            )
+        )
+
+        top_rot_scaled, top_rot_scaling = balance_channel_max_abs(top_rotated)
+        r = quantize_int4(top_rot_scaled)
+        deq = invert_channel_scaling(r.dequantized, top_rot_scaling)
+        deq = apply_sequential_rotations(
+            deq.astype(np.float64), inverse_rotations
+        ).astype(matrix.dtype)
+        out.append(
+            _MethodOutput(
+                f"top_width_rotate_scale_{tag}_global",
+                deq,
+                r,
+                rotation_count=rotation_count,
+                rotation_pair_fraction=_pair_fraction_from_count(
+                    matrix, rotation_count
+                ),
+                rotation_candidate_fraction=float(p),
+            )
+        )
+
+        for g in config.row_group_sizes:
+            r = quantize_int4_row_grouped(top_rot_scaled, row_group_size=g)
+            deq = invert_channel_scaling(r.dequantized, top_rot_scaling)
+            deq = apply_sequential_rotations(
+                deq.astype(np.float64), inverse_rotations
+            ).astype(matrix.dtype)
+            out.append(
+                _MethodOutput(
+                    f"top_width_rotate_scale_{tag}_row_g{g}",
+                    deq,
+                    r,
+                    rotation_count=rotation_count,
+                    rotation_pair_fraction=_pair_fraction_from_count(
+                        matrix, rotation_count
+                    ),
+                    rotation_candidate_fraction=float(p),
+                )
+            )
 
     return out
 
@@ -322,6 +458,9 @@ def _write_csv(path: Path, records: list[SweepRecord]) -> None:
         "outlier_fraction",
         "outlier_scale",
         "method",
+        "rotation_count",
+        "rotation_pair_fraction",
+        "rotation_candidate_fraction",
         "mse",
         "relative_frobenius_error",
         "snr_db",
@@ -338,6 +477,9 @@ def _write_csv(path: Path, records: list[SweepRecord]) -> None:
                     "outlier_fraction": r.outlier_fraction,
                     "outlier_scale": r.outlier_scale,
                     "method": r.method,
+                    "rotation_count": r.rotation_count,
+                    "rotation_pair_fraction": r.rotation_pair_fraction,
+                    "rotation_candidate_fraction": r.rotation_candidate_fraction,
                     "mse": r.mse,
                     "relative_frobenius_error": r.relative_frobenius_error,
                     "snr_db": r.snr_db,
@@ -352,6 +494,21 @@ def _write_csv(path: Path, records: list[SweepRecord]) -> None:
 def _save_figure(fig: plt.Figure, path: Path) -> None:
     fig.savefig(path, dpi=120, bbox_inches="tight")
     plt.close(fig)
+
+
+def _fraction_tag(value: float) -> str:
+    percent = value * 100.0
+    if float(percent).is_integer():
+        return f"p{int(percent)}"
+    return f"p{str(round(percent, 4)).replace('.', '_')}"
+
+
+def _pair_fraction_from_count(matrix: np.ndarray, rotation_count: int) -> float:
+    n_cols = matrix.shape[1]
+    total_pairs = n_cols * (n_cols - 1) // 2
+    if total_pairs == 0:
+        return 0.0
+    return float(rotation_count / total_pairs)
 
 
 def main() -> None:

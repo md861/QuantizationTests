@@ -6,8 +6,9 @@ This is the compact handoff document for resuming work on the Quantization Lab r
 
 Milestone 1 and Milestone 2 are complete at matrix level. Milestone 2
 (ParoQuant Core) now includes pairwise Givens rotations, per-channel scaling,
-column-grouped quantization, row-grouped quantization, the rotation/scaling
-experiment, and comparative sweeps across the implemented quantization paths.
+top-width channel-pair selection for sparse rotations, column-grouped
+quantization, row-grouped quantization, the rotation/scaling experiment, and
+comparative sweeps across the implemented quantization paths.
 Milestone 3 (tiny transformer integration) is the next research step.
 
 Implemented so far:
@@ -22,6 +23,7 @@ Implemented so far:
 - results-analysis helper comparing INT4 against INT8 from generated CSVs, including a collated benchmark-style dashboard
 - integration and repository-hygiene tests
 - pairwise Givens rotation utilities (`quant/rotations.py`)
+- ParoQuant-style top-width-difference channel-pair selection for independent sparse rotations
 - per-channel scaling utilities (`quant/scaling.py`)
 - grouped symmetric quantization utilities, including column-grouped and row-grouped paths
 - rotation/scaling experiment comparing four INT4 preprocessing paths
@@ -30,7 +32,7 @@ Implemented so far:
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. Key findings: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. Group size remains the dominant variable across both scales. Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
 
 ## Environment
 
@@ -55,7 +57,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-157 passed
+164 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -81,7 +83,8 @@ If another coding agent resumes this project, the safest order is:
 7. Keep docs in sync with code changes, especially this summary and the lab book, so handoff remains easy.
 8. **Always update `README.md` before every commit and push.** The README is the public-facing entry point on GitHub and must never be stale. At minimum check: milestone statuses, progress table rows, current-milestone description, and the expected test count. Treat a stale README as a broken handoff.
 9. **Keep the research draft current before every commit and push when the work changes the research story.** Update `docs/research_draft.md` with new findings, examples, caveats, and figure references. Copy any paper-ready figure resources into `docs/figures/` and commit them with the draft. Do not rely on ignored `plots/` artifacts for GitHub-visible paper figures.
-10. **Handover Diagnostic shorthand.** When the user says "handover diagnostic", do this checklist: read `project_summary.md`, skim the latest `lab_book/project_journey.md` entry, check `git status --short --branch`, inspect recent commits with `git log --oneline -12`, verify the test suite, search docs for stale milestone/test-count/output references, then report what changed since the last session, current stale states, and the next recommended step.
+10. **Always record rotation metadata for rotation experiments.** Any experiment, CSV, table, figure caption, or research-draft claim involving rotations must state the number of pair rotations applied per matrix/layer and the actual percentage/fraction of possible channel pairs used. For non-rotation baselines, record `rotation_count=0` and `rotation_pair_fraction=0.0`. For top-width sparse rotations, also record the configured candidate percentage as `rotation_candidate_fraction` and distinguish it from the actual independent rotation count/fraction.
+11. **Handover Diagnostic shorthand.** When the user says "handover diagnostic", do this checklist: read `project_summary.md`, skim the latest `lab_book/project_journey.md` entry, check `git status --short --branch`, inspect recent commits with `git log --oneline -12`, verify the test suite, search docs for stale milestone/test-count/output references, then report what changed since the last session, current stale states, and the next recommended step.
 
 Typical publish flow:
 
@@ -337,15 +340,21 @@ Comparative sweep across all quantization paths and outlier conditions (Mileston
   - `rotate_global`: pairwise Givens rotation then global INT4
   - `rotate_scale_global`: rotation + scaling then global INT4
   - `rotate_scale_row_g{g}`: rotation + scaling then row-grouped INT4
+  - `top_width_rotate_p{pct}_global`: opt-in sparse independent rotations
+    selected from the top percentage of channel width differences, then global INT4
+  - `top_width_rotate_scale_p{pct}_global`: top-width rotations + scaling + global INT4
+  - `top_width_rotate_scale_p{pct}_row_g{g}`: top-width rotations + scaling + row-grouped INT4
 - **Condition grid**: seeds × outlier_fractions × outlier_scales (configurable via `SweepConfig`)
 - **Outputs**: `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`
+- **Rotation metadata**: every CSV row includes `rotation_count`, actual `rotation_pair_fraction`, and configured `rotation_candidate_fraction`; non-rotation baselines use 0, 0.0, and 0.0
 - **Dashboard**: 4 panels — mean MSE ratio per method, mean zero fraction per method, MSE ratio vs outlier severity, effect of row group size
 - **Sweep results — 32×32** (45 cond, 12 methods): row_grouped_g4=0.112, rotate_scale_row_g4=0.111, scale_global=0.531, col_grouped_g4=0.766, rotate_global=0.902. Column-grouped gives no improvement for row-localised outliers. Rotation adds small benefit through scaling.
 - **Sweep results — 320×320** (45 cond, 15 methods, new seeds/conditions/group sizes): row_grouped_g4=0.143, rotate_scale_row_g4=0.143, scale_global=0.845, col_grouped_g4=0.898, rotate_global=0.965. At large scale with random scatter: rotation adds zero measurable benefit; per-channel scaling loses effectiveness because random scatter means every column has outliers; only row-grouped remains effective.
+- **Top-width sparse sweep results**: p5/p10/p20 top-width rotations improve rotation-only global paths and 320×320 rotate+scale_global, but they do not improve the best row-grouped results. On 32×32, p20 rotation-only global improves to 0.811 vs single-pair rotate_global 0.902, while rotate_scale_row_g4 remains best at 0.111. On 320×320, p20 rotate+scale_global improves to 0.820 vs single-pair rotate_scale_global 0.844, but row_grouped_g4 and rotate_scale_row_g4 remain best at 0.143.
 
 API:
 
-- `SweepConfig` — dataclass with grid parameters and output settings; `csv_name` and `plot_name` fields allow multiple sweeps to coexist without overwriting
+- `SweepConfig` — dataclass with grid parameters and output settings; `csv_name` and `plot_name` fields allow multiple sweeps to coexist without overwriting; `top_width_pair_fractions` enables opt-in top-width sparse-rotation paths
 - `SweepRecord` — frozen dataclass with metrics for one (condition, method) pair
 - `run_sweep_experiment(config) -> list[SweepRecord]`
 - `methods_in_config(config) -> list[str]`
@@ -354,6 +363,8 @@ API:
 Two sweeps have been run:
 - 32×32, seeds 0–4, fractions [0.01,0.05,0.10], scales [5,10,20] → `results/sweep_metrics.csv`, `docs/figures/sweep_dashboard.png`
 - 320×320, seeds 5–9, fractions [0.02,0.07,0.15], scales [7.5,15,30] → `results/sweep_metrics_320x320.csv`, `docs/figures/sweep_dashboard_320x320.png`
+- 32×32 with top-width p5/p10/p20 rotations → `results/sweep_metrics_top_width_32x32.csv`, `docs/figures/sweep_dashboard_top_width_32x32.png`
+- 320×320 with top-width p5/p10/p20 rotations → `results/sweep_metrics_top_width_320x320.csv`, `docs/figures/sweep_dashboard_top_width_320x320.png`
 
 ### `experiments/rotation_experiment.py`
 
@@ -409,7 +420,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-157 passed
+164 passed
 ```
 
 ## Design Conventions
@@ -436,7 +447,7 @@ The living paper-style draft is:
 docs/research_draft.md
 ```
 
-It currently summarizes the matrix-level sandbox, INT8/INT4 examples, metrics, outlier failure modes, result-analysis dashboards, rotation/scaling tests, row-grouped quantization, and Milestone 2 sweep findings. Tracked paper figures live under `docs/figures/`. Keep claims cautious unless they are supported by sweeps or repeated evidence.
+It currently summarizes the matrix-level sandbox, INT8/INT4 examples, metrics, outlier failure modes, result-analysis dashboards, rotation/scaling tests, row-grouped quantization, top-width sparse rotation selection, and Milestone 2 sweep findings. Tracked paper figures live under `docs/figures/`. Keep claims cautious unless they are supported by sweeps or repeated evidence.
 
 ## Current Baseline Result
 

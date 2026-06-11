@@ -311,6 +311,42 @@ In this single run, rotation + scaling is best among the four paths on MSE, rela
 
 It does not yet justify the broad claim that rotation + scaling is always the best strategy.
 
+### 9.1 Top-Width Sparse Rotation Selection
+
+The rotation primitive now also supports a ParoQuant-style sparse pair-selection
+path. For each channel $c$, define its width as
+
+$$
+w_c = \max_i |W_{i,c}|.
+$$
+
+All unordered channel pairs $(a,b)$ are scored by width difference:
+
+$$
+\Delta_{a,b} = |w_a - w_b|.
+$$
+
+Given a percentage $p$, the implementation sorts pairs by $\Delta_{a,b}$,
+keeps the top $p$ percent as candidates, then greedily selects an independent
+subset so each channel appears in at most one pair. Each selected pair is
+rotated with the same max-abs grid-search angle used by the existing rotation
+primitive. In the sweep API this creates opt-in paths such as
+`top_width_rotate_p10_global`, `top_width_rotate_scale_p10_global`, and
+`top_width_rotate_scale_p10_row_g4`.
+
+This is closer to ParoQuant's motivation than the earlier single-pair heuristic,
+which selected only the two largest-width columns. The current implementation is
+still not the full ParoQuant optimizer: angles are chosen by a matrix-level
+max-abs objective, not by calibration-data layer loss.
+
+For all rotation experiments going forward, result tables and CSVs should report
+`rotation_count`, actual `rotation_pair_fraction`, and, when a candidate-pool
+selector is used, `rotation_candidate_fraction`. Non-rotation baselines use
+0, 0.0, and 0.0. The historical 32×32 and 320×320 sweep results below used one pair
+rotation per matrix for the `rotate_*` paths: 1 of 496 possible pairs for
+32×32 matrices (0.2016%) and 1 of 51,040 possible pairs for 320×320 matrices
+(0.0020%).
+
 ## 10. Grouped Quantization
 
 ### 10.1 Column-Grouped Quantization
@@ -384,7 +420,14 @@ The project has produced the following working findings.
 6. In the first rotation/scaling experiment, scaling explains most of the observed improvement, while rotation + scaling is the best path but only by a small margin over scaling alone.
 7. Column-grouped quantization improves over global INT4 when outliers are column-localised, but provides no benefit when outliers are row-localised, because the outlier row spans every column group regardless of group size.
 8. Row-grouped quantization (one scale per row-group per column, the GPTQ/AWQ approach) directly addresses row-localised outliers. In a controlled row-outlier example, row-grouping with group size 4 reduces MSE by 7× and zero fraction from 92% to 23% compared with global INT4, while column-grouped quantization leaves both metrics unchanged at any group size.
-9. The comparative sweep (5 seeds × 3 outlier fractions × 3 outlier scales = 45 conditions, 12 methods each) produces the following mean MSE ratios relative to global INT4, averaged across all conditions:
+9. The comparative sweep (5 seeds × 3 outlier fractions × 3 outlier scales = 45 conditions, 12 methods each) produces the following mean MSE ratios relative to global INT4, averaged across all conditions.
+
+Rotation budget for the shown 32×32 results: the `rotate_global`,
+`rotate_scale_global`, and `rotate_scale_row_g*` methods used exactly **one**
+pair rotation per matrix condition. A 32-column matrix has
+$32 \times 31 / 2 = 496$ possible unordered channel pairs, so the rotation
+budget was **1/496 pairs = 0.2016%** of possible pairs per condition. Non-rotation
+methods used zero rotations.
 
 | Method | Mean MSE ratio | Mean zero fraction |
 |---|---|---|
@@ -405,9 +448,16 @@ Key observations from the sweep: (a) row_grouped_g4 achieves ~9× MSE reduction 
 
 ![Sweep dashboard — 32×32](figures/sweep_dashboard.png)
 
-*Figure: Four-panel sweep dashboard for 32×32 matrices. Top left — mean MSE ratio per method (green bars indicate improvement over global INT4, dashed line at 1.0). Top right — mean zero fraction per method. Bottom left — median MSE ratio vs outlier scale for key methods. Bottom right — mean MSE ratio vs row group size for row-grouped and rotate+scale+row-grouped paths.*
+*Figure: Four-panel sweep dashboard for 32×32 matrices. Rotation paths in this figure use one selected channel-pair rotation per matrix condition (0.2016% of possible pairs). Top left — mean MSE ratio per method (green bars indicate improvement over global INT4, dashed line at 1.0). Top right — mean zero fraction per method. Bottom left — median MSE ratio vs outlier scale for key methods. Bottom right — mean MSE ratio vs row group size for row-grouped and rotate+scale+row-grouped paths.*
 
-10. A second sweep on larger 320×320 matrices (5 seeds × 3 new outlier fractions × 3 new outlier scales = 45 conditions, 15 methods including col_grouped_g16 and row/rotate_scale_row group sizes up to 32) reveals how findings scale with matrix size and random-scatter outliers:
+10. A second sweep on larger 320×320 matrices (5 seeds × 3 new outlier fractions × 3 new outlier scales = 45 conditions, 15 methods including col_grouped_g16 and row/rotate_scale_row group sizes up to 32) reveals how findings scale with matrix size and random-scatter outliers.
+
+Rotation budget for the shown 320×320 results: the `rotate_global`,
+`rotate_scale_global`, and `rotate_scale_row_g*` methods again used exactly
+**one** pair rotation per matrix condition. A 320-column matrix has
+$320 \times 319 / 2 = 51{,}040$ possible unordered channel pairs, so the
+rotation budget was **1/51,040 pairs = 0.0020%** of possible pairs per
+condition. Non-rotation methods used zero rotations.
 
 | Method | Mean MSE ratio | Mean zero fraction |
 |---|---|---|
@@ -431,14 +481,85 @@ Key observations from the large-matrix sweep: (a) row_grouped_g4 still achieves 
 
 ![Sweep dashboard — 320×320](figures/sweep_dashboard_320x320.png)
 
-*Figure: Four-panel sweep dashboard for 320×320 matrices with random-scatter outliers. Same layout as the 32×32 dashboard. Notable: rotation and scaling alone converge toward global INT4 performance; only row-grouped paths provide substantial improvement.*
+*Figure: Four-panel sweep dashboard for 320×320 matrices with random-scatter outliers. Rotation paths in this figure use one selected channel-pair rotation per matrix condition (0.0020% of possible pairs). Same layout as the 32×32 dashboard. Notable: rotation and scaling alone converge toward global INT4 performance; only row-grouped paths provide substantial improvement.*
+
+11. Top-width sparse-rotation sweeps repeat the 32×32 and 320×320 grids while
+adding `top_width_pair_fractions=[0.05, 0.10, 0.20]`. The method names p5, p10,
+and p20 refer to the candidate pool: the top 5%, 10%, or 20% of channel pairs by
+max-abs width difference. Because the selected rotations are constrained to be
+independent, the actual number of applied pair rotations is much smaller than
+the candidate pool size.
+
+For 32×32 matrices, p5/p10/p20 selected an average of 2.42/3.78/5.24 independent
+pair rotations per condition, corresponding to 0.488%/0.762%/1.057% of all 496
+possible channel pairs.
+
+| Method | Mean MSE ratio | Mean zero fraction | Avg. rotations | Actual pair fraction | Candidate fraction |
+|---|---:|---:|---:|---:|---:|
+| row_grouped_g4 | **0.1115** | 0.1359 | 0.00 | 0.000% | 0% |
+| rotate_scale_row_g4 | **0.1110** | 0.1365 | 1.00 | 0.202% | 0% |
+| top_width_rotate_scale_p5_row_g4 | **0.1116** | 0.1405 | 2.42 | 0.488% | 5% |
+| top_width_rotate_scale_p10_row_g4 | 0.1122 | 0.1415 | 3.78 | 0.762% | 10% |
+| top_width_rotate_scale_p20_row_g4 | 0.1121 | 0.1437 | 5.24 | 1.057% | 20% |
+| scale_global | 0.5307 | 0.4101 | 0.00 | 0.000% | 0% |
+| rotate_scale_global | **0.5068** | 0.4017 | 1.00 | 0.202% | 0% |
+| top_width_rotate_scale_p5_global | 0.5318 | 0.4269 | 2.42 | 0.488% | 5% |
+| top_width_rotate_scale_p10_global | 0.5277 | 0.4303 | 3.78 | 0.762% | 10% |
+| top_width_rotate_scale_p20_global | 0.5146 | 0.4270 | 5.24 | 1.057% | 20% |
+| rotate_global | 0.9021 | 0.5702 | 1.00 | 0.202% | 0% |
+| top_width_rotate_p5_global | 0.8848 | 0.5671 | 2.42 | 0.488% | 5% |
+| top_width_rotate_p10_global | 0.8514 | 0.5570 | 3.78 | 0.762% | 10% |
+| top_width_rotate_p20_global | **0.8114** | 0.5433 | 5.24 | 1.057% | 20% |
+
+![Top-width sparse rotation sweep — 32×32](figures/sweep_dashboard_top_width_32x32.png)
+
+*Figure: 32×32 sweep with top-width sparse rotations added. Increasing the
+candidate percentage improves rotation-only global quantization, but it does not
+beat row-grouped quantization or the original one-pair rotate+scale+row path.*
+
+For 320×320 matrices, p5/p10/p20 selected an average of
+24.53/37.33/56.47 independent pair rotations per condition. Even p20 therefore
+rotated only about 0.111% of the 51,040 possible channel pairs.
+
+| Method | Mean MSE ratio | Mean zero fraction | Avg. rotations | Actual pair fraction | Candidate fraction |
+|---|---:|---:|---:|---:|---:|
+| row_grouped_g4 | **0.1432** | 0.1874 | 0.00 | 0.000% | 0% |
+| rotate_scale_row_g4 | **0.1432** | 0.1874 | 1.00 | 0.002% | 0% |
+| top_width_rotate_scale_p5_row_g4 | 0.1446 | 0.1877 | 24.53 | 0.048% | 5% |
+| top_width_rotate_scale_p10_row_g4 | 0.1453 | 0.1879 | 37.33 | 0.073% | 10% |
+| top_width_rotate_scale_p20_row_g4 | 0.1463 | 0.1885 | 56.47 | 0.111% | 20% |
+| scale_global | 0.8448 | 0.6857 | 0.00 | 0.000% | 0% |
+| rotate_scale_global | 0.8439 | 0.6851 | 1.00 | 0.002% | 0% |
+| top_width_rotate_scale_p5_global | 0.8347 | 0.6763 | 24.53 | 0.048% | 5% |
+| top_width_rotate_scale_p10_global | 0.8305 | 0.6716 | 37.33 | 0.073% | 10% |
+| top_width_rotate_scale_p20_global | **0.8201** | 0.6640 | 56.47 | 0.111% | 20% |
+| rotate_global | 0.9650 | 0.7213 | 1.00 | 0.002% | 0% |
+| top_width_rotate_p5_global | 0.9284 | 0.7049 | 24.53 | 0.048% | 5% |
+| top_width_rotate_p10_global | **0.9270** | 0.7012 | 37.33 | 0.073% | 10% |
+| top_width_rotate_p20_global | 0.9274 | 0.6973 | 56.47 | 0.111% | 20% |
+
+![Top-width sparse rotation sweep — 320×320](figures/sweep_dashboard_top_width_320x320.png)
+
+*Figure: 320×320 sweep with top-width sparse rotations added. Sparse rotations
+improve global rotation and global rotation+scaling paths, especially at p20,
+but row-grouped quantization remains the dominant factor.*
+
+The top-width sweeps sharpen the interpretation of rotations. Sparse multi-pair
+rotations are better than the old single-pair `rotate_global` path, especially
+when combined with scaling on the 320×320 matrices. However, once row-grouped
+quantization is used, adding more top-width rotations does not improve the best
+MSE ratios; it slightly worsens them in both matrix sizes. This suggests that,
+in the current synthetic setup, row-local scaling handles the main outlier
+failure mode more directly than column-pair rotations. The result does not rule
+out ParoQuant-style rotations for transformer layers, where calibration-aware
+angle optimization and activation structure may change the tradeoff.
 
 ## 12. Limitations
 
 The current results are intentionally preliminary.
 
 - Matrices are synthetic. Outliers are placed at uniformly random positions, not with the spatial structure seen in transformer activations.
-- Rotation-pair selection is simple: the two columns with largest max-abs values.
+- Rotation-pair selection now includes both a simple two-largest-column heuristic and an opt-in top-width-difference independent-pair heuristic. It still does not optimize pair choices or angles using transformer calibration data.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - No transformer-layer or language-model benchmark has been run yet.
 
@@ -475,5 +596,7 @@ Current tracked figure references used in this draft:
 - `docs/figures/rotation_scaling_comparison.png`
 - `docs/figures/sweep_dashboard.png`
 - `docs/figures/sweep_dashboard_320x320.png`
+- `docs/figures/sweep_dashboard_top_width_32x32.png`
+- `docs/figures/sweep_dashboard_top_width_320x320.png`
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.
