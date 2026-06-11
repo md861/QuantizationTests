@@ -15,6 +15,7 @@ from experiments.transformer_experiment import (
     TransformerConfig,
     WeightRecord,
     _common_method_keys,
+    _dequantize_method,
     _effective_top_width_pair_fractions,
     _extract_weight,
     _fraction_tag,
@@ -231,6 +232,27 @@ def test_weight_experiment_dequantized_shape():
     _, method_deqs = _run_weight_experiment(config, "l", weight)
     for key, deq in method_deqs.items():
         assert deq.shape == weight.shape, f"{key}: shape mismatch"
+
+
+def test_dequantize_method_matches_weight_experiment_outputs():
+    config = _make_config(
+        row_group_sizes=[4],
+        row_group_fractions=[0.5],
+        top_width_pair_fractions=[0.10],
+        bitwidths=[4, 8],
+    )
+    weight = np.random.default_rng(11).standard_normal((8, 16)).astype(np.float32)
+    _, method_deqs = _run_weight_experiment(config, "l", weight)
+
+    for (method, bitwidth), expected in method_deqs.items():
+        actual = _dequantize_method(
+            config,
+            weight,
+            method,
+            bitwidth,
+            top_width_pair_fractions=config.top_width_pair_fractions,
+        )
+        np.testing.assert_allclose(actual, expected, atol=1e-6)
 
 
 def test_common_method_keys_intersects_layer_specific_group_sizes():

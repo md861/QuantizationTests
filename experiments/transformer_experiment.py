@@ -171,21 +171,31 @@ def run_transformer_experiment(
 
     weight_records: list[WeightRecord] = []
     activation_records: list[ActivationRecord] = []
-    # all_method_deqs: layer_name -> {(method, bitwidth): dequantized_weight}
-    all_method_deqs: dict[str, dict[tuple[str, int], np.ndarray]] = {}
+    config.results_dir.mkdir(parents=True, exist_ok=True)
+    method_keys_by_layer: dict[str, dict[tuple[str, int], None]] = {}
 
     for layer_name, module in layers.items():
         w = _extract_weight(module)
         print(f"  {layer_name}: shape={w.shape}")
         wr, method_deqs = _run_weight_experiment(
-            config, layer_name, w, top_width_pair_fractions=top_width_pair_fractions
+            config,
+            layer_name,
+            w,
+            top_width_pair_fractions=top_width_pair_fractions,
         )
         weight_records.extend(wr)
-        all_method_deqs[layer_name] = method_deqs
         ar = _run_activation_experiment(
-            model, token_inputs, layer_name, module, w, method_deqs, config.model_name
+            model,
+            token_inputs,
+            layer_name,
+            module,
+            w,
+            method_deqs,
+            config.model_name,
         )
         activation_records.extend(ar)
+        method_keys_by_layer[layer_name] = dict.fromkeys(method_deqs)
+        del method_deqs
 
     scope = (
         f"single_layer:{config.single_layer_name}"
@@ -193,10 +203,15 @@ def run_transformer_experiment(
         else "all_layers"
     )
     logit_records = _run_logit_experiment(
-        config, model, token_inputs, layers, all_method_deqs, scope
+        config,
+        model,
+        token_inputs,
+        layers,
+        method_keys_by_layer,
+        scope,
+        top_width_pair_fractions=top_width_pair_fractions,
     )
 
-    config.results_dir.mkdir(parents=True, exist_ok=True)
     _write_weight_csv(
         config.results_dir / "transformer_weight_metrics.csv", weight_records
     )
@@ -428,26 +443,36 @@ def _run_logit_experiment(
     model,
     token_inputs: list,
     layers: dict,
-    all_method_deqs: dict[str, dict[tuple[str, int], np.ndarray]],
+    method_keys_by_layer: dict[str, dict[tuple[str, int], object]],
     scope: str,
+    top_width_pair_fractions: Optional[list[float]] = None,
 ) -> list[LogitRecord]:
-    """Run full-model forward passes: original once, then once per (method, bitwidth)."""
+    """Run full-model passes while regenerating one method's weights at a time."""
     orig_logits, orig_loss = _forward_pass(model, token_inputs)
     orig_perplexity = math.exp(orig_loss)
 
-    method_keys = _common_method_keys(all_method_deqs)
+    method_keys = _common_method_keys(method_keys_by_layer)
+    original_weights = {
+        lname: _extract_weight(module).copy() for lname, module in layers.items()
+    }
     records: list[LogitRecord] = []
 
     for (method, bitwidth) in method_keys:
-        saved: dict[str, np.ndarray] = {}
-        for lname, module in layers.items():
-            saved[lname] = _extract_weight(module).copy()
-            _set_weight(module, all_method_deqs[lname][(method, bitwidth)])
+        try:
+            for lname, module in layers.items():
+                deq = _dequantize_method(
+                    config,
+                    original_weights[lname],
+                    method,
+                    bitwidth,
+                    top_width_pair_fractions=top_width_pair_fractions,
+                )
+                _set_weight(module, deq)
 
-        q_logits, q_loss = _forward_pass(model, token_inputs)
-
-        for lname, module in layers.items():
-            _set_weight(module, saved[lname])
+            q_logits, q_loss = _forward_pass(model, token_inputs)
+        finally:
+            for lname, module in layers.items():
+                _set_weight(module, original_weights[lname])
 
         o_flat = np.concatenate([l.flatten() for l in orig_logits])
         q_flat = np.concatenate([l.flatten() for l in q_logits])
@@ -480,7 +505,7 @@ def _run_logit_experiment(
 
 
 def _common_method_keys(
-    all_method_deqs: dict[str, dict[tuple[str, int], np.ndarray]],
+    all_method_deqs: dict[str, dict[tuple[str, int], object]],
 ) -> list[tuple[str, int]]:
     """Return method keys available for every layer, preserving first-layer order."""
     if not all_method_deqs:
@@ -492,6 +517,85 @@ def _common_method_keys(
         common.intersection_update(methods)
 
     return [key for key in layer_methods[0] if key in common]
+
+
+def _dequantize_method(
+    config: TransformerConfig,
+    weight: np.ndarray,
+    method: str,
+    bitwidth: int,
+    top_width_pair_fractions: Optional[list[float]] = None,
+) -> np.ndarray:
+    """Regenerate one dequantized method for one layer."""
+    if method == "global":
+        return _q_global(weight, bitwidth).dequantized
+
+    if method.startswith("row_grouped_g"):
+        group_size = _parse_group_size(method, prefix="row_grouped_g")
+        return _q_row_grouped(weight, group_size, bitwidth).dequantized
+
+    if method.startswith("scale_row_g"):
+        group_size = _parse_group_size(method, prefix="scale_row_g")
+        scaled, scaling = balance_channel_max_abs(weight)
+        r = _q_row_grouped(scaled, group_size, bitwidth)
+        return invert_channel_scaling(r.dequantized, scaling)
+
+    if method.startswith("top_width_rotate_") and "_scale_row_g" in method:
+        tag, group_size = _parse_top_width_method(method)
+        if top_width_pair_fractions is None:
+            top_width_pair_fractions = config.top_width_pair_fractions
+        fraction_by_tag = {
+            _fraction_tag(float(fraction)): float(fraction)
+            for fraction in top_width_pair_fractions
+        }
+        if tag not in fraction_by_tag:
+            raise ValueError(f"unknown top-width rotation tag: {tag}")
+
+        top_rotated, rotations = rotate_top_width_pairs(
+            weight.astype(np.float64),
+            top_fraction=fraction_by_tag[tag],
+            independent=True,
+            n_search=config.rotation_search_steps,
+        )
+        top_rotated = top_rotated.astype(weight.dtype)
+        inv_rots = [
+            GivensRotation(i=rot.i, j=rot.j, theta=-rot.theta)
+            for rot in reversed(rotations)
+        ]
+        top_rot_scaled, top_rot_scaling = balance_channel_max_abs(top_rotated)
+        r = _q_row_grouped(top_rot_scaled, group_size, bitwidth)
+        deq = invert_channel_scaling(r.dequantized, top_rot_scaling)
+        return apply_sequential_rotations(deq.astype(np.float64), inv_rots).astype(
+            weight.dtype
+        )
+
+    raise ValueError(f"unknown quantization method: {method}")
+
+
+def _parse_group_size(method: str, prefix: str) -> int:
+    try:
+        group_size = int(method.removeprefix(prefix))
+    except ValueError as exc:
+        raise ValueError(f"invalid group size in method: {method}") from exc
+    if group_size < 1:
+        raise ValueError(f"group size must be positive in method: {method}")
+    return group_size
+
+
+def _parse_top_width_method(method: str) -> tuple[str, int]:
+    prefix = "top_width_rotate_"
+    suffix = "_scale_row_g"
+    body = method.removeprefix(prefix)
+    tag, sep, group_text = body.partition(suffix)
+    if not sep or not tag:
+        raise ValueError(f"invalid top-width method: {method}")
+    try:
+        group_size = int(group_text)
+    except ValueError as exc:
+        raise ValueError(f"invalid group size in method: {method}") from exc
+    if group_size < 1:
+        raise ValueError(f"group size must be positive in method: {method}")
+    return tag, group_size
 
 
 def _forward_pass(

@@ -430,9 +430,11 @@ Milestone 3 transformer quantization harness.
   re-running the full model. Measures activation MSE, cosine similarity, and
   relative error.
 - **Logit/loss experiment**: temporarily swaps all selected layer weights per
-  method, runs full-model forward passes, and measures logit MSE, cosine
-  similarity, top-5 token overlap, next-token loss delta, perplexity, original
-  perplexity, and perplexity ratio.
+  method, but regenerates one method's dequantized weights just-in-time instead
+  of storing every layer/method reconstruction. This reduces temp disk pressure
+  for larger Milestone 3 models such as Pythia while preserving the same output
+  metrics: logit MSE, cosine similarity, top-5 token overlap, next-token loss
+  delta, perplexity, original perplexity, and perplexity ratio.
 - **Outputs**: `results/transformer_weight_metrics.csv`,
   `results/transformer_activation_metrics.csv`,
   `results/transformer_logit_metrics.csv`, and `plots/transformer_dashboard.png`.
@@ -498,7 +500,8 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-200 passed
+Focused transformer suite: 37 passed, 1 warning
+Full suite before the streaming-logit refactor: 200 passed
 ```
 
 ## Design Conventions
@@ -551,16 +554,36 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-The transformer harness is implemented. Next steps:
+The transformer harness is implemented and now uses streaming logit/loss
+evaluation to avoid storing a full dequantized layer/method grid.
 
-1. Repeat the all-layer run for the remaining planned benchmark models, one at a time
-   (`delete_hf_cache_after=True` between runs):
-   `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`.
-2. Add a larger held-out text batch for loss/perplexity evaluation.
-3. Extend the Milestone 3 research section in `docs/research_draft.md` to compare whether
+Temporary priority before continuing Milestone 3: harden the Pythia benchmark
+workflow to mitigate VS Code/Codex disconnects in WSL2. Implement a dedicated
+runner/preflight path before attempting more Pythia runs:
+
+1. Add `experiments/run_transformer_benchmark.py` with conservative named presets
+   such as `pythia-14m-int8-baseline`, `pythia-14m-int4-baseline`, and
+   `pythia-70m-int8-baseline`.
+2. Add `--download-only`, `--local-files-only`, and `--torch-threads` options so
+   model download/cache population, offline cached runs, and CPU throttling are
+   explicit.
+3. Add checkpointing or incremental CSV append so partial long runs preserve
+   completed records.
+4. Document WSL guidance: use standalone WSL terminal or `tmux`, pre-download
+   models, start with INT8/no-rotation presets, and clear Hugging Face cache only
+   after successful runs.
+5. After the runner is in place, run the conservative Pythia-14M baseline before
+   the full default benchmark: `bitwidths=[8]`, `top_width_pair_fractions=[]`,
+   `save_plots=False`, and `delete_hf_cache_after=False`.
+6. If that succeeds, repeat Pythia-14M with `bitwidths=[4]` and rotations still
+   disabled. Add capped rotations only after the baseline paths are stable.
+7. Continue the remaining planned benchmark models one at a time:
+   `EleutherAI/pythia-70m`, `distilgpt2`.
+8. Add a larger held-out text batch for loss/perplexity evaluation.
+9. Extend the Milestone 3 research section in `docs/research_draft.md` to compare whether
    the matrix-level findings (row-grouped dominates, scaling degrades with large
    models, rotation adds marginal benefit) survive on real weights.
-4. Commit tracked figures to `docs/figures/` when the section is ready.
+10. Commit tracked figures to `docs/figures/` when the section is ready.
 
 Acceptance check for Milestone 2 artifacts:
 

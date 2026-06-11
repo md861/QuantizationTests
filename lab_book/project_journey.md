@@ -3607,3 +3607,136 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 ```text
 200 passed, 1 warning in 21.06s
 ```
+
+---
+
+## 2026-06-11 — Handover: streaming logit/loss evaluation for Pythia prep
+
+### Motivation
+
+Attempts to run the next Milestone 3 model (`EleutherAI/pythia-14m`) from the
+VS Code Codex session were disconnecting or timing out. The likely source was
+not a model incompatibility, but the harness's previous all-layer logit/loss
+strategy: it materialized every layer/method dequantized weight reconstruction
+before the full-model evaluation. That approach is acceptable for tiny-gpt2 and
+TinyStories-1M, but creates avoidable temp-disk and I/O pressure as model and
+method counts grow.
+
+### Change
+
+Refactored `experiments/transformer_experiment.py` so logit/loss evaluation is
+streamed by method:
+
+- the layer loop still computes weight metrics and activation drift using the
+  existing `_run_weight_experiment` output;
+- after each layer, only the available `(method, bitwidth)` keys are retained;
+- `_run_logit_experiment` computes common method keys, stores one original
+  weight copy per selected layer for restoration, then regenerates one method's
+  dequantized weights just-in-time across layers;
+- after each full-model forward pass, original weights are restored and the
+  regenerated arrays are discarded.
+
+This preserves output schemas and method names while removing the large
+all-layer/all-method dequantized grid from the run.
+
+### Verification
+
+Focused transformer tests:
+
+```bash
+.venv/bin/python -m pytest tests/test_transformer_experiment.py
+```
+
+```text
+37 passed, 1 warning in 10.59s
+```
+
+Tiny-gpt2 streaming smoke test:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -c "from pathlib import Path; from experiments.transformer_experiment import TransformerConfig, run_transformer_experiment, print_summary; config=TransformerConfig(model_name='sshleifer/tiny-gpt2', calibration_texts=['Hello world.'], single_layer_name=None, bitwidths=[8], top_width_pair_fractions=[], results_dir=Path('results/smoke_tiny_gpt2_streaming'), plots_dir=Path('plots/smoke_tiny_gpt2_streaming'), save_plots=False, delete_hf_cache_after=False); wr, ar, lr = run_transformer_experiment(config); print_summary(wr, ar, lr); print(f'counts weight={len(wr)} activation={len(ar)} logit={len(lr)}')"
+```
+
+```text
+8 compatible layers
+44 weight records
+44 activation records
+5 logit records
+exit code 0
+```
+
+Hugging Face attempted an optional `generation_config.json` HEAD request and
+hit a temporary DNS failure, but the cached tiny-gpt2 model loaded and the
+experiment completed.
+
+### Next recommended command
+
+Run Pythia-14M conservatively before restoring the full default grid. Prefer a
+normal terminal or `tmux` for this run instead of depending on the VS Code
+extension connection:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -c "from pathlib import Path; from experiments.transformer_experiment import TransformerConfig, run_transformer_experiment, print_summary; config=TransformerConfig(model_name='EleutherAI/pythia-14m', single_layer_name=None, bitwidths=[8], top_width_pair_fractions=[], results_dir=Path('results/transformer_pythia_14m_int8_baseline'), plots_dir=Path('plots/transformer_pythia_14m_int8_baseline'), save_plots=False, delete_hf_cache_after=False); wr, ar, lr = run_transformer_experiment(config); print_summary(wr, ar, lr); print(f'counts weight={len(wr)} activation={len(ar)} logit={len(lr)}')"
+```
+
+If that succeeds, repeat with `bitwidths=[4]` and rotations still disabled.
+Only add capped `top_width_pair_fractions` after the non-rotation Pythia paths
+are stable.
+
+---
+
+## 2026-06-11 — Temporary detour: harden Pythia run workflow before continuing
+
+### Decision
+
+Pause the normal Milestone 3 journey before attempting more Pythia benchmark
+runs. The disconnect/timeouts are now the priority to resolve. The next step is
+to turn the fragile manual Pythia command into a resilient benchmark workflow
+that avoids unnecessary VS Code/Codex extension pressure.
+
+This is a temporary engineering detour, not a change in research direction. Once
+the run workflow is stable, resume the planned benchmark path:
+`EleutherAI/pythia-14m` → `EleutherAI/pythia-70m` → `distilgpt2`.
+
+### Working diagnosis
+
+The streaming logit/loss refactor removed the largest project-level source of
+temp-disk pressure, but WSL2 and the editor extension can still be disrupted by
+heavy model runs. Plausible contributors:
+
+- WSL2 memory pressure during Hugging Face model load plus quantization arrays;
+- CPU starvation from quantization and rotation-search loops;
+- first-time Hugging Face download/cache population competing with the editor
+  extension's local socket/WebSocket path;
+- optional Hugging Face metadata requests creating network retries during an
+  otherwise local experiment.
+
+These do not need to be proven perfectly before mitigation. The durable fix is
+to make heavy transformer benchmarks runnable outside the fragile interactive
+extension path, with preflight checks and conservative presets.
+
+### Priority implementation tasks
+
+1. Add a dedicated benchmark runner, e.g.
+   `experiments/run_transformer_benchmark.py`, with named presets:
+   `pythia-14m-int8-baseline`, `pythia-14m-int4-baseline`,
+   `pythia-70m-int8-baseline`, and later optional rotation presets.
+2. Add `--download-only` so Hugging Face model downloads can be completed before
+   opening or relying on VS Code/Codex.
+3. Add `--local-files-only` so cached benchmark runs avoid surprise network
+   calls and optional metadata retries.
+4. Add `--torch-threads` and set `torch.set_num_threads(n)` in the runner; pair
+   this with shell guidance such as `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`,
+   and `TORCH_NUM_THREADS=2`.
+5. Add checkpointing or incremental CSV append so a partial long run preserves
+   completed records if the process or editor connection drops.
+6. Document WSL-specific run guidance: use a standalone WSL terminal or `tmux`,
+   pre-download models, start with INT8/no-rotation presets, and clear Hugging
+   Face cache only after a successful run when storage is constrained.
+
+### Handover priority
+
+The next agent should implement the benchmark runner/preflight detour before
+running Pythia again. Treat a successful tiny-gpt2 smoke test as evidence that
+the streaming implementation works, but not as evidence that the WSL2/editor
+disconnect problem is fully solved.
