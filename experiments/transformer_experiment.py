@@ -636,14 +636,17 @@ def _plot_dashboard(
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     fig.suptitle(title, fontsize=12)
 
-    # Build label strings combining method + bitwidth for display
+    # Log-scale floor: lossless methods (g1) have MSE=0; clip to this value so
+    # they appear as a minimal bar at the left edge rather than breaking log scale.
+    _LOG_FLOOR = 1e-20
+
     def _label(method: str, bitwidth: int) -> str:
         return f"{method} (INT{bitwidth})"
 
     bitwidths = sorted({r.bitwidth for r in weight_records})
     baseline_bitwidth = bitwidths[0] if len(bitwidths) == 1 else 4
 
-    # Panel 1: weight MSE ratio vs global baseline
+    # Panel 1: weight MSE ratio vs global baseline (log scale)
     ax = axes[0, 0]
     global_baseline_mse = float(
         np.mean(
@@ -655,12 +658,10 @@ def _plot_dashboard(
             or [1.0]
         )
     )
-    # Sort by (bitwidth, method) so INT4 and INT8 variants appear together
     seen: dict[tuple[str, int], float] = {}
     for r in weight_records:
         key = (r.method, r.bitwidth)
-        seen.setdefault(key, 0.0)
-        seen[key] = np.mean([r2.mse for r2 in weight_records if r2.method == r.method and r2.bitwidth == r.bitwidth])
+        seen[key] = float(np.mean([r2.mse for r2 in weight_records if r2.method == r.method and r2.bitwidth == r.bitwidth]))
     sorted_keys = sorted(seen, key=lambda k: (k[1], seen[k]))
     labels = [_label(m, bw) for m, bw in sorted_keys]
     ratios = [
@@ -668,12 +669,13 @@ def _plot_dashboard(
         for k in sorted_keys
     ]
     colors = ["tab:green" if v < 1.0 else "tab:red" for v in ratios]
-    ax.barh(labels, ratios, color=colors, alpha=0.85)
+    ax.barh(labels, [max(v, _LOG_FLOOR) for v in ratios], color=colors, alpha=0.85)
     ax.axvline(1.0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_xlabel(f"MSE / Global INT{baseline_bitwidth} MSE  (< 1 = improvement)")
+    ax.set_xscale("log")
+    ax.set_xlabel(f"MSE / Global INT{baseline_bitwidth} MSE  (log scale, < 1 = improvement)")
     ax.set_title("Weight reconstruction MSE ratio")
 
-    # Panel 2: activation drift (MSE) per method × bitwidth
+    # Panel 2: activation drift (MSE) per method × bitwidth (log scale)
     ax = axes[0, 1]
     if activation_records:
         act_seen: dict[tuple[str, int], float] = {}
@@ -684,14 +686,15 @@ def _plot_dashboard(
         sorted_act = sorted(act_seen, key=lambda k: (k[1], act_seen[k]))
         ax.barh(
             [_label(m, bw) for m, bw in sorted_act],
-            [act_seen[k] for k in sorted_act],
+            [max(act_seen[k], _LOG_FLOOR) for k in sorted_act],
             color="tab:blue",
             alpha=0.85,
         )
-        ax.set_xlabel("Mean activation MSE")
+        ax.set_xscale("log")
+        ax.set_xlabel("Mean activation MSE (log scale)")
     ax.set_title("Activation drift (MSE)")
 
-    # Panel 3: full-model logit MSE per method × bitwidth
+    # Panel 3: full-model logit MSE per method × bitwidth (log scale)
     ax = axes[1, 0]
     if logit_records:
         sorted_logit = sorted(
@@ -699,11 +702,12 @@ def _plot_dashboard(
         )
         ax.barh(
             [_label(r.method, r.bitwidth) for r in sorted_logit],
-            [r.logit_mse for r in sorted_logit],
+            [max(r.logit_mse, _LOG_FLOOR) for r in sorted_logit],
             color="tab:orange",
             alpha=0.85,
         )
-        ax.set_xlabel("Logit MSE vs original")
+        ax.set_xscale("log")
+        ax.set_xlabel("Logit MSE vs original (log scale)")
     ax.set_title("Full-model logit drift (MSE)")
 
     # Panel 4: next-token loss delta per method × bitwidth
