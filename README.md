@@ -10,7 +10,10 @@ Milestone 1 (quantization sandbox) and Milestone 2 (ParoQuant core) are
 complete: pairwise Givens rotations, per-channel scaling, column-grouped and
 row-grouped quantization, the rotation/scaling experiment, and a full
 comparative sweep across all quantization paths are implemented and tested.
-Milestone 3 (tiny transformer integration) is the next research step.
+Milestone 3 (tiny transformer integration) is underway: the transformer
+harness (`experiments/transformer_experiment.py`) is implemented and tested,
+covering weight reconstruction, activation drift, and logit/loss metrics across
+four INT4 paths on any HuggingFace causal LM.
 
 ## Project Roadmap
 
@@ -18,7 +21,7 @@ Milestone 3 (tiny transformer integration) is the next research step.
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Next |
+| 3. Tiny Transformer Integration | Apply the quantizer to tiny-gpt2 and DistilGPT2, then measure perplexity and drift | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -41,7 +44,7 @@ Milestone 3 (tiny transformer integration) is the next research step.
 | Grouped quantization | Complete |
 | Rotation/scaling experiment | Complete |
 | Comparative sweep experiment | Complete |
-| Transformer integration | Next |
+| Transformer harness (weight + activation + logit metrics) | Active |
 
 ## Completed Milestone 2
 
@@ -87,9 +90,25 @@ quantization to reduce outlier pressure:
   Summary tables report condition-wise mean and standard deviation for MSE ratio
   and zero fraction; dashboard error bars show the same cross-condition spread.
 
-The next milestone is tiny transformer integration: apply the best current
-matrix-level path to tiny-gpt2 or DistilGPT2, then measure perplexity,
-activation drift, and output similarity.
+## Active Milestone 3
+
+Milestone 3 applies the ParoQuant INT4 pipeline to real transformer weights.
+The harness (`experiments/transformer_experiment.py`) supports single-layer and
+all-layer modes, comparing global INT4, row-grouped INT4, scale+row-grouped INT4,
+and top-width rotate+scale+row-grouped INT4 across any HuggingFace causal LM.
+It measures weight reconstruction (MSE, cosine similarity, SNR), activation drift
+(MSE, cosine similarity, relative error), and full-model logit/loss quality
+(logit MSE, top-5 token overlap, next-token loss delta).
+
+Planned benchmark models (one model in local storage at a time):
+
+| Model | Parameters |
+| --- | --- |
+| `sshleifer/tiny-gpt2` | ~1M |
+| `roneneldan/TinyStories-1M` | ~1M |
+| `EleutherAI/pythia-14m` | 14M |
+| `EleutherAI/pythia-70m` | 70M |
+| `distilgpt2` | 82M |
 
 Milestone 1 built the quantization sandbox:
 
@@ -117,7 +136,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-164 passed
+194 passed
 ```
 
 ## Reproduce Artifacts
@@ -131,6 +150,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/outlier_experiment.
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/analyze_results.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/rotation_experiment.py
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/sweep_experiment.py
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/transformer_experiment.py
 ```
 
 These commands write CSV files under `results/` and comparison figures under

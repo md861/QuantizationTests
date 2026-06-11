@@ -3190,3 +3190,126 @@ Milestone 3 is complete when the project has a tested tiny-transformer harness,
 at least one layer-level comparison, an all-linear-layer comparison, activation
 and logit/loss metrics, CSV outputs, tracked figures, and a research-draft
 section documenting the results.
+
+## 2026-06-11 — Milestone 3 Model Benchmarking Scope
+
+All four models below are targets for Milestone 3 benchmarking:
+
+| Model | Parameters | Disk (fp32) |
+|---|---|---|
+| `sshleifer/tiny-gpt2` | ~1M | ~4 MB |
+| `roneneldan/TinyStories-1M` | ~1M | ~4 MB |
+| `EleutherAI/pythia-14m` | 14M | ~56 MB |
+| `EleutherAI/pythia-70m` | 70M | ~280 MB |
+| `distilgpt2` | 82M | ~330 MB |
+
+Hardware constraint: only one model should be resident on local storage at a
+time. The harness must download, run, and delete (or explicitly unload/evict)
+each model before moving to the next. HuggingFace's cache at
+`~/.cache/huggingface/hub` should be cleared between models to avoid
+accumulating all five on disk simultaneously.
+
+## 2026-06-11 — Milestone 3 Transformer Harness Implemented
+
+### What was built
+
+`experiments/transformer_experiment.py` — the Milestone 3 quantization harness.
+
+Loads any HuggingFace causal LM via `AutoModelForCausalLM` and runs three
+experiments per session:
+
+1. **Weight reconstruction** — each linear layer weight is quantized with four
+   INT4 paths (global, row-grouped, scale+row-grouped,
+   top-width-rotate+scale+row-grouped) and scored with MSE, relative Frobenius
+   error, cosine similarity, SNR, zero fraction, saturation fraction, and
+   rotation metadata.
+2. **Activation drift** — a single forward-hook pass captures the layer inputs
+   from calibration text; drift is then computed analytically (no second model
+   run per method). Reports activation MSE, cosine similarity, and relative error.
+3. **Logit/loss quality** — selected layer weights are temporarily swapped per
+   method and the full model is run; logit MSE, cosine similarity, top-5 token
+   overlap, and next-token loss delta are recorded.
+
+Outputs: `results/transformer_weight_metrics.csv`,
+`results/transformer_activation_metrics.csv`,
+`results/transformer_logit_metrics.csv`, `plots/transformer_dashboard.png`.
+
+### Design decisions
+
+- GPT-2-style `Conv1D` stores weights as `(in, out)`; `nn.Linear` stores
+  `(out, in)`. The harness normalises both to `(in, out)` in `_extract_weight` /
+  `_set_weight` so all quantization logic operates on the same layout.
+- `lm_head` is excluded (embedding-tied, not a typical quantization target).
+- `max_rotation_pairs=1000` (default) prevents accidental slow rotation runs on
+  large weight matrices in bigger models (e.g., distilgpt2 `c_attn` has ~2.65M
+  pairs; 10% of that would be impractical without the cap).
+- `delete_hf_cache_after=True` evicts the downloaded model from
+  `~/.cache/huggingface/hub` after the run, honouring the one-model-at-a-time
+  hardware constraint noted in the previous session.
+
+### Tests
+
+`tests/test_transformer_experiment.py` — 20 tests covering:
+- `_extract_weight` / `_set_weight` roundtrip for both Conv1D and Linear
+- `_run_weight_experiment` method names, shapes, finite metrics, rotation metadata
+- `_get_linear_layers` exclusions
+- Full integration: three record lists populated, all fields valid, CSV files
+  written, method names consistent across weight/activation/logit records
+
+### Test count
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+```text
+184 passed in 17.49s
+```
+
+### New dependencies
+
+`torch` and `transformers` added to `requirements.txt`. Both are installed in
+the project venv (`torch 2.12.0+cu130`, `transformers 5.11.0`).
+
+### Next
+
+Run `transformer_experiment.py` in all-layers mode on each of the five planned
+models and record findings in the research draft.
+
+## 2026-06-11 — Extend transformer harness: INT8, dynamic row groups, extended top-width fractions
+
+### Changes
+
+Extended `TransformerConfig` with three new parameters:
+
+- `bitwidths: list[int] = [4, 8]` — every quantization path is now run at each
+  configured bitwidth; all three record types (`WeightRecord`, `ActivationRecord`,
+  `LogitRecord`) carry a `bitwidth` field.
+- `row_group_fractions: list[float] = [0.5, 0.25, 0.0625]` — group sizes are
+  computed as `max(1, round(n_rows × f))` per layer, then merged with
+  `row_group_sizes` (fixed sizes) and deduplicated. Default produces n/2, n/4,
+  and n/16 alongside the fixed g=4.
+- `top_width_pair_fractions` default changed from `[0.10]` to `[0.05, 0.10, 0.20]`.
+
+`method_deqs` inside the experiment is now keyed by `(method_str, bitwidth_int)`
+tuples so the weight, activation, and logit experiments stay consistent without
+embedding the bitwidth in the method name string.
+
+Two bugs fixed during development:
+
+1. `_set_weight` was transposing the tensor (non-contiguous view) before calling
+   `copy_()`, which silently failed in PyTorch 2.12. Fixed by transposing the
+   numpy array and making it contiguous before creating the tensor.
+2. `_extract_weight` was returning a numpy VIEW of the module's weight storage;
+   when `copy_()` later modified the weight, any saved reference to the extracted
+   weight would reflect the new values. Fixed by always returning `w.copy()`.
+
+### Test count
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest -q
+```
+
+```text
+194 passed in 18.21s
+```

@@ -9,7 +9,10 @@ Milestone 1 and Milestone 2 are complete at matrix level. Milestone 2
 top-width channel-pair selection for sparse rotations, column-grouped
 quantization, row-grouped quantization, the rotation/scaling experiment, and
 comparative sweeps across the implemented quantization paths.
-Milestone 3 (tiny transformer integration) is the next research step.
+Milestone 3 (tiny transformer integration) is underway. The transformer harness
+(`experiments/transformer_experiment.py`) is implemented and tested: it loads any
+HuggingFace causal LM, runs four INT4 paths on each linear layer, and measures
+weight reconstruction, activation drift, and logit/loss quality.
 
 Implemented so far:
 
@@ -31,6 +34,12 @@ Implemented so far:
 - living research-paper draft in `docs/research_draft.md`
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
+- Milestone 3 transformer harness (`experiments/transformer_experiment.py`): loads
+  any HuggingFace causal LM, quantizes linear layers with global INT4, row-grouped
+  INT4, scale+row-grouped INT4, and top-width rotate+scale+row-grouped INT4;
+  measures weight reconstruction, activation drift, and full-model logit/loss;
+  writes three CSVs and a 4-panel dashboard; supports single-layer and all-layer
+  modes; `delete_hf_cache_after=True` evicts the model after each run
 
 Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Next milestone work is Milestone 3: build a tiny-transformer harness, starting with `sshleifer/tiny-gpt2`, one linear layer, weight reconstruction metrics, activation drift, logits/loss comparison, then expanding to all compatible linear layers.
 
@@ -57,7 +66,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-164 passed
+194 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -367,6 +376,44 @@ Two sweeps have been run:
 - 32×32 with top-width p5/p10/p20 rotations → `results/sweep_metrics_top_width_32x32.csv`, `docs/figures/sweep_dashboard_top_width_32x32.png`
 - 320×320 with top-width p5/p10/p20 rotations → `results/sweep_metrics_top_width_320x320.csv`, `docs/figures/sweep_dashboard_top_width_320x320.png`
 
+### `experiments/transformer_experiment.py`
+
+Milestone 3 transformer quantization harness.
+
+- **Config**: `TransformerConfig` — `model_name`, `calibration_texts`,
+  `single_layer_name` (None = all layers), `bitwidths` ([4, 8] by default),
+  `row_group_sizes` (fixed sizes applied to every layer, e.g. [4]),
+  `row_group_fractions` (sizes relative to each layer's n_rows: 0.5 → n/2,
+  0.25 → n/4, 0.0625 → n/16; computed as `max(1, round(n_rows × f))` then
+  merged with fixed sizes and deduplicated, so a 64-row weight produces group
+  sizes [4, 32, 16] while a 256-row weight produces [4, 128, 64, 16]),
+  `top_width_pair_fractions` ([0.05, 0.10, 0.20]),
+  `max_rotation_pairs` (safety cap for large models),
+  `delete_hf_cache_after` (evict HF model cache after run).
+- **Records**: `WeightRecord`, `ActivationRecord`, `LogitRecord` — each carries
+  a `bitwidth` field (4 or 8) alongside `method`.
+- **Weight experiment**: quantizes each linear layer weight at each configured
+  bitwidth with four path families — global, row-grouped (all resolved group
+  sizes), scale+row-grouped, top-width-rotate+scale+row-grouped — and computes
+  MSE, relative Frobenius error, cosine similarity, SNR, zero fraction,
+  saturation fraction, and rotation metadata per layer per (method, bitwidth).
+- **Activation experiment**: registers a forward hook to capture layer inputs once,
+  then analytically computes the output drift for each quantized weight without
+  re-running the full model. Measures activation MSE, cosine similarity, and
+  relative error.
+- **Logit/loss experiment**: temporarily swaps all selected layer weights per
+  method, runs full-model forward passes, and measures logit MSE, cosine
+  similarity, top-5 token overlap, and next-token loss delta.
+- **Outputs**: `results/transformer_weight_metrics.csv`,
+  `results/transformer_activation_metrics.csv`,
+  `results/transformer_logit_metrics.csv`, `plots/transformer_dashboard.png`.
+- **HF Conv1D note**: GPT-2-style Conv1D stores weights as (in, out); nn.Linear
+  stores (out, in). The harness normalises both to (in, out) internally via
+  `_extract_weight` / `_set_weight`.
+- **Hardware note**: `lm_head` is excluded from quantization (embedding-tied,
+  not a typical quantization target). Set `max_rotation_pairs` (default 1000) to
+  avoid slow top-width rotation on large weight matrices in bigger models.
+
 ### `experiments/rotation_experiment.py`
 
 Runs the first Milestone 2 transformation experiment on one controlled outlier-heavy matrix.
@@ -411,6 +458,7 @@ Current test files:
 - `tests/test_rotation_experiment.py`
 - `tests/test_sweep_experiment.py`
 - `tests/test_integration.py`
+- `tests/test_transformer_experiment.py`
 
 Run all tests:
 
@@ -421,7 +469,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-164 passed
+194 passed
 ```
 
 ## Design Conventions
@@ -474,19 +522,17 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-Milestone 2 matrix-level work is complete. The natural next step is Milestone 3:
-apply the ParoQuant pipeline to a tiny transformer and test whether the
-matrix-level findings survive on real model weights and activations.
+The transformer harness is implemented. Next steps:
 
-Suggested Milestone 3 path:
-
-1. Start with `sshleifer/tiny-gpt2`; move to `distilgpt2` after the harness is stable.
-2. Create `experiments/transformer_experiment.py` for model/tokenizer loading, calibration text, layer selection, quantization, and metrics.
-3. Begin with one linear layer before attempting all compatible linear layers.
-4. Compare global INT4, row-grouped INT4, scale+row-grouped INT4, and top-width rotate+scale+row-grouped INT4.
-5. Measure weight reconstruction, activation drift, logits similarity, and next-token loss/perplexity.
-6. Record rotation metadata per layer: layer name, weight shape, row group size, `rotation_count`, `rotation_pair_fraction`, and `rotation_candidate_fraction`.
-7. Write CSV outputs, tracked figures, and a Milestone 3 research-draft section.
+1. Run `experiments/transformer_experiment.py` on `sshleifer/tiny-gpt2` in all-layers
+   mode (`single_layer_name=None`) and record the findings.
+2. Repeat for the other four planned benchmark models, one at a time
+   (`delete_hf_cache_after=True` between runs):
+   `roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`.
+3. Write a Milestone 3 section in `docs/research_draft.md` summarising whether
+   the matrix-level findings (row-grouped dominates, scaling degrades with large
+   models, rotation adds marginal benefit) survive on real weights.
+4. Commit tracked figures to `docs/figures/` when the section is ready.
 
 Acceptance check for Milestone 2 artifacts:
 
