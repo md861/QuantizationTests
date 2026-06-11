@@ -798,8 +798,8 @@ rotations, `--local-files-only`, two Torch CPU threads, and incremental CSV
 writes. The methods were: `global`, `row_grouped_g4`, `row_grouped_g32`,
 `scale_row_g4`, `scale_row_g32`.
 
-The harness found 45 compatible linear layers per run (6 × 4 attention/MLP
-layers + embed_in/out layers where applicable). This produced 225 weight records
+The harness found 25 compatible linear layers per run (6 × 4 attention/MLP
+layers plus `embed_out`). This produced 225 weight records
 and 225 activation records per bitwidth run, and 5 full-model logit/loss rows per
 run. Results were written to model-specific subdirectories:
 
@@ -824,7 +824,8 @@ tiny-gpt2` and `roneneldan/TinyStories-1M`, INT8 global was essentially
 transparent (PPL ratios 1.000025 and 0.960 respectively, where the sub-1 ratio
 for TinyStories was treated as small-batch noise). This is the first run where
 INT8 global produces a measurable, interpretable degradation, confirming that a
-single global scale cannot hold across 45 layers of a real GPT-NeoX model.
+single global scale cannot hold across the 25 measured layers of a real GPT-NeoX
+model.
 
 `row_grouped_g4` at INT8 achieves a PPL ratio of **0.994** — effectively
 lossless and marginally below baseline due to small-batch noise. `scale_row_g4`

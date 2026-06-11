@@ -229,6 +229,38 @@ def test_top_width_channel_pairs_can_enforce_independence() -> None:
     assert pairs[0] == (0, 1)
 
 
+def test_top_width_channel_pairs_matches_bruteforce_ordering() -> None:
+    rng = np.random.default_rng(1234)
+    matrix = rng.standard_normal((4, 9)).astype(np.float64)
+    widths = channel_widths(matrix)
+    scored_pairs = []
+    for i in range(matrix.shape[1] - 1):
+        for j in range(i + 1, matrix.shape[1]):
+            scored_pairs.append((abs(float(widths[i] - widths[j])), i, j))
+    scored_pairs.sort(key=lambda item: (-item[0], item[1], item[2]))
+    n_candidates = int(np.ceil(0.25 * len(scored_pairs)))
+
+    pairs = top_width_channel_pairs(
+        matrix,
+        top_fraction=0.25,
+        independent=False,
+    )
+
+    assert pairs == [(i, j) for _, i, j in scored_pairs[:n_candidates]]
+
+
+def test_top_width_channel_pairs_handles_wide_layers_without_full_pair_list() -> None:
+    matrix = np.linspace(0.0, 1.0, num=2048, dtype=np.float64).reshape(1, -1)
+
+    pairs = top_width_channel_pairs(
+        matrix,
+        top_fraction=1e-6,
+        independent=True,
+    )
+
+    assert pairs == [(0, 2047)]
+
+
 def test_rotate_top_width_pairs_preserves_norm_and_records_angles() -> None:
     rng = np.random.default_rng(123)
     matrix = rng.standard_normal((8, 8)).astype(np.float64)

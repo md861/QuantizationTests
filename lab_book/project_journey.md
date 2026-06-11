@@ -4045,7 +4045,8 @@ command. Running it in the outer shell kills the session the script is running i
 
 ### Next commands — rotation presets
 
-Pythia-14m (fast, ~30s, all models already cached):
+Pythia-14m (expect several minutes, likely ~4-6 min after the selector fix;
+all models already cached):
 
 ```bash
 tmux new-session -d -s bench && \
@@ -4088,9 +4089,9 @@ tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_N
 - Unstaged change in `experiments/run_transformer_benchmark.py`: `pythia-14m-int4-rotation` preset added
 - Identified partial failed rotation run in `results/transformer_pythia_14m_int4_rotation/` (weight + activation CSVs only, no logit CSV, killed at 24/25 layers at 22:56 on 2026-06-11)
 
-### Root cause of failed run
+### Initial root-cause hypothesis, later superseded
 
-Shell history confirmed: the rotation run was launched directly in the main shell (not via `tmux send-keys`) with `; tmux kill-session -t bench` appended to the outer command — copied from the baseline run pattern. The `tmux kill-session` ran in the wrong context and killed the session the script was running in before it could complete the 25th layer and logit phase.
+Shell history showed the rotation run was launched directly in the main shell (not via `tmux send-keys`) with `; tmux kill-session -t bench` appended to the outer command — copied from the baseline run pattern. That command placement was unsafe, but a later repeat with the corrected tmux pattern failed at the same 24/25-layer point. The later investigation below supersedes this as the primary root cause: top-width pair selection was trying to enumerate the huge `embed_out` pair space.
 
 Fix: lab book "Next commands" section updated with the correct `tmux new-session -d -s bench && tmux send-keys "... ; tmux kill-session -t bench" Enter` pattern and an explicit warning. The `; tmux kill-session` must always be inside the quoted string passed to `send-keys`.
 
@@ -4103,6 +4104,68 @@ presets are now registered and verified via `--list-presets`.
 
 ### Next step
 
-Run rotation presets in order: pythia-14m (~30s) → pythia-70m (~13–15 min) →
-distilgpt2 (~11–13 min). Use commands in "Next commands — rotation presets" above.
+Run rotation presets in order: pythia-14m (~4-6 min estimate after the selector
+fix) → pythia-70m (~13-15 min before rotation overhead) → distilgpt2 (~11-13
+min before rotation overhead). Use commands in "Next commands — rotation presets" above.
 Re-run of pythia-14m-int4-rotation will auto-reset the partial results directory.
+
+---
+
+## Session: 2026-06-11 — Pythia-14m rotation timeout investigation
+
+### Finding
+
+The repeated `pythia-14m-int4-rotation` failures were caused by an algorithmic
+blow-up in top-width pair selection on the final `embed_out` layer, not by a
+genuine 30-second runtime or only by tmux command placement.
+
+Evidence:
+- `/tmp/pythia14m_int4_rotation.log` reached `24/25` layers in about 21 seconds,
+  then stopped before any logit phase or final `elapsed:` line.
+- The partial CSVs contain exactly 24 completed layers and 312 rows
+  (13 methods per layer), ending at `gpt_neox.layers.5.mlp.dense_4h_to_h`.
+- The missing 25th layer is `embed_out`, whose extracted weight shape is
+  `(128, 50304)`.
+- `embed_out` has `50304 * 50303 / 2 = 1,265,221,056` possible channel pairs.
+  The old `top_width_channel_pairs` implementation materialized and sorted all
+  unordered pairs before taking the capped top fraction, which can require tens
+  of GiB of Python object memory and can make WSL/VS Code appear to disconnect
+  or time out.
+
+### Fix
+
+Replaced the full pair-list construction in `quant/rotations.py` with a heap
+selector over sorted channel widths. It preserves the same ordering as sorting
+all pairs by `(-width_difference, i, j)` for the requested top candidates, but
+uses `O(n + k log n)` work and `O(n)` memory, where `k` is the capped candidate
+count.
+
+Added tests:
+- brute-force ordering parity on a small matrix
+- wide-layer smoke test with 2048 columns
+
+Direct reproduction check after the fix:
+
+```text
+128 x 50304 selector, effective top_fraction=1000/1,265,221,056:
+pairs 3, elapsed 0.071s
+```
+
+### Timing correction
+
+The old `~30s` Pythia-14m rotation estimate was wrong. The pre-fix layer phase
+reached 24/25 in ~21s, but the run never entered the full logit/loss phase. The
+best current estimate is several minutes, likely ~4-6 min for Pythia-14m after
+the selector fix. Record the real `elapsed:` line after the next successful run.
+
+### Verification
+
+```bash
+.venv/bin/python -m pytest tests/test_rotations.py tests/test_transformer_experiment.py tests/test_run_transformer_benchmark.py
+```
+
+Result:
+
+```text
+81 passed, 1 warning in 7.73s
+```

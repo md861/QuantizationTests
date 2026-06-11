@@ -14,8 +14,9 @@ Milestone 3 (tiny transformer integration) is underway: the transformer
 harness (`experiments/transformer_experiment.py`) is implemented and tested,
 covering weight reconstruction, activation drift, logit/loss, and perplexity
 across INT4 and INT8 paths on any HuggingFace causal LM. Benchmark
-runs on `sshleifer/tiny-gpt2`, `roneneldan/TinyStories-1M`, and
-`EleutherAI/pythia-14m` are complete and documented in the research draft.
+runs on `sshleifer/tiny-gpt2`, `roneneldan/TinyStories-1M`,
+`EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, and `distilgpt2` are
+complete and documented in the research draft.
 
 ## Project Roadmap
 
@@ -115,7 +116,7 @@ Completed all-layer runs:
   batch (perplexity ratio 16.1x), while INT4 row-grouped g4 reduced the hit to
   1.21x and capped top-width rotation+scale+row g4 reduced it further to 1.14x.
   INT8 paths stayed close to the original model, with logit MSE far below INT4.
-- `EleutherAI/pythia-14m`: 45 compatible transformer layers quantized (INT8 and
+- `EleutherAI/pythia-14m`: 25 compatible transformer layers quantized (INT8 and
   INT4 baselines). First model where INT8 global is not lossless (perplexity
   ratio 1.24); INT8 row-grouped g4 restores losslessness (0.994). INT4 global is
   catastrophic (perplexity ratio 15,074x); INT4 row-grouped g4 gives 1.33x.
@@ -177,7 +178,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-206 passed, 1 warning
+208 passed, 1 warning
 ```
 
 ## Reproduce Artifacts

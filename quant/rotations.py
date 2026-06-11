@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import heapq
 from dataclasses import dataclass
 
 import numpy as np
@@ -143,15 +144,12 @@ def top_width_channel_pairs(
     if n_cols < 2:
         return []
 
-    widths = channel_widths(matrix)
-    scored_pairs: list[tuple[float, int, int]] = []
-    for i in range(n_cols - 1):
-        for j in range(i + 1, n_cols):
-            scored_pairs.append((abs(float(widths[i] - widths[j])), i, j))
-
-    scored_pairs.sort(key=lambda item: (-item[0], item[1], item[2]))
-    n_candidates = max(1, int(np.ceil(top_fraction * len(scored_pairs))))
-    candidates = scored_pairs[:n_candidates]
+    total_pairs = n_cols * (n_cols - 1) // 2
+    n_candidates = max(1, int(np.ceil(top_fraction * total_pairs)))
+    candidates = _top_width_pair_candidates(
+        channel_widths(matrix),
+        n_candidates=n_candidates,
+    )
 
     if not independent:
         return [(i, j) for _, i, j in candidates]
@@ -164,6 +162,51 @@ def top_width_channel_pairs(
         selected.append((i, j))
         used.update((i, j))
     return selected
+
+
+def _top_width_pair_candidates(
+    widths: np.ndarray,
+    *,
+    n_candidates: int,
+) -> list[tuple[float, int, int]]:
+    """Return candidate pairs with largest width differences.
+
+    Width differences are maximized by pairing low-width and high-width
+    channels. A heap over the sorted channel widths gives the same ordering as
+    sorting all unordered pairs by ``(-difference, i, j)`` without materializing
+    the full O(n²) pair list for very wide layers.
+    """
+    n_cols = len(widths)
+    if n_cols < 2 or n_candidates < 1:
+        return []
+
+    sorted_widths = sorted((float(width), idx) for idx, width in enumerate(widths))
+    heap: list[tuple[float, int, int, int, int]] = []
+    for lo in range(n_cols - 1):
+        hi = n_cols - 1
+        item = _heap_pair_item(sorted_widths, lo, hi)
+        heapq.heappush(heap, item)
+
+    candidates: list[tuple[float, int, int]] = []
+    while heap and len(candidates) < n_candidates:
+        neg_diff, i, j, lo, hi = heapq.heappop(heap)
+        candidates.append((-neg_diff, i, j))
+        next_hi = hi - 1
+        if next_hi > lo:
+            heapq.heappush(heap, _heap_pair_item(sorted_widths, lo, next_hi))
+
+    return candidates
+
+
+def _heap_pair_item(
+    sorted_widths: list[tuple[float, int]],
+    lo: int,
+    hi: int,
+) -> tuple[float, int, int, int, int]:
+    low_width, low_idx = sorted_widths[lo]
+    high_width, high_idx = sorted_widths[hi]
+    i, j = sorted((low_idx, high_idx))
+    return (-(high_width - low_width), i, j, lo, hi)
 
 
 def rotate_top_width_pairs(
