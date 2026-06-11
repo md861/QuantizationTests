@@ -572,31 +572,18 @@ versions of all configured transformer paths. The output files were:
 - `results/transformer_activation_metrics.csv`
 - `results/transformer_logit_metrics.csv`
 - `plots/transformer_dashboard.png`
-- `plots/transformer_dashboard_int4.png`
-- `plots/transformer_dashboard_int8.png`
 
-Tracked paper figures are copied to:
+The tracked paper figure is:
 
 - `docs/figures/transformer_dashboard_tiny_gpt2.png`
-- `docs/figures/transformer_dashboard_tiny_gpt2_int4.png`
-- `docs/figures/transformer_dashboard_tiny_gpt2_int8.png`
 
 ![Tiny GPT-2 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2.png)
 
-*Figure: all-layer `sshleifer/tiny-gpt2` run. The panels summarize mean weight
-reconstruction error, activation drift, full-model logit drift, and next-token
-loss delta across the implemented quantization paths.*
-
-![Tiny GPT-2 INT4 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2_int4.png)
-
-*Figure: INT4-only view of the all-layer `sshleifer/tiny-gpt2` run. Splitting
-the dashboard by bitwidth makes the relative behavior of row grouping, scaling,
-and sparse rotations easier to inspect.*
-
-![Tiny GPT-2 INT8 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2_int8.png)
-
-*Figure: INT8-only view of the same run. The split view avoids the much smaller
-INT8 errors being visually compressed by the INT4 scale.*
+*Figure: all-layer `sshleifer/tiny-gpt2` run. The four panels use log scale on
+the MSE axes so that INT4 and INT8 paths are visible on the same figure without
+INT8 bars being compressed by the much larger INT4 scale. The panels summarize
+mean weight reconstruction error, activation drift, full-model logit drift, and
+next-token loss delta across the implemented quantization paths.*
 
 Because this model is intentionally tiny, several matrices have only two input
 rows. This makes `g1` row grouping a near-lossless or exactly lossless case and
@@ -759,7 +746,5 @@ Current tracked figure references used in this draft:
 - `docs/figures/sweep_dashboard_top_width_32x32.png`
 - `docs/figures/sweep_dashboard_top_width_320x320.png`
 - `docs/figures/transformer_dashboard_tiny_gpt2.png`
-- `docs/figures/transformer_dashboard_tiny_gpt2_int4.png`
-- `docs/figures/transformer_dashboard_tiny_gpt2_int8.png`
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.

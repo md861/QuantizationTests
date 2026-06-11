@@ -14,9 +14,7 @@ Milestone 3 (tiny transformer integration) is underway. The transformer harness
 HuggingFace causal LM, runs INT4 and INT8 paths on each linear layer, and measures
 weight reconstruction, activation drift, logit/loss quality, and perplexity.
 The first all-layer run on `sshleifer/tiny-gpt2` is complete and documented in
-`docs/research_draft.md` with figures `docs/figures/transformer_dashboard_tiny_gpt2.png`,
-`docs/figures/transformer_dashboard_tiny_gpt2_int4.png`, and
-`docs/figures/transformer_dashboard_tiny_gpt2_int8.png`.
+`docs/research_draft.md` with figure `docs/figures/transformer_dashboard_tiny_gpt2.png`.
 
 Implemented so far:
 
@@ -42,8 +40,8 @@ Implemented so far:
   any HuggingFace causal LM, quantizes linear layers at INT4 and INT8 across
   global, row-grouped, scale+row-grouped, and top-width rotate+scale+row-grouped
   paths; measures weight reconstruction, activation drift, full-model logit/loss,
-  and perplexity; writes three CSVs and a 4-panel log-scale dashboard (plus
-  per-bitwidth split dashboards); supports single-layer and all-layer modes;
+  and perplexity; writes three CSVs and a 4-panel log-scale dashboard;
+  supports single-layer and all-layer modes;
   `delete_hf_cache_after=True` evicts the model after each run
 - first all-layer `sshleifer/tiny-gpt2` transformer run: eight compatible
   layers, 196 weight records, 196 activation records, and 22 logit/loss records;
@@ -416,9 +414,7 @@ Milestone 3 transformer quantization harness.
   perplexity, and perplexity ratio.
 - **Outputs**: `results/transformer_weight_metrics.csv`,
   `results/transformer_activation_metrics.csv`,
-  `results/transformer_logit_metrics.csv`, `plots/transformer_dashboard.png`,
-  `plots/transformer_dashboard_int4.png`, and
-  `plots/transformer_dashboard_int8.png`.
+  `results/transformer_logit_metrics.csv`, and `plots/transformer_dashboard.png`.
 - **HF Conv1D note**: GPT-2-style Conv1D stores weights as (in, out); nn.Linear
   stores (out, in). The harness normalises both to (in, out) internally via
   `_extract_weight` / `_set_weight`.

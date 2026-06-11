@@ -3485,3 +3485,29 @@ Fixed two stale doc references carried forward from the previous session:
 - `project_summary.md` figures: added `_int4` and `_int8` split figure names (`b9d7d03`)
 - `README.md` Milestone 3 roadmap row: now lists all five benchmark models explicitly with tiny-gpt2 marked done (`acc7551`)
 - `project_summary.md` harness description: updated to reflect INT4+INT8 and log-scale dashboard
+
+---
+
+## 2026-06-11 — Remove INT4/INT8 split transformer dashboards
+
+### Motivation
+
+The per-bitwidth split dashboards (`transformer_dashboard_int4.png`,
+`transformer_dashboard_int8.png`) were originally added to avoid INT8 bars being
+invisible on a linear scale shared with INT4 errors. After switching the
+combined dashboard to log scale on the MSE axes, the split views became
+redundant — both bitwidths are now fully legible in the single combined figure.
+
+### Change
+
+- Removed `docs/figures/transformer_dashboard_tiny_gpt2_int4.png` and
+  `docs/figures/transformer_dashboard_tiny_gpt2_int8.png` from the repo.
+- Updated `docs/research_draft.md`: removed split-figure image blocks and
+  captions, collapsed the tracked-figures list to one entry, updated the
+  combined-figure caption to mention the log-scale axes.
+- Updated `project_summary.md` and `README.md`: removed all references to the
+  split dashboard output files.
+
+### Verification
+
+All 196 tests continue to pass. No code changes.
