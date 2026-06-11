@@ -3159,3 +3159,34 @@ Updated `docs/research_draft.md`:
 
 Updated `README.md` and `project_summary.md` to document the aggregation
 semantics and dashboard error bars.
+
+## 2026-06-11 — Milestone 3 Roadmap: Tiny Transformer Integration
+
+### Goal
+
+Move from matrix-level evidence to a small real transformer test, answering:
+do the matrix-level findings survive on actual model weights and activations?
+
+### Roadmap
+
+1. Start with `sshleifer/tiny-gpt2`; move to `distilgpt2` only after the harness is stable.
+2. Add/document minimal optional transformer dependencies: `torch`, `transformers`, and possibly `datasets`.
+3. Create `experiments/transformer_experiment.py` for model loading, tokenizer loading, calibration text, layer selection, quantization, and metrics.
+4. Begin with one linear layer, ideally an MLP/projection weight, before attempting full-model quantization.
+5. Compare global INT4, row-grouped INT4, scale+row-grouped INT4, and top-width rotate+scale+row-grouped INT4.
+6. Reuse existing matrix metrics for weight reconstruction: MSE, relative Frobenius error, cosine similarity, zero/saturation fractions, and spectrum error.
+7. Add activation capture on a small text batch; measure activation MSE, cosine similarity, and relative drift.
+8. Add logit comparison: logits MSE/cosine similarity, top-k token overlap, and optional KL divergence.
+9. Add a tiny next-token loss/perplexity evaluation on a small local or public text sample.
+10. Expand from one layer to all compatible linear layers only after the one-layer path is verified.
+11. Record rotation metadata for every transformer run: layer name, weight shape, row group size, `rotation_count`, `rotation_pair_fraction`, and `rotation_candidate_fraction`.
+12. Write CSV outputs for layer metrics, activation metrics, and loss/logit metrics; include mean/std when aggregating over layers or prompts.
+13. Generate compact figures for per-layer reconstruction error, activation drift, logit similarity, and loss/perplexity delta.
+14. Update `docs/research_draft.md` with model, layers, text data, methods, rotation budget, metrics, findings, and limitations.
+
+### Completion Criteria
+
+Milestone 3 is complete when the project has a tested tiny-transformer harness,
+at least one layer-level comparison, an all-linear-layer comparison, activation
+and logit/loss metrics, CSV outputs, tracked figures, and a research-draft
+section documenting the results.

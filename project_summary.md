@@ -32,7 +32,7 @@ Implemented so far:
 - tracked paper figures in `docs/figures/`
 - tests for all implemented modules
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Next milestone work is applying the ParoQuant pipeline to a tiny transformer.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Next milestone work is Milestone 3: build a tiny-transformer harness, starting with `sshleifer/tiny-gpt2`, one linear layer, weight reconstruction metrics, activation drift, logits/loss comparison, then expanding to all compatible linear layers.
 
 ## Environment
 
@@ -474,7 +474,19 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-Milestone 2 matrix-level work is complete. The natural next step is Milestone 3: apply the ParoQuant pipeline to a tiny transformer (tiny-gpt2 or DistilGPT2), measure perplexity and activation drift before and after rotation+row-grouped INT4 quantization, and write up those results in the research draft.
+Milestone 2 matrix-level work is complete. The natural next step is Milestone 3:
+apply the ParoQuant pipeline to a tiny transformer and test whether the
+matrix-level findings survive on real model weights and activations.
+
+Suggested Milestone 3 path:
+
+1. Start with `sshleifer/tiny-gpt2`; move to `distilgpt2` after the harness is stable.
+2. Create `experiments/transformer_experiment.py` for model/tokenizer loading, calibration text, layer selection, quantization, and metrics.
+3. Begin with one linear layer before attempting all compatible linear layers.
+4. Compare global INT4, row-grouped INT4, scale+row-grouped INT4, and top-width rotate+scale+row-grouped INT4.
+5. Measure weight reconstruction, activation drift, logits similarity, and next-token loss/perplexity.
+6. Record rotation metadata per layer: layer name, weight shape, row group size, `rotation_count`, `rotation_pair_fraction`, and `rotation_candidate_fraction`.
+7. Write CSV outputs, tracked figures, and a Milestone 3 research-draft section.
 
 Acceptance check for Milestone 2 artifacts:
 
