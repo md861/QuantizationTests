@@ -208,28 +208,6 @@ def run_transformer_experiment(
             bbox_inches="tight",
         )
         plt.close(fig)
-        for bitwidth in sorted({r.bitwidth for r in weight_records}):
-            bw_weight_records = [
-                r for r in weight_records if r.bitwidth == bitwidth
-            ]
-            bw_activation_records = [
-                r for r in activation_records if r.bitwidth == bitwidth
-            ]
-            bw_logit_records = [
-                r for r in logit_records if r.bitwidth == bitwidth
-            ]
-            fig = _plot_dashboard(
-                bw_weight_records,
-                bw_activation_records,
-                bw_logit_records,
-                title=f"Transformer quantization — INT{bitwidth}",
-            )
-            fig.savefig(
-                config.plots_dir / f"transformer_dashboard_int{bitwidth}.png",
-                dpi=120,
-                bbox_inches="tight",
-            )
-            plt.close(fig)
 
     if config.delete_hf_cache_after:
         _clear_hf_cache(config.model_name)
@@ -426,7 +404,7 @@ def _run_logit_experiment(
     orig_logits, orig_loss = _forward_pass(model, token_inputs)
     orig_perplexity = math.exp(orig_loss)
 
-    method_keys = list(next(iter(all_method_deqs.values())).keys())
+    method_keys = _common_method_keys(all_method_deqs)
     records: list[LogitRecord] = []
 
     for (method, bitwidth) in method_keys:
@@ -468,6 +446,21 @@ def _run_logit_experiment(
         )
 
     return records
+
+
+def _common_method_keys(
+    all_method_deqs: dict[str, dict[tuple[str, int], np.ndarray]],
+) -> list[tuple[str, int]]:
+    """Return method keys available for every layer, preserving first-layer order."""
+    if not all_method_deqs:
+        return []
+
+    layer_methods = list(all_method_deqs.values())
+    common = set(layer_methods[0])
+    for methods in layer_methods[1:]:
+        common.intersection_update(methods)
+
+    return [key for key in layer_methods[0] if key in common]
 
 
 def _forward_pass(
@@ -724,7 +717,8 @@ def _plot_dashboard(
             alpha=0.85,
         )
         ax.axvline(0.0, color="black", linewidth=0.8, linestyle="--")
-        ax.set_xlabel("Loss delta (quantized − original)")
+        ax.set_xscale("symlog", linthresh=1e-6)
+        ax.set_xlabel("Loss delta (quantized − original, symmetric log scale)")
     ax.set_title("Next-token loss delta")
 
     fig.tight_layout()

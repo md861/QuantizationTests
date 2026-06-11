@@ -3511,3 +3511,81 @@ redundant — both bitwidths are now fully legible in the single combined figure
 ### Verification
 
 All 196 tests continue to pass. No code changes.
+
+---
+
+## 2026-06-11 — TinyStories-1M transformer run and dashboard scale cleanup
+
+### Motivation
+
+Moved Milestone 3 from tiny-gpt2 harness validation to the next planned small
+model: `roneneldan/TinyStories-1M`.
+
+### Run
+
+Used model-specific ignored output folders so the existing tiny-gpt2 artifacts
+were not overwritten:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -c "from pathlib import Path; from experiments.transformer_experiment import TransformerConfig, run_transformer_experiment, print_summary; config=TransformerConfig(model_name='roneneldan/TinyStories-1M', single_layer_name=None, results_dir=Path('results/transformer_tinystories_1m'), plots_dir=Path('plots/transformer_tinystories_1m'), save_plots=True, delete_hf_cache_after=True); wr, ar, lr = run_transformer_experiment(config); print_summary(wr, ar, lr)"
+```
+
+The model loaded as GPT-Neo style modules with 48 compatible linear layers.
+HuggingFace reported unexpected `attention.bias` and `masked_bias` keys, which
+are safe loader warnings for this architecture/task pairing.
+
+### Harness fixes
+
+- Fixed all-layer logit/loss evaluation for models with mixed layer shapes.
+  Dynamic row-group sizes create shape-specific method names, so full-model
+  swaps now use only method keys common to every selected layer.
+- Removed the stale split-dashboard generation path from
+  `experiments/transformer_experiment.py`; the intended output is the single
+  combined dashboard.
+- Switched the loss-delta panel to Matplotlib `symlog` scale. The first three
+  panels already use log scale for nonnegative MSE values; loss delta can be
+  positive, zero, or negative, so symmetric log keeps tiny INT8 deltas visible
+  without breaking signed values.
+
+### Outputs
+
+- `results/transformer_tinystories_1m/transformer_weight_metrics.csv`
+- `results/transformer_tinystories_1m/transformer_activation_metrics.csv`
+- `results/transformer_tinystories_1m/transformer_logit_metrics.csv`
+- `plots/transformer_tinystories_1m/transformer_dashboard.png`
+- tracked figure: `docs/figures/transformer_dashboard_tinystories_1m.png`
+
+Record counts:
+
+- 48 compatible transformer layers
+- 1472 weight records
+- 1472 activation records
+- 10 all-layer logit/loss/perplexity records
+
+### Findings
+
+TinyStories-1M is the first less-degenerate transformer signal. On the built-in
+short calibration batch:
+
+- INT4 global: logit MSE 4.657, top-5 overlap 0.328, loss delta +2.7797,
+  perplexity ratio 16.11x.
+- INT4 row-grouped g4: logit MSE 0.673, top-5 overlap 0.633, loss delta
+  +0.1932, perplexity ratio 1.213x.
+- INT4 row-grouped g16: perplexity ratio 2.240x.
+- INT8 global: logit MSE 0.0165, top-5 overlap 0.939, loss delta -0.0404,
+  perplexity ratio 0.960x; treat the negative loss delta as small-batch noise.
+- INT8 row-grouped g4/g16: perplexity ratios about 1.018x/1.021x.
+
+Mean per-layer MSE tells the same story: row-grouped g4 is about 19x lower than
+global INT4 for weight reconstruction and about 21x lower for activation drift.
+Scaling is effectively identical to row-grouping in this run.
+
+### Verification
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest tests/test_transformer_experiment.py
+```
+
+```text
+34 passed, 1 warning in 7.65s
+```

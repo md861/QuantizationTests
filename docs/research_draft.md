@@ -579,11 +579,13 @@ The tracked paper figure is:
 
 ![Tiny GPT-2 transformer quantization dashboard](figures/transformer_dashboard_tiny_gpt2.png)
 
-*Figure: all-layer `sshleifer/tiny-gpt2` run. The four panels use log scale on
-the MSE axes so that INT4 and INT8 paths are visible on the same figure without
-INT8 bars being compressed by the much larger INT4 scale. The panels summarize
-mean weight reconstruction error, activation drift, full-model logit drift, and
-next-token loss delta across the implemented quantization paths.*
+*Figure: all-layer `sshleifer/tiny-gpt2` run. The MSE panels use log scale so
+that INT4 and INT8 paths are visible on the same figure without INT8 bars being
+compressed by the much larger INT4 scale. The signed loss-delta panel uses a
+symmetric log scale so tiny and large deltas remain visible around zero. The
+panels summarize mean weight reconstruction error, activation drift, full-model
+logit drift, and next-token loss delta across the implemented quantization
+paths.*
 
 Because this model is intentionally tiny, several matrices have only two input
 rows. This makes `g1` row grouping a near-lossless or exactly lossless case and
@@ -698,7 +700,73 @@ that the measurement pipeline is now complete; the next question is whether the
 same patterns survive on larger tiny models such as TinyStories-1M, Pythia-14M,
 Pythia-70M, and DistilGPT2.
 
-## 13. Limitations
+## 13. TinyStories-1M Transformer Run
+
+The second Milestone 3 run applies the same harness to
+`roneneldan/TinyStories-1M`, a small GPT-Neo-style model with eight transformer
+blocks. The harness found 48 compatible linear layers:
+
+- attention `k_proj`, `v_proj`, `q_proj`, and `out_proj` layers in each block
+- MLP `c_fc` and `c_proj` layers in each block
+
+This run produced 1472 weight records, 1472 activation records, and 10
+full-model logit/loss records. It also exposed one useful harness portability
+issue: dynamic row-group sizes depend on each layer's row count, so not every
+method name exists for every layer. The all-layer logit/loss comparison now uses
+only method keys common to every selected layer. That keeps per-layer weight and
+activation CSVs rich while making full-model swaps well-defined.
+
+The output files were written under model-specific local folders:
+
+- `results/transformer_tinystories_1m/transformer_weight_metrics.csv`
+- `results/transformer_tinystories_1m/transformer_activation_metrics.csv`
+- `results/transformer_tinystories_1m/transformer_logit_metrics.csv`
+- `plots/transformer_tinystories_1m/transformer_dashboard.png`
+
+The tracked paper figure is:
+
+- `docs/figures/transformer_dashboard_tinystories_1m.png`
+
+![TinyStories-1M transformer quantization dashboard](figures/transformer_dashboard_tinystories_1m.png)
+
+*Figure: all-layer `roneneldan/TinyStories-1M` run. MSE panels use log scale,
+and the signed loss-delta panel uses symmetric log scale. The top panels
+summarize per-layer weight reconstruction and activation drift across all
+available methods. The bottom panels show only full-model methods available for
+every selected layer; top-width rotation methods are absent there because the
+MLP expansion layers exceeded the configured rotation-pair safety cap.*
+
+The TinyStories result is the first less-degenerate transformer signal. INT4
+global quantization strongly damages the short-batch full-model behavior:
+perplexity rises by 16.1x and top-5 token overlap drops to 0.328. Row-grouped
+INT4 substantially reduces the damage. With group size 4, the perplexity ratio
+falls to 1.213 and top-5 overlap rises to 0.633. INT8 stays much closer to the
+original model; global INT8 has much smaller logit drift than INT4 global, and
+the small negative loss delta is best treated as noise from the tiny evaluation
+batch rather than a quality improvement.
+
+**TinyStories-1M all-layer logit, loss, and perplexity summary**
+
+| Method | Bits | Logit MSE | Top-5 overlap | Loss delta | PPL ratio |
+|---|---:|---:|---:|---:|---:|
+| global | 4 | 4.657 | 0.3278 | +2.7797 | 16.1149 |
+| row_grouped_g4 | 4 | 0.673 | 0.6333 | +0.1932 | 1.2131 |
+| row_grouped_g16 | 4 | 1.316 | 0.4278 | +0.8066 | 2.2402 |
+| scale_row_g4 | 4 | 0.673 | 0.6333 | +0.1932 | 1.2131 |
+| scale_row_g16 | 4 | 1.316 | 0.4278 | +0.8066 | 2.2403 |
+| global | 8 | 0.0165 | 0.9389 | -0.0404 | 0.9604 |
+| row_grouped_g4 | 8 | 0.0020 | 0.9778 | +0.0181 | 1.0182 |
+| row_grouped_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
+| scale_row_g4 | 8 | 0.0020 | 0.9778 | +0.0180 | 1.0182 |
+| scale_row_g16 | 8 | 0.0044 | 0.9833 | +0.0212 | 1.0214 |
+
+The aggregate weight and activation results tell the same story: row-grouped g4
+is about 19x lower than global INT4 in mean weight MSE and about 21x lower in
+mean activation MSE across the 48 layers. Scaling is effectively identical to
+plain row-grouping in this run, which matches the matrix-level finding that
+group size is the dominant variable once local row groups are available.
+
+## 14. Limitations
 
 The current results are intentionally preliminary.
 
@@ -706,16 +774,17 @@ The current results are intentionally preliminary.
 - Rotation-pair selection now includes both a simple two-largest-column heuristic and an opt-in top-width-difference independent-pair heuristic. It still does not optimize pair choices or angles using transformer calibration data.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - The first transformer benchmark uses `sshleifer/tiny-gpt2`, whose linear layers are extremely small; the near-lossless `g1` row-grouped results are therefore harness-validation evidence, not a realistic compression result.
+- The TinyStories-1M benchmark is more informative than tiny-gpt2, but it still uses the same tiny built-in evaluation text batch.
 - The language-model evaluation currently uses a tiny built-in calibration text batch. Perplexity and top-k overlap need a larger held-out text set before they should be treated as benchmark-quality language-model results.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 14. Next Work
+## 15. Next Work
 
 The next research steps move from harness validation to transformer-level
 evidence on less degenerate models and evaluation text.
 
-1. Run the same all-layer harness on `roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, and `distilgpt2`, keeping only one model resident in local HuggingFace cache at a time.
+1. Run the same all-layer harness on `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, and `distilgpt2`, keeping only one model resident in local HuggingFace cache at a time.
 2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
 3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
 4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.

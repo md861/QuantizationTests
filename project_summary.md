@@ -13,8 +13,9 @@ Milestone 3 (tiny transformer integration) is underway. The transformer harness
 (`experiments/transformer_experiment.py`) is implemented and tested: it loads any
 HuggingFace causal LM, runs INT4 and INT8 paths on each linear layer, and measures
 weight reconstruction, activation drift, logit/loss quality, and perplexity.
-The first all-layer run on `sshleifer/tiny-gpt2` is complete and documented in
-`docs/research_draft.md` with figure `docs/figures/transformer_dashboard_tiny_gpt2.png`.
+The first all-layer runs on `sshleifer/tiny-gpt2` and
+`roneneldan/TinyStories-1M` are complete and documented in
+`docs/research_draft.md` with tracked dashboard figures in `docs/figures/`.
 
 Implemented so far:
 
@@ -40,15 +41,24 @@ Implemented so far:
   any HuggingFace causal LM, quantizes linear layers at INT4 and INT8 across
   global, row-grouped, scale+row-grouped, and top-width rotate+scale+row-grouped
   paths; measures weight reconstruction, activation drift, full-model logit/loss,
-  and perplexity; writes three CSVs and a 4-panel log-scale dashboard;
+  and perplexity; writes three CSVs and a 4-panel dashboard with log-scale MSE
+  panels and symmetric-log loss deltas;
   supports single-layer and all-layer modes;
   `delete_hf_cache_after=True` evicts the model after each run
 - first all-layer `sshleifer/tiny-gpt2` transformer run: eight compatible
   layers, 196 weight records, 196 activation records, and 22 logit/loss records;
   top-5 overlap stayed 1.0 and perplexity ratios stayed within about six parts
   per million of 1.0 on the built-in calibration batch
+- first all-layer `roneneldan/TinyStories-1M` transformer run: 48 compatible
+  layers, 1472 weight records, 1472 activation records, and 10 all-layer
+  logit/loss records; INT4 global had a 16.1x perplexity ratio on the built-in
+  calibration batch, while INT4 row-grouped g4 reduced the ratio to 1.21x; INT8
+  paths stayed close to the original model
+- all-layer logit/loss comparison now uses only method keys available for every
+  selected layer, so models with mixed weight shapes and dynamic row-group sizes
+  do not fail on shape-specific methods such as `row_grouped_g32`
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Current Milestone 3 work is to run the implemented transformer harness across the remaining planned small-model benchmark set, then compare whether the tiny-gpt2 harness-validation findings survive on less degenerate models.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Current Milestone 3 work is to run the implemented transformer harness across the remaining planned small-model benchmark set, then compare whether the TinyStories finding survives on Pythia-14M, Pythia-70M, and DistilGPT2.
 
 ## Environment
 
@@ -73,7 +83,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-196 passed
+198 passed
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -477,7 +487,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-196 passed
+198 passed
 ```
 
 ## Design Conventions
@@ -532,9 +542,9 @@ Key observation from the first run:
 
 The transformer harness is implemented. Next steps:
 
-1. Repeat the all-layer run for the other four planned benchmark models, one at a time
+1. Repeat the all-layer run for the remaining planned benchmark models, one at a time
    (`delete_hf_cache_after=True` between runs):
-   `roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`.
+   `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`.
 2. Add a larger held-out text batch for loss/perplexity evaluation.
 3. Extend the Milestone 3 research section in `docs/research_draft.md` to compare whether
    the matrix-level findings (row-grouped dominates, scaling degrades with large

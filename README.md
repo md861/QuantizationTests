@@ -14,8 +14,8 @@ Milestone 3 (tiny transformer integration) is underway: the transformer
 harness (`experiments/transformer_experiment.py`) is implemented and tested,
 covering weight reconstruction, activation drift, logit/loss, and perplexity
 across INT4 and INT8 paths on any HuggingFace causal LM. The first benchmark
-run on `sshleifer/tiny-gpt2` (all layers) is complete and documented in the
-research draft.
+runs on `sshleifer/tiny-gpt2` and `roneneldan/TinyStories-1M` are complete and
+documented in the research draft.
 
 ## Project Roadmap
 
@@ -23,7 +23,7 @@ research draft.
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`; measure weight reconstruction, activation drift, perplexity | Active |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, `distilgpt2`; measure weight reconstruction, activation drift, perplexity | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -103,19 +103,24 @@ It measures weight reconstruction (MSE, cosine similarity, SNR), activation drif
 (logit MSE, top-5 token overlap, next-token loss delta, perplexity, and
 perplexity ratio).
 
-First all-layer run completed:
+Completed all-layer runs:
 
 - `sshleifer/tiny-gpt2`: eight compatible transformer layers quantized; all
   tested paths preserved top-5 token overlap on the built-in calibration batch,
   and perplexity ratios stayed within about six parts per million of 1.0. This
   is treated as harness validation because the model's linear layers are
   extremely small.
+- `roneneldan/TinyStories-1M`: 48 compatible transformer layers quantized. INT4
+  global quantization damaged full-model behavior on the built-in calibration
+  batch (perplexity ratio 16.1x), while INT4 row-grouped g4 reduced the hit to
+  1.21x. INT8 paths stayed close to the original model, with logit MSE far below
+  INT4. This is the first less-degenerate transformer signal, but still uses a
+  tiny evaluation batch.
 
 Remaining planned benchmark models (one model in local storage at a time):
 
 | Model | Parameters |
 | --- | --- |
-| `roneneldan/TinyStories-1M` | ~1M |
 | `EleutherAI/pythia-14m` | 14M |
 | `EleutherAI/pythia-70m` | 70M |
 | `distilgpt2` | 82M |
@@ -146,7 +151,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-196 passed
+198 passed
 ```
 
 ## Reproduce Artifacts

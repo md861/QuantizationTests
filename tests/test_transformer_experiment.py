@@ -14,9 +14,11 @@ from experiments.transformer_experiment import (
     LogitRecord,
     TransformerConfig,
     WeightRecord,
+    _common_method_keys,
     _extract_weight,
     _fraction_tag,
     _get_linear_layers,
+    _plot_dashboard,
     _resolve_group_sizes,
     _run_weight_experiment,
     _set_weight,
@@ -108,6 +110,35 @@ def test_top5_overlap_range():
     assert 0.0 <= _top5_overlap(orig, q) <= 1.0
 
 
+def test_dashboard_loss_delta_uses_symmetric_log_scale():
+    weight_records = [
+        WeightRecord(
+            "m", "l", "(2, 2)", "global", 4, 0, 0.0, 0.0,
+            1.0, 0.1, 0.9, 1.0, 0.0, 0.0,
+        )
+    ]
+    activation_records = [ActivationRecord("m", "l", "global", 4, 1.0, 0.9, 0.1)]
+    logit_records = [
+        LogitRecord(
+            "m", "all_layers", "global", 4, 1.0, 0.9, 0.5,
+            2.0, 1.0, 1.0, math.e**2, math.e, math.e,
+        ),
+        LogitRecord(
+            "m", "all_layers", "global", 8, 1e-4, 0.99, 1.0,
+            0.999999, 1.0, -1e-6, math.exp(0.999999), math.e,
+            math.exp(-1e-6),
+        ),
+    ]
+
+    fig = _plot_dashboard(weight_records, activation_records, logit_records)
+    try:
+        assert fig.axes[3].get_xscale() == "symlog"
+    finally:
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+
 # ── unit: weight experiment ───────────────────────────────────────────────────
 
 
@@ -180,6 +211,29 @@ def test_weight_experiment_dequantized_shape():
     _, method_deqs = _run_weight_experiment(config, "l", weight)
     for key, deq in method_deqs.items():
         assert deq.shape == weight.shape, f"{key}: shape mismatch"
+
+
+def test_common_method_keys_intersects_layer_specific_group_sizes():
+    all_method_deqs = {
+        "small": {
+            ("global", 4): np.zeros((4, 4), dtype=np.float32),
+            ("row_grouped_g4", 4): np.zeros((4, 4), dtype=np.float32),
+            ("row_grouped_g2", 4): np.zeros((4, 4), dtype=np.float32),
+            ("global", 8): np.zeros((4, 4), dtype=np.float32),
+        },
+        "large": {
+            ("global", 4): np.zeros((8, 4), dtype=np.float32),
+            ("row_grouped_g4", 4): np.zeros((8, 4), dtype=np.float32),
+            ("row_grouped_g8", 4): np.zeros((8, 4), dtype=np.float32),
+            ("global", 8): np.zeros((8, 4), dtype=np.float32),
+        },
+    }
+
+    assert _common_method_keys(all_method_deqs) == [
+        ("global", 4),
+        ("row_grouped_g4", 4),
+        ("global", 8),
+    ]
 
 
 def test_weight_experiment_metrics_finite():
@@ -299,8 +353,6 @@ def test_csv_files_written(tiny_config, experiment_results):
 
 def test_dashboard_files_written(tiny_config, experiment_results):
     assert (tiny_config.plots_dir / "transformer_dashboard.png").exists()
-    assert (tiny_config.plots_dir / "transformer_dashboard_int4.png").exists()
-    assert (tiny_config.plots_dir / "transformer_dashboard_int8.png").exists()
 
 
 def test_logit_csv_includes_perplexity_columns(tiny_config, experiment_results):
