@@ -1196,10 +1196,11 @@ These limitations are useful: they define the next experiments rather than weake
 The next research steps move from harness validation to transformer-level
 evidence on less degenerate models and evaluation text.
 
-1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). ~~`distilgpt2` baselines~~ — **complete** (Section 16). ~~Run INT4 rotation presets on Pythia-14M, Pythia-70M, and distilgpt2~~ — **complete** (Sections 14.3, 15.3, and 16.3). Next: synthesize rotation findings and improve evaluation data.
-2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
-3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
-4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.
+1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). ~~`distilgpt2` baselines~~ — **complete** (Section 16). ~~Run INT4 rotation presets on Pythia-14M, Pythia-70M, and distilgpt2~~ — **complete** (Sections 14.3, 15.3, and 16.3).
+2. Synthesize the Milestone 3 rotation findings into a concise conclusion: uncalibrated sparse rotations are mixed and should not be the next main branch.
+3. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
+4. Re-run a small, targeted subset on the larger text batch: Pythia-14M g4, Pythia-70M g4, and distilgpt2 g4 for row-grouped vs rotation+scale+row-grouped.
+5. After evaluation is more reliable, scale to larger open-source LLMs and compare against GPTQ/AWQ/bitsandbytes published baselines.
 
 ## Appendix A. Reproducing Current Figures
 

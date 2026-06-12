@@ -4157,6 +4157,33 @@ Across real-model INT4 runs:
 The next research step should be synthesis and better evaluation data, not more
 of the same uncalibrated p5/p10/p20 preset runs.
 
+---
+
+## Session: 2026-06-12 — Milestone 3 handover next steps clarified
+
+The user decided to skip better rotation-strategy work for now. Milestone 3
+remaining work should focus on handover, synthesis, and evaluation quality.
+
+Updated remaining next steps:
+
+1. Synthesize the completed Milestone 3 transformer findings, especially the
+   mixed real-model rotation story:
+   - TinyStories and Pythia-14M: sparse rotation modestly helps the best g4 path.
+   - Pythia-70M: sparse rotation worsens g4.
+   - distilgpt2: sparse rotation is neutral/slightly negative at g4 and only
+     slightly helps coarse g192.
+2. Add or wire a larger held-out text batch for loss/perplexity evaluation.
+3. Re-run a targeted subset only: Pythia-14M, Pythia-70M, and distilgpt2 g4
+   row-grouped vs rotation+scale+row-grouped.
+4. Update README, project summary, lab book, and research draft with the
+   larger-text evaluation results.
+5. Defer new rotation-pair selection strategies, learned rotations, Jacobi
+   sweeps, and related better-rotation work until after evaluation quality is
+   improved.
+
+`project_summary.md` and `docs/research_draft.md` were updated to reflect this
+handover priority.
+
 distilgpt2 (expect ~11–13 min):
 
 ```bash

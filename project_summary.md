@@ -664,24 +664,23 @@ Key observation from the first run:
 
 ## Next Recommended Step
 
-The transformer harness now uses streaming logit/loss evaluation and the
-temporary Pythia disconnect detour runner is implemented.
+Milestone 3 has completed the planned baseline and INT4 rotation preset runs on
+tiny-gpt2, TinyStories-1M, Pythia-14M, Pythia-70M, and distilgpt2. Do not start
+a new better-rotation-strategy branch yet.
 
-Next steps:
+Next steps for the handover session:
 
-1. From a standalone WSL terminal or `tmux`, pre-download the Pythia-14M preset:
-   `MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --download-only`
-2. Run the conservative cached baseline:
-   `MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --local-files-only --torch-threads 2`
-3. If that succeeds, repeat Pythia-14M with `pythia-14m-int4-baseline`.
-4. Add capped rotations only after the baseline paths are stable.
-5. Continue the remaining planned benchmark models one at a time:
-   `EleutherAI/pythia-70m`, `distilgpt2`.
-6. Add a larger held-out text batch for loss/perplexity evaluation.
-7. Extend the Milestone 3 research section in `docs/research_draft.md` to compare whether
-   the matrix-level findings (row-grouped dominates, scaling degrades with large
-   models, rotation adds marginal benefit) survive on real weights.
-8. Commit tracked figures to `docs/figures/` when the section is ready.
+1. Synthesize the Milestone 3 rotation story in `docs/research_draft.md`:
+   sparse uncalibrated rotations modestly help TinyStories/Pythia-14M g4, hurt
+   Pythia-70M g4, and are neutral/slightly negative for distilgpt2 g4.
+2. Add a larger held-out text evaluation path for loss/perplexity so results are
+   less dependent on the tiny built-in calibration strings.
+3. Re-run only a targeted subset on the larger text batch: Pythia-14M,
+   Pythia-70M, and distilgpt2 g4 row-grouped vs rotation+scale+row-grouped.
+4. Update `README.md`, `project_summary.md`, `lab_book/project_journey.md`, and
+   `docs/research_draft.md` with the larger-text evaluation results.
+5. Only after evaluation quality improves, decide whether to move toward larger
+   open-source LLMs and GPTQ/AWQ/bitsandbytes comparisons.
 
 Acceptance check for Milestone 2 artifacts:
 
