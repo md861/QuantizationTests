@@ -3984,8 +3984,8 @@ added to `run_transformer_benchmark.py` PRESETS dict before running.)
 ### distilgpt2 results
 
 Both runs chained back-to-back in a single tmux session (download → INT8 → INT4).
-24 compatible linear layers found (fewer than Pythia-70m's 45 due to GPT-2 vs
-GPT-NeoX architecture).
+24 compatible linear layers found, close to Pythia-70m's 25-layer harness
+selection despite the different GPT-2 and GPT-NeoX architectures.
 
 **INT8 elapsed: 705s (11.8 min). Original PPL: 477.19**
 
@@ -4013,7 +4013,7 @@ Key findings:
 - Architecture and distillation training dominate over parameter count
 - Group size effect at INT4: g4 vs g192 only 14% difference (vs 478x for Pythia-70m)
 - scale_row provides no benefit over row_grouped at any group size (consistent with all prior runs)
-- Runtime scales with layer count not params: 24 layers → ~11 min vs 45 layers → ~13 min
+- Runtime scales with layer count not params: 24 layers → ~11 min vs 25 layers → ~13 min
 
 ### All planned baselines complete
 

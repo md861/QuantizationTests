@@ -189,7 +189,7 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 Pythia-70m baselines ~13 min and rotation ~20 min (25 layers), distilgpt2
 baselines ~11-12 min and rotation ~17 min (24 layers). Runtime
 scales with layer count, not parameter count — distilgpt2 is faster than Pythia-70m
-despite being larger because it has fewer compatible linear layers (24 vs 45).
+despite being larger, with a similar compatible-layer count (24 vs 25).
 INT8 and INT4 take essentially identical wall-clock time at all model sizes,
 confirming runtime is dominated by weight passes not bitwidth arithmetic.
 

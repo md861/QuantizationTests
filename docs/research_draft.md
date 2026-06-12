@@ -1054,14 +1054,14 @@ The fifth Milestone 3 run applies the harness to `distilgpt2` (82M parameters,
 GPT-2 architecture distilled from GPT-2 medium, 6 transformer blocks). Run
 settings matched prior baselines: INT8 and INT4 separately, no rotations,
 `--local-files-only`, two Torch CPU threads, incremental CSV writes. The harness
-found 24 compatible linear layers — fewer than Pythia-70m's 45 because distilgpt2
-has only 6 attention blocks and its projection layers differ structurally. Methods
-were: `global`, `row_grouped_g4`, `row_grouped_g192`, `scale_row_g4`,
-`scale_row_g192` (group sizes auto-selected by the harness based on layer shape).
+found 24 compatible linear layers, close to Pythia-70m's 25-layer harness
+selection despite the different GPT-2 and GPT-NeoX architectures. Methods were:
+`global`, `row_grouped_g4`, `row_grouped_g192`, `scale_row_g4`, `scale_row_g192`
+(group sizes auto-selected by the harness based on layer shape).
 
 Run timings: INT8 = 705s (11.8 min); INT4 = 679s (11.3 min). Both baseline
 runs are slightly faster than Pythia-70m's 780s INT4 baseline despite similar
-parameter count.
+parameter count and compatible-layer count.
 
 Results were written to:
 
