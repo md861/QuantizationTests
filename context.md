@@ -114,36 +114,30 @@ The goal is to reduce outlier concentration and improve low-bit quantization qua
 
 # Current Milestone
 
-We are currently implementing:
+Milestone 1 (Quantization Sandbox), Milestone 2 (ParoQuant Core), and
+Milestone 3 (Tiny Transformer Integration) are complete.
 
-# Milestone 1 — Quantization Sandbox
+The project is now ready to begin:
 
-Required functionality:
+# Milestone 4 — Real LLM Benchmarking
 
-## Quantizers
+Planned steps:
 
-- symmetric INT8 quantization
-- symmetric INT4 quantization
-
-## Metrics
-
-- MSE
-- MAE
-- Relative Frobenius error
-- Cosine similarity
-- SNR
-
-## Matrix Types
-
-- Gaussian matrices
-- heavy-tailed matrices
-- synthetic outlier matrices
-
-## Visualization
-
-- weight histograms
-- residual histograms
-- heatmaps
+1. Audit local hardware, disk, model cache, and runtime constraints before
+   selecting each larger model.
+2. Start with the smallest feasible larger target, preferably TinyLlama 1.1B
+   if local resources allow it.
+3. Establish a reproducible evaluation text source larger than the current
+   WikiText-2 sample.
+4. Run smoke tests on one layer or a small layer subset before any full-model
+   benchmark.
+5. Benchmark the project INT4 row-grouped path and any feasible rotation/scaling
+   variants.
+6. Compare against external quantization baselines: GPTQ, AWQ, and/or
+   bitsandbytes.
+7. Record wall-clock runtime, memory pressure, output quality, and artifact size.
+8. Update the research draft, README, project summary, and lab book after each
+   model.
 
 ---
 
@@ -320,4 +314,3 @@ The implementation should:
 - and preserve mathematical clarity.
 
 Do not optimize aggressively at the expense of interpretability.
-

@@ -1249,7 +1249,19 @@ evidence on less degenerate models and evaluation text.
 5. ~~Synthesize the Milestone 3 rotation findings into a concise conclusion~~ — **complete** (Section 17).
 6. ~~Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation~~ — **complete** (Appendix A).
 7. ~~Re-run a small, targeted subset on the larger text batch: Pythia-14M g4, Pythia-70M g4, and distilgpt2 g4 for row-grouped vs rotation+scale+row-grouped~~ — **complete** (Section 17).
-8. After documenting the WikiText-2 reruns, scale to larger open-source LLMs and compare against GPTQ/AWQ/bitsandbytes published baselines.
+8. Start Milestone 4: scale to larger open-source LLMs and compare against GPTQ/AWQ/bitsandbytes published baselines.
+
+Milestone 4 should begin with a deliberately narrow first target:
+
+1. Audit available RAM, disk, HuggingFace cache state, and expected CPU runtime.
+2. Select the smallest feasible larger model target, preferably TinyLlama 1.1B
+   if it fits the local environment.
+3. Choose the first baseline set: original model, project row-grouped INT4, and
+   one external baseline from GPTQ, AWQ, or bitsandbytes.
+4. Run a single-layer or small-layer smoke test before a full-model run.
+5. Run the full benchmark from detached tmux and record elapsed time.
+6. Compare perplexity/logit quality, runtime, memory pressure, and artifact size.
+7. Document the result before adding the next model or baseline.
 
 ## Appendix A. Reproducing Current Figures
 

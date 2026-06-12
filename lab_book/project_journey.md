@@ -4447,3 +4447,23 @@ Interpretation:
 - The Milestone 3 rotation conclusion is now stronger: uncalibrated sparse
   top-width rotations are not worth extending before improving selection or
   adding calibration-aware optimization.
+
+---
+
+## Session: 2026-06-12 — Milestone 3 formally closed
+
+Checked `context.md` against the current repository state and confirmed Stage 3
+requirements are satisfied:
+- quantizer applied to tiny-gpt2
+- quantizer applied to distilgpt2
+- perplexity measured
+- output similarity measured through logit MSE, logit cosine similarity, and
+  top-5 token overlap
+- activation drift measured
+
+Updated README, project summary, research draft, and context to mark Milestone 3
+complete and make Milestone 4 the next active research direction.
+
+Milestone 4 starts with larger open-source LLM benchmarking and comparisons
+against GPTQ, AWQ, and bitsandbytes, beginning with a hardware/cache audit and
+the smallest feasible larger model target.

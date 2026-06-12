@@ -6,17 +6,13 @@ Quantization Lab is a research-oriented educational sandbox for seeing how low-b
 quantization changes matrices, spectra, and reconstruction error.
 
 The project starts at matrix level before scaling toward transformer models.
-Milestone 1 (quantization sandbox) and Milestone 2 (ParoQuant core) are
-complete: pairwise Givens rotations, per-channel scaling, column-grouped and
-row-grouped quantization, the rotation/scaling experiment, and a full
-comparative sweep across all quantization paths are implemented and tested.
-Milestone 3 (tiny transformer integration) is underway: the transformer
-harness (`experiments/transformer_experiment.py`) is implemented and tested,
-covering weight reconstruction, activation drift, logit/loss, and perplexity
-across INT4 and INT8 paths on any HuggingFace causal LM. Benchmark
-runs on `sshleifer/tiny-gpt2`, `roneneldan/TinyStories-1M`,
-`EleutherAI/pythia-14m`, `EleutherAI/pythia-70m`, and `distilgpt2` are
-complete and documented in the research draft.
+Milestone 1 (quantization sandbox), Milestone 2 (ParoQuant core), and Milestone
+3 (tiny transformer integration) are complete. Milestone 3 implemented the
+transformer harness (`experiments/transformer_experiment.py`), measured weight
+reconstruction, activation drift, logit/loss, and perplexity across INT4 and
+INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
+`roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`,
+`EleutherAI/pythia-70m`, and `distilgpt2`.
 
 ## Project Roadmap
 
@@ -24,8 +20,8 @@ complete and documented in the research draft.
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; INT4 rotation presets ✓ | Active |
-| 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; INT4 rotation presets ✓; WikiText-2 validation ✓ | Complete |
+| 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Next |
 
 ## Progress
 
@@ -47,7 +43,7 @@ complete and documented in the research draft.
 | Grouped quantization | Complete |
 | Rotation/scaling experiment | Complete |
 | Comparative sweep experiment | Complete |
-| Transformer harness (weight + activation + logit metrics) | Active |
+| Transformer harness (weight + activation + logit metrics) | Complete |
 
 ## Completed Milestone 2
 
@@ -93,7 +89,7 @@ quantization to reduce outlier pressure:
   Summary tables report condition-wise mean and standard deviation for MSE ratio
   and zero fraction; dashboard error bars show the same cross-condition spread.
 
-## Active Milestone 3
+## Completed Milestone 3
 
 Milestone 3 applies the ParoQuant INT4/INT8 pipeline to real transformer weights.
 The harness (`experiments/transformer_experiment.py`) supports single-layer and
@@ -145,8 +141,29 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: document the final Milestone 3 closeout and decide whether to move toward
-larger-model GPTQ/AWQ/bitsandbytes comparisons.
+Next: begin Milestone 4 larger-model GPTQ/AWQ/bitsandbytes comparisons.
+
+## Next Milestone 4
+
+Milestone 4 should proceed in small, hardware-aware steps:
+
+1. Select the first feasible larger model target, starting with TinyLlama 1.1B
+   if local disk, RAM, and model cache constraints allow it.
+2. Add a download/cache audit command for each target model before launching any
+   quantization run.
+3. Define a narrow baseline matrix: original model, project row-grouped INT4
+   g4/g8-style paths where feasible, and one or more library baselines from
+   GPTQ, AWQ, or bitsandbytes.
+4. Extend evaluation text beyond the small WikiText-2 sample while keeping a
+   reproducible tracked or documented evaluation source.
+5. Run one smoke benchmark on a single layer or small layer subset before any
+   full-model run.
+6. Run full-model benchmarks only from detached tmux, recording elapsed time in
+   the Benchmark Run Timings table.
+7. Compare quality, runtime, memory pressure, and artifact size across the
+   project method and external baselines.
+8. Update the research draft, README, project summary, and lab book after each
+   completed model.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 future transformer benchmark runs. Always launch from a detached tmux session with

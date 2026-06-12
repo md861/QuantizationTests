@@ -4,18 +4,17 @@ This is the compact handoff document for resuming work on the Quantization Lab r
 
 ## Current State
 
-Milestone 1 and Milestone 2 are complete at matrix level. Milestone 2
-(ParoQuant Core) now includes pairwise Givens rotations, per-channel scaling,
+Milestone 1, Milestone 2, and Milestone 3 are complete. Milestone 2
+(ParoQuant Core) includes pairwise Givens rotations, per-channel scaling,
 top-width channel-pair selection for sparse rotations, column-grouped
 quantization, row-grouped quantization, the rotation/scaling experiment, and
-comparative sweeps across the implemented quantization paths.
-Milestone 3 (tiny transformer integration) is underway. The transformer harness
-(`experiments/transformer_experiment.py`) is implemented and tested: it loads any
-HuggingFace causal LM, runs INT4 and INT8 paths on each linear layer, and measures
-weight reconstruction, activation drift, logit/loss quality, and perplexity.
-The first all-layer runs on `sshleifer/tiny-gpt2` and
-`roneneldan/TinyStories-1M` are complete and documented in
-`docs/research_draft.md` with tracked dashboard figures in `docs/figures/`.
+comparative sweeps across the implemented quantization paths. Milestone 3
+(tiny transformer integration) implemented and tested the transformer harness:
+it loads HuggingFace causal LMs, runs INT4 and INT8 paths on each linear layer,
+and measures weight reconstruction, activation drift, logit/loss quality, and
+perplexity. Milestone 3 runs are complete on tiny-gpt2, TinyStories-1M,
+Pythia-14M, Pythia-70M, and distilgpt2, including INT4 rotation presets and
+WikiText-2 validation reruns.
 
 Implemented so far:
 
@@ -105,7 +104,7 @@ Implemented so far:
   common p3.0637% rotation path instead of skipping the 256-output MLP expansion
   layers
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. All planned baseline models and INT4 rotation presets are complete (tiny-gpt2/TinyStories historical rotation paths, plus Pythia-14m, Pythia-70m, and distilgpt2), and the Milestone 3 rotation synthesis is now documented. Next step: replace or supplement the tiny built-in calibration strings with a larger held-out text batch.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. Milestone 3 is complete: all planned transformer baselines, INT4 rotation presets, WikiText-2 validation reruns, and the rotation synthesis are documented. Next step: begin Milestone 4 planning and larger-model benchmarking.
 
 ## Environment
 
@@ -685,9 +684,10 @@ a new better-rotation-strategy branch yet.
 
 Next steps for the handover session:
 
-1. Finish Milestone 3 closeout by committing the WikiText-2 rerun documentation.
-2. Decide whether to close Milestone 3 formally or move directly into larger
-   open-source LLM benchmarking and GPTQ/AWQ/bitsandbytes comparisons.
+1. Start Milestone 4 planning with a hardware/cache audit for the first larger
+   model target.
+2. Define the first larger-model comparison matrix against GPTQ, AWQ, and/or
+   bitsandbytes baselines.
 
 Acceptance check for Milestone 2 artifacts:
 
