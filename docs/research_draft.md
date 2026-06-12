@@ -4,9 +4,48 @@ Status: living draft. This document should be updated as experiments, figures, a
 
 ## Abstract
 
-This project studies low-bit quantization from a deliberately small and inspectable starting point: synthetic matrices. The central question is how symmetric low-bit quantization changes matrix values, reconstruction error, singular-value structure, and integer-code usage under different distributional conditions. We first build a matrix-level quantization sandbox with Gaussian, heavy-tailed, and outlier-injected matrices. We then compare INT8 and INT4 symmetric quantization using reconstruction metrics, spectrum diagnostics, residual plots, histograms, and benchmark-style dashboards. We then test ParoQuant-inspired preprocessing transformations — pairwise Givens rotations, reversible per-channel scaling — and two grouped quantization strategies: column-grouped (one scale per block of columns) and row-grouped (one scale per block of rows within each column, the approach used by GPTQ and AWQ).
+This study examines when low-bit post-training quantization fails, which simple
+preprocessing transformations help, and which apparent improvements survive when
+the same machinery is moved from synthetic matrices to small transformer
+language models. The project begins with an inspectable matrix sandbox for
+Gaussian, heavy-tailed, and outlier-injected data, measuring reconstruction
+error, code usage, singular-value distortion, and residual structure under
+symmetric INT8 and INT4 quantization. It then adds ParoQuant-inspired
+preprocessing: pairwise Givens rotations, reversible per-channel scaling,
+column-grouped quantization, and row-grouped quantization, where each column is
+quantized in small row blocks as in GPTQ/AWQ-style groupwise methods. Finally,
+the same ideas are evaluated in a HuggingFace causal-LM harness that measures
+weight reconstruction, activation drift, logit similarity, top-5 token overlap,
+next-token loss, and perplexity ratio.
 
-The current evidence shows that INT4 is highly sensitive to outlier-dominated scales, producing elevated reconstruction error and high zero-code fractions. Per-channel scaling substantially reduces this failure mode. A key new finding is that column-grouped quantization offers no improvement over global INT4 when outliers are confined to a single row, because every column group still contains that row. Row-grouped quantization directly addresses this: in a controlled row-outlier example, row-grouping with group size 4 reduces MSE by 6× and zero fraction from 92% to 23% compared with global INT4, while column-grouped quantization at any group size leaves both metrics unchanged. We treat these as promising observations pending broader sweeps.
+Across controlled matrix sweeps, the dominant INT4 failure mode is
+outlier-driven scale inflation: a small number of extreme values compress
+ordinary entries toward zero, raising MSE and zero-code fraction. The strongest
+and most reproducible mitigation is row-grouped quantization. In a controlled
+row-outlier example, row grouping with group size 4 reduces MSE by about 7x and
+zero fraction from 92% to 23% relative to global INT4; in broader 32x32 and
+320x320 sweeps it gives roughly 9x and 7x mean MSE reductions, respectively.
+Column-grouped quantization does not address row-localized outliers, and
+per-channel scaling helps most when some columns remain outlier-free. Sparse
+top-width rotations improve some global rotation/scaling paths, but do not beat
+the best row-grouped paths in the synthetic sweeps.
+
+Transformer experiments sharpen this conclusion. On `sshleifer/tiny-gpt2`,
+`roneneldan/TinyStories-1M`, `EleutherAI/pythia-14m`,
+`EleutherAI/pythia-70m`, and `distilgpt2`, global INT4 ranges from damaging to
+catastrophic, while fine row grouping is the main control knob for preserving
+model behavior. Pythia-14M moves from catastrophic global INT4 to about 1.33x
+perplexity ratio with row-grouped g4; Pythia-70M remains difficult at 7.52x,
+showing that the method does not scale uniformly; and distilgpt2 is unexpectedly
+robust, reaching 1.058x despite having more parameters than Pythia-70M. INT8 is
+not assumption-free either: global INT8 begins to show measurable degradation on
+Pythia models, while row grouping restores near-lossless behavior. The
+Milestone 3 rotation tests are negative: capped, calibration-free sparse
+rotations do not improve the best g4 path on the WikiText-2 validation reruns
+for Pythia-14M, Pythia-70M, or distilgpt2. The resulting thesis is deliberately
+narrow: for these experiments, row-grouped quantization and group size dominate
+simple uncalibrated rotations, and future progress should compare this baseline
+against established GPTQ, AWQ, and bitsandbytes methods on larger models.
 
 ## 1. Research Motivation
 
