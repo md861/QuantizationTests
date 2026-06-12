@@ -4401,3 +4401,49 @@ Verification:
 ```text
 212 passed, 1 warning in 20.19s
 ```
+
+---
+
+## Session: 2026-06-12 — WikiText-2 targeted g4 reruns
+
+Ran the remaining Milestone 3 evaluation-quality step: targeted INT4 g4
+comparisons on the tracked WikiText-2 raw validation sample at
+`docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt`.
+
+All three runs used:
+
+```bash
+--local-files-only --torch-threads 2 \
+--eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt
+```
+
+Output directories:
+- `results/wikitext_pythia_14m_int4_rotation/`
+- `results/wikitext_pythia_70m_int4_rotation/`
+- `results/wikitext_distilgpt2_int4_rotation/`
+
+Timings copied from runner logs:
+
+```text
+pythia-14m-int4-rotation elapsed: 288.8s (4.8min)
+pythia-70m-int4-rotation elapsed: 1284.5s (21.4min)
+distilgpt2-int4-rotation elapsed: 1137.2s (19.0min)
+```
+
+Full-model WikiText-2 logit/loss g4 comparison:
+
+| Model | Best non-rotation g4 PPLx | Rotation+scale g4 PPLx | Direction |
+|---|---:|---:|---|
+| Pythia-14M | 1.284 (`scale_row_g4`) | 1.635 | worse |
+| Pythia-70M | 9.129 (`row_grouped_g4`) | 10.044 | worse |
+| distilgpt2 | 1.011 (`scale_row_g4`) | 1.015 | slightly worse |
+
+Interpretation:
+- The larger WikiText-2 sample removes the earlier Pythia-14M positive rotation
+  signal; capped sparse rotation now worsens the best g4 path.
+- Pythia-70M remains a negative rotation result.
+- distilgpt2 remains very robust under plain row/scale g4, and rotation is still
+  neutral-to-slightly-negative for the best path.
+- The Milestone 3 rotation conclusion is now stronger: uncalibrated sparse
+  top-width rotations are not worth extending before improving selection or
+  adding calibration-aware optimization.

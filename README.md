@@ -142,9 +142,11 @@ Completed all-layer runs:
   g4 PPLx to 1.062 but slightly improved the coarse g192 path to 1.201.
 
 All planned baseline models and INT4 rotation presets are complete. The
-cross-model rotation synthesis is documented in `docs/research_draft.md`: sparse
-uncalibrated rotations are mixed and should not be the next main branch. Next:
-run the targeted g4 comparisons on the tracked WikiText-2 validation sample.
+cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
+tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
+fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
+Next: document the final Milestone 3 closeout and decide whether to move toward
+larger-model GPTQ/AWQ/bitsandbytes comparisons.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 future transformer benchmark runs. Always launch from a detached tmux session with

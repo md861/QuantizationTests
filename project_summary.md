@@ -177,12 +177,15 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | EleutherAI/pythia-14m | 14M | 25 | INT4 | none | ~3.5 min | file-timestamp estimate |
 | EleutherAI/pythia-14m | 14M | 25 | INT4 | p0.0001% effective | failed before fix | old selector enumerated ~1.26B `embed_out` pairs and stalled at 24/25 layers |
 | EleutherAI/pythia-14m | 14M | 25 | INT4 | p0.0001% effective | 240.1s (4.0 min) | elapsed from runner log after wide-layer selector fix |
+| EleutherAI/pythia-14m | 14M | 25 | INT4 | p0.0001% effective | 288.8s (4.8 min) | WikiText-2 validation sample, 7 texts |
 | EleutherAI/pythia-70m | 70M | 25 | INT8 | none | ~798s (13.3 min) | file-timestamp estimate; elapsed line missed (run predates timer fix) |
 | EleutherAI/pythia-70m | 70M | 25 | INT4 | none | 780s (13.0 min) | elapsed from runner log |
 | EleutherAI/pythia-70m | 70M | 25 | INT4 | p0.0001% effective | 1174.6s (19.6 min) | elapsed from runner log |
+| EleutherAI/pythia-70m | 70M | 25 | INT4 | p0.0001% effective | 1284.5s (21.4 min) | WikiText-2 validation sample, 7 texts |
 | distilgpt2 | 82M | 24 | INT8 | none | 705s (11.8 min) | elapsed from runner log |
 | distilgpt2 | 82M | 24 | INT4 | none | 679s (11.3 min) | elapsed from runner log |
 | distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1024.9s (17.1 min) | elapsed from runner log |
+| distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1137.2s (19.0 min) | WikiText-2 validation sample, 7 texts |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -682,12 +685,9 @@ a new better-rotation-strategy branch yet.
 
 Next steps for the handover session:
 
-1. Re-run only a targeted subset on the larger text batch: Pythia-14M,
-   Pythia-70M, and distilgpt2 g4 row-grouped vs rotation+scale+row-grouped.
-2. Update `README.md`, `project_summary.md`, `lab_book/project_journey.md`, and
-   `docs/research_draft.md` with the larger-text evaluation results.
-3. Only after evaluation quality improves, decide whether to move toward larger
-   open-source LLMs and GPTQ/AWQ/bitsandbytes comparisons.
+1. Finish Milestone 3 closeout by committing the WikiText-2 rerun documentation.
+2. Decide whether to close Milestone 3 formally or move directly into larger
+   open-source LLM benchmarking and GPTQ/AWQ/bitsandbytes comparisons.
 
 Acceptance check for Milestone 2 artifacts:
 

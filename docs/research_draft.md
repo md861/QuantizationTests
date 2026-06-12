@@ -1182,10 +1182,11 @@ the best g4 path.
 
 The Milestone 3 transformer runs tested sparse top-width rotations as a
 calibration-free preprocessing step before scale+row-grouped INT4 quantization.
-The result is mixed, and the most useful conclusion is negative: this particular
+The result is now negative: this particular
 uncalibrated rotation strategy should not be the next main branch of the project.
 
-Across models, the best fine-grouped INT4 path changed as follows:
+On the original three-sentence calibration batch, the best fine-grouped INT4
+path changed as follows:
 
 | Model | Baseline best g4 path | Rotation+scale g4 path | Direction |
 |---|---:|---:|---|
@@ -1194,13 +1195,21 @@ Across models, the best fine-grouped INT4 path changed as follows:
 | `EleutherAI/pythia-70m` | row_grouped_g4 PPLx 7.520 | top-width rotate+scale_row_g4 PPLx 8.049 | worse |
 | `distilgpt2` | row_grouped_g4 PPLx 1.058 | top-width rotate+scale_row_g4 PPLx 1.062 | neutral/slightly worse |
 
-The pattern is not strong enough to justify more runs of the same preset. Sparse
-rotations can help when the base g4 path is already near-usable and the selected
-pairs happen to reduce harmful outlier pressure, as in TinyStories-1M and
-Pythia-14M. But the same heuristic fails to improve Pythia-70M, the hardest
-model in the current set, and it does not improve distilgpt2, the most robust
-one. The transformation therefore behaves like a small, model-dependent
-perturbation rather than a reliable quantization method.
+That pattern was not strong enough to justify more runs of the same preset, and
+the larger held-out WikiText-2 validation sample makes the conclusion sharper:
+
+| Model | Best non-rotation g4 path | Rotation+scale g4 path | Direction |
+|---|---:|---:|---|
+| `EleutherAI/pythia-14m` | scale_row_g4 PPLx 1.284 | top-width rotate+scale_row_g4 PPLx 1.635 | worse |
+| `EleutherAI/pythia-70m` | row_grouped_g4 PPLx 9.129 | top-width rotate+scale_row_g4 PPLx 10.044 | worse |
+| `distilgpt2` | scale_row_g4 PPLx 1.011 | top-width rotate+scale_row_g4 PPLx 1.015 | slightly worse |
+
+The WikiText-2 rerun removes the earlier Pythia-14M positive signal and leaves
+no tested real-model case where the capped sparse rotation improves the best g4
+path. Pythia-70M remains a negative result, and distilgpt2 remains very robust
+under plain row/scale g4 while gaining nothing from rotation. The transformation
+therefore behaves like a small, model-dependent perturbation rather than a
+reliable quantization method.
 
 The cap-induced effective rotation budgets also matter. Pythia-14M and
 Pythia-70M both collapse from requested p5/p10/p20 candidate fractions to one
@@ -1210,13 +1219,11 @@ its best g4 result still does not improve. These runs should therefore be read
 as evidence about very sparse, uncalibrated rotations, not about the full
 ParoQuant design space.
 
-The next project step is evaluation quality, not rotation search. Before trying
-learned pair selection, Jacobi sweeps, activation-aware rotations, or larger
-models, the harness should use a larger held-out text batch so loss and
-perplexity ratios are less sensitive to the current three calibration strings.
-Once that is in place, the right follow-up is a small targeted rerun:
-Pythia-14M, Pythia-70M, and distilgpt2 g4 row-grouped versus
-rotation+scale+row-grouped on the larger text batch.
+The next project step is not more uncalibrated rotation search. If rotations are
+revisited, they should use better pair selection or calibration-aware
+optimization rather than repeating the same sparse top-width preset. Otherwise,
+the project is ready to either close Milestone 3 or move toward larger-model
+benchmarking and GPTQ/AWQ/bitsandbytes comparisons.
 
 ## 18. Limitations
 
@@ -1226,7 +1233,7 @@ The current results are intentionally preliminary.
 - Rotation-pair selection now includes both a simple two-largest-column heuristic and an opt-in top-width-difference independent-pair heuristic. It still does not optimize pair choices or angles using transformer calibration data.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - The first transformer benchmark uses `sshleifer/tiny-gpt2`, whose linear layers are extremely small; the near-lossless `g1` row-grouped results are therefore harness-validation evidence, not a realistic compression result.
-- All language-model evaluations (perplexity, logit MSE, top-5 overlap) use the same three-sentence calibration batch: "The quick brown fox jumps over the lazy dog.", "Quantization reduces the precision of neural network weights to lower bitwidths.", and "Language models learn statistical patterns from large text corpora." These sentences are tokenized and run as three separate forward passes; all reported metrics are averages over this tiny set. A larger held-out text batch is needed before perplexity ratios should be treated as benchmark-quality results — the near-zero and sub-1 PPL ratio values seen in some runs are small-batch noise artefacts.
+- The first transformer runs used the same three-sentence calibration batch: "The quick brown fox jumps over the lazy dog.", "Quantization reduces the precision of neural network weights to lower bitwidths.", and "Language models learn statistical patterns from large text corpora." A tracked WikiText-2 validation sample now provides a better held-out check, but it is still small; larger corpora would be needed before treating perplexity ratios as benchmark-quality estimates.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
@@ -1241,8 +1248,8 @@ evidence on less degenerate models and evaluation text.
 4. ~~Run INT4 rotation presets on Pythia-14M, Pythia-70M, and distilgpt2~~ — **complete** (Sections 14.3, 15.3, and 16.3).
 5. ~~Synthesize the Milestone 3 rotation findings into a concise conclusion~~ — **complete** (Section 17).
 6. ~~Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation~~ — **complete** (Appendix A).
-7. Re-run a small, targeted subset on the larger text batch: Pythia-14M g4, Pythia-70M g4, and distilgpt2 g4 for row-grouped vs rotation+scale+row-grouped.
-8. After evaluation is more reliable, scale to larger open-source LLMs and compare against GPTQ/AWQ/bitsandbytes published baselines.
+7. ~~Re-run a small, targeted subset on the larger text batch: Pythia-14M g4, Pythia-70M g4, and distilgpt2 g4 for row-grouped vs rotation+scale+row-grouped~~ — **complete** (Section 17).
+8. After documenting the WikiText-2 reruns, scale to larger open-source LLMs and compare against GPTQ/AWQ/bitsandbytes published baselines.
 
 ## Appendix A. Reproducing Current Figures
 
