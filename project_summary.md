@@ -105,7 +105,7 @@ Implemented so far:
   common p3.0637% rotation path instead of skipping the 256-output MLP expansion
   layers
 
-Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. All planned baseline models and INT4 rotation presets are complete (tiny-gpt2/TinyStories historical rotation paths, plus Pythia-14m, Pythia-70m, and distilgpt2). Next step: synthesize rotation findings and replace or supplement the tiny built-in calibration strings with a larger held-out text batch.
+Resume reminder: `quant/rotations.py`, `quant/scaling.py`, grouped quantization (both column-grouped and row-grouped in `quant/quantizer.py`), `experiments/rotation_experiment.py`, and `experiments/sweep_experiment.py` are all complete. The sweep experiment compares 12 baseline quantization paths (global, col-grouped, row-grouped, scale, rotate, rotate+scale, rotate+scale+row-grouped) across a grid of seeds, outlier fractions, and outlier scales, writing `results/sweep_metrics.csv` and `plots/sweep_dashboard.png`. It can also opt into top-width sparse-rotation paths via `SweepConfig.top_width_pair_fractions`, e.g. `top_width_rotate_p10_global` and `top_width_rotate_scale_p10_row_g4`. Key findings from the historical sweeps: 32×32 sweep (45 cond, 12 methods) — row_grouped_g4 MSE ratio 0.112 (~9×); scale_global 0.531; rotation alone 0.902. 320×320 sweep (45 cond, 15 methods, new seeds/conditions) — row_grouped_g4 MSE ratio 0.143 (~7×); rotation adds zero measurable benefit over row-grouped at this scale; scale_global collapses to 0.845 (random scatter means every column has outliers); column-grouped converges toward global. New top-width p5/p10/p20 sweeps show sparse rotations improve global rotation paths, especially 320×320 rotate+scale_global (best p20 ratio 0.820 vs single-pair 0.844), but do not beat row-grouped quantization; row_grouped_g4 remains 0.112 on 32×32 and 0.143 on 320×320. Group size remains the dominant variable across both scales. All planned baseline models and INT4 rotation presets are complete (tiny-gpt2/TinyStories historical rotation paths, plus Pythia-14m, Pythia-70m, and distilgpt2), and the Milestone 3 rotation synthesis is now documented. Next step: replace or supplement the tiny built-in calibration strings with a larger held-out text batch.
 
 ## Environment
 
@@ -675,16 +675,13 @@ a new better-rotation-strategy branch yet.
 
 Next steps for the handover session:
 
-1. Synthesize the Milestone 3 rotation story in `docs/research_draft.md`:
-   sparse uncalibrated rotations modestly help TinyStories/Pythia-14M g4, hurt
-   Pythia-70M g4, and are neutral/slightly negative for distilgpt2 g4.
-2. Add a larger held-out text evaluation path for loss/perplexity so results are
+1. Add a larger held-out text evaluation path for loss/perplexity so results are
    less dependent on the tiny built-in calibration strings.
-3. Re-run only a targeted subset on the larger text batch: Pythia-14M,
+2. Re-run only a targeted subset on the larger text batch: Pythia-14M,
    Pythia-70M, and distilgpt2 g4 row-grouped vs rotation+scale+row-grouped.
-4. Update `README.md`, `project_summary.md`, `lab_book/project_journey.md`, and
+3. Update `README.md`, `project_summary.md`, `lab_book/project_journey.md`, and
    `docs/research_draft.md` with the larger-text evaluation results.
-5. Only after evaluation quality improves, decide whether to move toward larger
+4. Only after evaluation quality improves, decide whether to move toward larger
    open-source LLMs and GPTQ/AWQ/bitsandbytes comparisons.
 
 Acceptance check for Milestone 2 artifacts:

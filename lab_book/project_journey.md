@@ -4357,3 +4357,21 @@ completed in the same session and are documented above (Session: 2026-06-12 —
 Pythia-70m and distilgpt2 INT4 rotation runs complete). All three rotation
 presets are done. These lab book entries were appended out of chronological
 order because the timeout investigation and fix were written up retrospectively.
+
+---
+
+## Session: 2026-06-12 — Milestone 3 rotation synthesis
+
+Added a cross-model rotation synthesis section to `docs/research_draft.md`.
+
+Conclusion:
+- Sparse uncalibrated top-width rotations modestly help the best g4 path on
+  TinyStories-1M and Pythia-14M.
+- The same strategy worsens the best g4 path on Pythia-70M.
+- distilgpt2 is already INT4-robust under row-grouped g4, and sparse rotation is
+  neutral/slightly negative for its best path.
+
+This closes the immediate synthesis task. The next project step is to improve
+evaluation quality by adding a larger held-out text batch for loss/perplexity,
+then rerun only the targeted g4 comparisons on Pythia-14M, Pythia-70M, and
+distilgpt2.

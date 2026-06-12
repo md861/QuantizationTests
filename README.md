@@ -141,9 +141,10 @@ Completed all-layer runs:
   being larger. The capped INT4 rotation run took 1024.9s; it slightly worsened
   g4 PPLx to 1.062 but slightly improved the coarse g192 path to 1.201.
 
-All planned baseline models and INT4 rotation presets are complete. Next:
-synthesize the rotation findings and improve evaluation with a larger held-out
-text batch.
+All planned baseline models and INT4 rotation presets are complete. The
+cross-model rotation synthesis is documented in `docs/research_draft.md`: sparse
+uncalibrated rotations are mixed and should not be the next main branch. Next:
+improve evaluation with a larger held-out text batch.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 future transformer benchmark runs. Always launch from a detached tmux session with
