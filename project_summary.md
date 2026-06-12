@@ -538,8 +538,13 @@ Current presets:
 - `tiny-gpt2-smoke`
 - `pythia-14m-int8-baseline`
 - `pythia-14m-int4-baseline`
+- `pythia-14m-int4-rotation`
 - `pythia-70m-int8-baseline`
 - `pythia-70m-int4-baseline`
+- `pythia-70m-int4-rotation`
+- `distilgpt2-int8-baseline`
+- `distilgpt2-int4-baseline`
+- `distilgpt2-int4-rotation`
 
 Important options:
 

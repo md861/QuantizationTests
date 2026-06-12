@@ -4184,17 +4184,6 @@ Updated remaining next steps:
 `project_summary.md` and `docs/research_draft.md` were updated to reflect this
 handover priority.
 
-distilgpt2 (expect ~11–13 min):
-
-```bash
-tmux new-session -d -s bench && \
-tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
-  .venv/bin/python experiments/run_transformer_benchmark.py \
-  distilgpt2-int4-rotation --local-files-only --torch-threads 2 \
-  2>&1 | tee /tmp/distilgpt2_int4_rotation.log \
-  ; tmux kill-session -t bench" Enter
-```
-
 ---
 
 ## Session: 2026-06-11 — Handover diagnostics & rotation preset prep
@@ -4361,16 +4350,10 @@ Interpretation:
   rotation can slightly help the strongest fine-grouped path while not rescuing
   coarse grouping.
 
-### Next command
+### Status after this session
 
-Next target: `pythia-70m-int4-rotation`. Based on baseline timing, tell the user
-to expect at least ~13-15 min before rotation overhead.
-
-```bash
-tmux new-session -d -s bench && \
-tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
-  .venv/bin/python experiments/run_transformer_benchmark.py \
-  pythia-70m-int4-rotation --local-files-only --torch-threads 2 \
-  2>&1 | tee /tmp/pythia70m_int4_rotation.log \
-  ; tmux kill-session -t bench" Enter
-```
+`pythia-70m-int4-rotation` and `distilgpt2-int4-rotation` were subsequently
+completed in the same session and are documented above (Session: 2026-06-12 —
+Pythia-70m and distilgpt2 INT4 rotation runs complete). All three rotation
+presets are done. These lab book entries were appended out of chronological
+order because the timeout investigation and fix were written up retrospectively.
