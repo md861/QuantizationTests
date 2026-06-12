@@ -919,7 +919,7 @@ parameters, GPT-NeoX architecture, 6 transformer blocks). The run used identical
 settings to Pythia-14m: INT8 and INT4 separately, no rotations,
 `--local-files-only`, two Torch CPU threads, incremental CSV writes. Methods
 were: `global`, `row_grouped_g4`, `row_grouped_g128`, `scale_row_g4`,
-`scale_row_g128`. The harness found 45 compatible linear layers per run,
+`scale_row_g128`. The harness found 25 compatible linear layers per run,
 producing 225 weight records, 225 activation records, and 5 logit/loss rows.
 
 Run timings: INT8 ≈ 798s (13.3 min); INT4 = 780s (13.0 min). Both bitwidths
@@ -998,7 +998,32 @@ additional benefit over raw row grouping at both INT4 g4 (7.67 vs 7.52) and g128
 (3,520 vs 3,593), consistent with the matrix-level finding that these two
 mechanisms serve the same outlier-suppression role.
 
-### 15.3 Scaling behaviour: 14m → 70m
+### 15.3 Pythia-70M INT4 capped rotation run
+
+The Pythia-70M rotation preset completed in **1174.6s (19.6 min)** and wrote
+325 weight records, 325 activation records, and 7 full-model logit/loss rows.
+As with Pythia-14M, the model-wide cap collapsed the configured p5/p10/p20
+fractions to one effective `p0.0001%` path because `embed_out` has 50,304 output
+channels. The configured `rotation_candidate_fraction` was
+`7.903757175536604e-07`; actual selected rotation counts were one pair on most
+transformer layers and three pairs on `embed_out`.
+
+| Method | Bits | Logit MSE | Top-5 | Delta Loss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 195,102 | 0.000 | +33.848 | 8.28×10¹⁶ | ~501 trillion |
+| row_grouped_g4 | 4 | 16.671 | 0.200 | +2.018 | 1,243.3 | **7.520** |
+| row_grouped_g128 | 4 | 108.342 | 0.100 | +8.187 | 594,052 | 3,593 |
+| scale_row_g4 | 4 | 16.116 | 0.244 | +2.038 | 1,268.6 | 7.673 |
+| scale_row_g128 | 4 | 111.297 | 0.083 | +8.166 | 582,012 | 3,520 |
+| top_width_rotate_p0_0001_scale_row_g4 | 4 | 17.091 | 0.228 | +2.086 | 1,330.8 | 8.049 |
+| top_width_rotate_p0_0001_scale_row_g128 | 4 | 116.800 | 0.094 | +8.184 | 592,370 | 3,583 |
+
+This is a negative rotation result. The g4 path worsens from 7.520× to 8.049×,
+and the coarse g128 path remains catastrophically bad. Sparse top-width
+rotations do not fix the Pythia-70M INT4 failure mode under this calibration-free
+scheme.
+
+### 15.4 Scaling behaviour: 14m → 70m
 
 | Metric | Pythia-14m | Pythia-70m | Change |
 |---|---:|---:|---|
@@ -1013,7 +1038,7 @@ INT8 with fine grouping remains safe. INT4 with g4 degrades much faster than
 model scale suggests — the 70m model quantizes worse at g4 than the 14m model
 despite being a stronger language model.
 
-### 15.4 Key finding: INT4 g4 does not scale safely to 70m
+### 15.5 Key finding: INT4 g4 does not scale safely to 70m
 
 The 14m runs established that INT4 row_grouped_g4 is near-usable (1.33x PPL).
 The 70m data shows this does not hold at the next scale step. The degradation is
@@ -1034,9 +1059,9 @@ has only 6 attention blocks and its projection layers differ structurally. Metho
 were: `global`, `row_grouped_g4`, `row_grouped_g192`, `scale_row_g4`,
 `scale_row_g192` (group sizes auto-selected by the harness based on layer shape).
 
-Run timings: INT8 = 705s (11.8 min); INT4 = 679s (11.3 min). Both faster than
-Pythia-70m (~13 min) despite similar parameter count, reflecting the lower layer
-count (24 vs 45 layers).
+Run timings: INT8 = 705s (11.8 min); INT4 = 679s (11.3 min). Both baseline
+runs are slightly faster than Pythia-70m's 780s INT4 baseline despite similar
+parameter count.
 
 Results were written to:
 
@@ -1097,17 +1122,43 @@ relative difference. This contrasts sharply with Pythia-70m's g4/g128 ratio of
 (differences in the 4th decimal place), continuing the pattern seen at all model
 scales.
 
-### 16.3 Architecture vs scale: distilgpt2 vs Pythia-70m
+### 16.3 distilgpt2 INT4 capped rotation run
+
+The distilgpt2 rotation preset completed in **1024.9s (17.1 min)** and wrote
+312 weight records, 312 activation records, and 7 full-model logit/loss rows.
+Because the widest selected distilgpt2 layers have 3,072 output channels, the
+model-wide cap produced a less severe effective candidate fraction than Pythia:
+`p0.0212%` (`rotation_candidate_fraction=0.00021199663518940628`). Actual
+selected rotation counts varied by layer shape, from one to three independent
+pairs.
+
+| Method | Bits | Logit MSE | Top-5 | Delta Loss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 988.1 | 0.272 | +3.889 | 23,310 | 48.85 |
+| row_grouped_g4 | 4 | 1.862 | 0.906 | +0.057 | 505.04 | **1.058** |
+| row_grouped_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.48 | 1.208 |
+| scale_row_g4 | 4 | 1.863 | 0.906 | +0.057 | 505.07 | 1.058 |
+| scale_row_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.50 | 1.208 |
+| top_width_rotate_p0_0212_scale_row_g4 | 4 | 1.876 | 0.906 | +0.060 | 506.59 | 1.062 |
+| top_width_rotate_p0_0212_scale_row_g192 | 4 | 14.030 | 0.789 | +0.183 | 572.95 | 1.201 |
+
+The fine g4 path is slightly worse with rotation (1.062× vs 1.058×), while the
+coarse g192 path improves modestly (1.201× vs 1.208×). The practical
+interpretation is neutral: distilgpt2 is already robust under row-grouped INT4,
+and sparse rotations do not materially improve the best path.
+
+### 16.4 Architecture vs scale: distilgpt2 vs Pythia-70m
 
 | Metric | Pythia-70m | distilgpt2 | Notes |
 |---|---:|---:|---|
 | Parameters | 70M | 82M | distilgpt2 larger |
-| Compatible layers | 45 | 24 | GPT-NeoX vs GPT-2 |
+| Compatible layers | 25 | 24 | current harness selection |
 | Original PPL | 165 | 477 | Pythia stronger LM |
 | INT8 global PPLx | 1.44 | ~0.96† | †sub-1 = noise |
 | INT8 g4 PPLx | 0.971 | 0.999 | both lossless |
 | INT4 global PPLx | ~501 trillion | 48.85 | distilgpt2 far more robust |
 | INT4 g4 PPLx | 7.520 | **1.058** | 7× better despite larger size |
+| INT4 rotate+scale g4 PPLx | 8.049 | 1.062 | rotation does not improve either best g4 path |
 | INT4 g4 top-5 | 0.200 | 0.906 | qualitative difference |
 | INT4 g/large PPLx | 3,593 (g128) | 1.208 (g192) | coarse grouping safe on distilgpt2 |
 
@@ -1117,14 +1168,15 @@ Pythia-70m is a stronger language model (lower original PPL) but quantizes far
 worse at INT4. distilgpt2's knowledge-distillation training produces weight
 matrices that are more amenable to coarse-grained quantization.
 
-### 16.4 Key finding: distilgpt2 is unexpectedly INT4-robust
+### 16.5 Key finding: distilgpt2 is unexpectedly INT4-robust
 
 distilgpt2 INT4 row_grouped_g4 (PPLx 1.058, top-5 0.906) is near-usable in
 practice — the first model in this study where INT4 g4 would be deployable
 without significant quality loss. This result motivates investigating whether
 the INT4 robustness generalises to other distilled or regularised models, and
-whether applying Givens rotations before INT4 quantization can push the 1.058x
-ratio further toward 1.0.
+whether calibration-aware transformations can push the 1.058x ratio further
+toward 1.0. The uncalibrated sparse top-width rotation preset did not improve
+the best g4 path.
 
 ## 17. Limitations
 
@@ -1144,7 +1196,7 @@ These limitations are useful: they define the next experiments rather than weake
 The next research steps move from harness validation to transformer-level
 evidence on less degenerate models and evaluation text.
 
-1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). ~~`distilgpt2` baselines~~ — **complete** (Section 16). ~~Run the first Pythia-14M INT4 rotation preset~~ — **complete** (Section 14.3). Next: rotation presets on Pythia-70m and distilgpt2.
+1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14). ~~`EleutherAI/pythia-70m` baselines~~ — **complete** (Section 15). ~~`distilgpt2` baselines~~ — **complete** (Section 16). ~~Run INT4 rotation presets on Pythia-14M, Pythia-70M, and distilgpt2~~ — **complete** (Sections 14.3, 15.3, and 16.3). Next: synthesize rotation findings and improve evaluation data.
 2. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
 3. Compare rotation-pair selection strategies (max-abs pair vs. Jacobi-sweep vs. learned).
 4. Scale to larger open-source LLMs and compare against GPTQ and AWQ published results.

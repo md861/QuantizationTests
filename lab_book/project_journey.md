@@ -4068,6 +4068,95 @@ tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_N
   ; tmux kill-session -t bench" Enter
 ```
 
+---
+
+## Session: 2026-06-12 — Pythia-70m and distilgpt2 INT4 rotation runs complete
+
+### Pythia-70m command
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  pythia-70m-int4-rotation --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/pythia70m_int4_rotation.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+Runner log:
+
+```text
+counts weight=325 activation=325 logit=7
+elapsed: 1174.6s (19.6min)
+```
+
+Result:
+
+| Method | Bits | Logit MSE | Top-5 | Delta Loss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 195,102 | 0.000 | +33.848 | 8.28e16 | 5.01e14 |
+| row_grouped_g4 | 4 | 16.671 | 0.200 | +2.018 | 1,243.3 | **7.520** |
+| row_grouped_g128 | 4 | 108.342 | 0.100 | +8.187 | 594,052 | 3,593 |
+| scale_row_g4 | 4 | 16.116 | 0.244 | +2.038 | 1,268.6 | 7.673 |
+| scale_row_g128 | 4 | 111.297 | 0.083 | +8.166 | 582,012 | 3,520 |
+| top_width_rotate_p0_0001_scale_row_g4 | 4 | 17.091 | 0.228 | +2.086 | 1,330.8 | 8.049 |
+| top_width_rotate_p0_0001_scale_row_g128 | 4 | 116.800 | 0.094 | +8.184 | 592,370 | 3,583 |
+
+Interpretation:
+- Pythia-70m rotation is a negative result at g4: 8.049x vs row_grouped_g4
+  7.520x and scale_row_g4 7.673x.
+- The coarse g128 path remains catastrophic.
+- The effective rotation candidate fraction was p0.0001%, same as Pythia-14m,
+  because `embed_out` again forces the model-wide cap.
+
+### distilgpt2 command
+
+```bash
+tmux new-session -d -s bench && \
+tmux send-keys -t bench "MPLCONFIGDIR=/tmp/paroquant-mpl OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+  .venv/bin/python experiments/run_transformer_benchmark.py \
+  distilgpt2-int4-rotation --local-files-only --torch-threads 2 \
+  2>&1 | tee /tmp/distilgpt2_int4_rotation.log \
+  ; tmux kill-session -t bench" Enter
+```
+
+Runner log:
+
+```text
+counts weight=312 activation=312 logit=7
+elapsed: 1024.9s (17.1min)
+```
+
+Result:
+
+| Method | Bits | Logit MSE | Top-5 | Delta Loss | PPL | PPLx |
+|---|---:|---:|---:|---:|---:|---:|
+| global | 4 | 988.1 | 0.272 | +3.889 | 23,310 | 48.85 |
+| row_grouped_g4 | 4 | 1.862 | 0.906 | +0.057 | 505.04 | **1.058** |
+| row_grouped_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.48 | 1.208 |
+| scale_row_g4 | 4 | 1.863 | 0.906 | +0.057 | 505.07 | 1.058 |
+| scale_row_g192 | 4 | 12.729 | 0.778 | +0.189 | 576.50 | 1.208 |
+| top_width_rotate_p0_0212_scale_row_g4 | 4 | 1.876 | 0.906 | +0.060 | 506.59 | 1.062 |
+| top_width_rotate_p0_0212_scale_row_g192 | 4 | 14.030 | 0.789 | +0.183 | 572.95 | 1.201 |
+
+Interpretation:
+- distilgpt2 rotation is neutral-to-slightly-negative for the best g4 path:
+  1.062x vs row_grouped_g4 1.058x.
+- Rotation modestly helps the coarser g192 path: 1.201x vs 1.208x.
+- distilgpt2 remains the most INT4-robust real model in the study, but this
+  uncalibrated sparse rotation preset does not improve its best path.
+
+### Overall rotation takeaway
+
+Across real-model INT4 runs:
+- TinyStories and Pythia-14m show modest g4 improvements from sparse rotation.
+- Pythia-70m worsens at g4.
+- distilgpt2 is effectively unchanged/slightly worse at g4, with a tiny coarse
+  group improvement.
+
+The next research step should be synthesis and better evaluation data, not more
+of the same uncalibrated p5/p10/p20 preset runs.
+
 distilgpt2 (expect ~11–13 min):
 
 ```bash

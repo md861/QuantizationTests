@@ -24,7 +24,7 @@ complete and documented in the research draft.
 | --- | --- | --- |
 | 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 | 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; Pythia-14m rotation ✓, larger rotation presets next | Active |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; INT4 rotation presets ✓ | Active |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Later |
 
 ## Progress
@@ -123,13 +123,14 @@ Completed all-layer runs:
   Group size 4 vs 32 is a >2x quality difference at INT4. The first capped
   top-width rotation run completed in 240.1s and improved the best INT4 g4 path
   slightly, from scale_row_g4 PPLx 1.318 to rotate+scale_row_g4 PPLx 1.302.
-- `EleutherAI/pythia-70m`: 45 compatible transformer layers quantized (INT8 and
+- `EleutherAI/pythia-70m`: 25 compatible transformer layers quantized (INT8 and
   INT4 baselines, ~13 min each). INT8 global degrades further (PPL ratio 1.44);
   INT8 g4 remains lossless (0.971). INT4 global catastrophic (~501 trillion PPLx);
   INT4 row-grouped g4 gives 7.52x — a qualitative jump from 14m's 1.33x.
   Group size effect at INT4: g4 vs g128 is a 478x quality gap. INT8 and INT4
   take identical wall-clock time (~13 min), confirming runtime is dominated by
-  weight passes not bitwidth arithmetic.
+  weight passes not bitwidth arithmetic. The capped INT4 rotation run took
+  1174.6s and worsened g4 PPLx from 7.52 to 8.05.
 
 - `distilgpt2`: 24 compatible transformer layers quantized (INT8 and INT4
   baselines, ~11–12 min each). INT8 g4 fully lossless (PPLx 0.999, top-5 1.000).
@@ -137,13 +138,15 @@ Completed all-layer runs:
   INT4 global: 48.85x (catastrophic but less so than Pythia models). Key finding:
   architecture and distillation training dominate over parameter count for INT4
   quality; distilgpt2 quantizes 7x better than Pythia-70m at INT4 g4 despite
-  being larger.
+  being larger. The capped INT4 rotation run took 1024.9s; it slightly worsened
+  g4 PPLx to 1.062 but slightly improved the coarse g192 path to 1.201.
 
-All planned baseline models and the Pythia-14m rotation preset are complete.
-Next: rotation presets on Pythia-70m and distilgpt2.
+All planned baseline models and INT4 rotation presets are complete. Next:
+synthesize the rotation findings and improve evaluation with a larger held-out
+text batch.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
-all remaining models. Always launch from a detached tmux session with
+future transformer benchmark runs. Always launch from a detached tmux session with
 `; tmux kill-session -t bench` appended so the session self-destructs on
 completion. Pre-download each model with `--download-only` before the heavy run:
 
