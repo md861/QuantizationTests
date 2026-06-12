@@ -1186,8 +1186,7 @@ The current results are intentionally preliminary.
 - Rotation-pair selection now includes both a simple two-largest-column heuristic and an opt-in top-width-difference independent-pair heuristic. It still does not optimize pair choices or angles using transformer calibration data.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - The first transformer benchmark uses `sshleifer/tiny-gpt2`, whose linear layers are extremely small; the near-lossless `g1` row-grouped results are therefore harness-validation evidence, not a realistic compression result.
-- The TinyStories-1M and Pythia-14M benchmarks are more informative than tiny-gpt2, but all runs use the same tiny built-in calibration text batch.
-- The language-model evaluation currently uses a tiny built-in calibration text batch. Perplexity and top-k overlap need a larger held-out text set before they should be treated as benchmark-quality language-model results. The near-zero and sub-1 PPL ratio values seen in some runs are small-batch noise artefacts.
+- All language-model evaluations (perplexity, logit MSE, top-5 overlap) use the same three-sentence calibration batch: "The quick brown fox jumps over the lazy dog.", "Quantization reduces the precision of neural network weights to lower bitwidths.", and "Language models learn statistical patterns from large text corpora." These sentences are tokenized and run as three separate forward passes; all reported metrics are averages over this tiny set. A larger held-out text batch is needed before perplexity ratios should be treated as benchmark-quality results — the near-zero and sub-1 PPL ratio values seen in some runs are small-batch noise artefacts.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
