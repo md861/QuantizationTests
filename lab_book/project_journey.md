@@ -4467,3 +4467,40 @@ complete and make Milestone 4 the next active research direction.
 Milestone 4 starts with larger open-source LLM benchmarking and comparisons
 against GPTQ, AWQ, and bitsandbytes, beginning with a hardware/cache audit and
 the smallest feasible larger model target.
+
+---
+
+## Session: 2026-06-12 — Milestone 4 hardware/cache audit
+
+Completed the first Milestone 4 feasibility step before selecting a larger
+model target.
+
+Local constraints:
+- CPU: AMD Ryzen 9 3900, 12 cores / 24 threads.
+- RAM: 31 GiB total, about 29 GiB available at audit time; 8 GiB swap.
+- Disk: `/home/mynk/PQ_project` and `/tmp` share a 251 GiB filesystem with
+  226 GiB available.
+- GPU: `nvidia-smi` failed because GPU access is blocked by the operating
+  system; PyTorch reports `cuda_available=False`, `cuda_devices=0`, and no MPS.
+- Python: 3.10.12 in `.venv`.
+- PyTorch: 2.12.0+cu130, but running CPU-only in this environment.
+- Transformers: 5.11.0.
+- Hugging Face Hub: 1.19.0.
+- Hugging Face cache: `/home/mynk/.cache/huggingface/hub`, currently 535 MiB.
+- Cached models: `sshleifer/tiny-gpt2`, `EleutherAI/pythia-14m`,
+  `EleutherAI/pythia-70m`, and `distilgpt2`.
+- Installed external quantization packages: `bitsandbytes`, `auto_gptq`,
+  `awq`, `accelerate`, and `datasets` are not installed; `safetensors` is
+  installed.
+
+Interpretation:
+- TinyLlama 1.1B looks feasible as a download/cache and smoke-test target given
+  available disk and RAM.
+- Full all-layer benchmarking should be treated as CPU-only and launched only
+  after a single-layer or small-subset smoke run.
+- The current safe benchmark runner has no TinyLlama preset yet, so the next
+  implementation step is to add a Milestone 4 preset and a small smoke mode
+  before any full-model run.
+- External baselines should probably start with the lightest dependency path;
+  this environment currently has none of the GPTQ/AWQ/bitsandbytes packages
+  installed.

@@ -682,12 +682,20 @@ Milestone 3 has completed the planned baseline and INT4 rotation preset runs on
 tiny-gpt2, TinyStories-1M, Pythia-14M, Pythia-70M, and distilgpt2. Do not start
 a new better-rotation-strategy branch yet.
 
+Milestone 4 hardware/cache audit is complete: this machine has 31 GiB RAM, about
+226 GiB free on the project filesystem, a 535 MiB Hugging Face cache, and no
+usable CUDA device in the current environment. Treat larger-model work as
+CPU-only unless GPU access changes.
+
 Next steps for the handover session:
 
-1. Start Milestone 4 planning with a hardware/cache audit for the first larger
-   model target.
-2. Define the first larger-model comparison matrix against GPTQ, AWQ, and/or
-   bitsandbytes baselines.
+1. Add a TinyLlama 1.1B Milestone 4 preset plus a single-layer or small-subset
+   smoke path to the safe benchmark runner.
+2. Pre-download/cache TinyLlama before any benchmark run.
+3. Define the first larger-model comparison matrix against project INT4
+   row-grouped paths and the lightest feasible external baseline. None of
+   `bitsandbytes`, `auto_gptq`, `awq`, `accelerate`, or `datasets` is currently
+   installed.
 
 Acceptance check for Milestone 2 artifacts:
 
