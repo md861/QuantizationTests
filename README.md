@@ -45,6 +45,17 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Comparative sweep experiment | Complete |
 | Transformer harness (weight + activation + logit metrics) | Complete |
 
+## Completed Milestone 1
+
+Milestone 1 built the quantization sandbox:
+
+- matrix generation for Gaussian, heavy-tailed, and outlier-heavy data
+- symmetric INT8 and INT4 quantization
+- reconstruction metrics: MSE, MAE, cosine similarity, relative Frobenius error, SNR
+- singular-value spectrum diagnostics
+- value, residual, and quantized-code histogram diagnostics
+- comparison plots showing original matrices, residuals, spectra, and metrics
+
 ## Completed Milestone 2
 
 Milestone 2 implemented the ParoQuant core: transformations applied before
@@ -176,15 +187,6 @@ tmux new-session -d -s bench && tmux send-keys -t bench \
   pythia-70m-int8-baseline --download-only 2>&1 | tee /tmp/pythia70m_download.log \
   ; tmux kill-session -t bench" Enter
 ```
-
-Milestone 1 built the quantization sandbox:
-
-- matrix generation for Gaussian, heavy-tailed, and outlier-heavy data
-- symmetric INT8 and INT4 quantization
-- reconstruction metrics: MSE, MAE, cosine similarity, relative Frobenius error, SNR
-- singular-value spectrum diagnostics
-- value, residual, and quantized-code histogram diagnostics
-- comparison plots showing original matrices, residuals, spectra, and metrics
 
 This repository prioritizes clarity, modularity, reproducibility, and
 mathematical transparency over production inference performance.
