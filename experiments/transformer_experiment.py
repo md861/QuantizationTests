@@ -59,6 +59,7 @@ CALIBRATION_TEXTS = [
     "Quantization reduces the precision of neural network weights to lower bitwidths.",
     "Language models learn statistical patterns from large text corpora.",
 ]
+DEFAULT_TEXT_SOURCE = "built-in calibration texts"
 
 _SKIP_LAYER_NAMES = {"lm_head"}
 
@@ -69,6 +70,7 @@ class TransformerConfig:
     calibration_texts: list[str] = field(
         default_factory=lambda: list(CALIBRATION_TEXTS)
     )
+    calibration_text_source: str = DEFAULT_TEXT_SOURCE
     single_layer_name: Optional[str] = "transformer.h.0.mlp.c_fc"
     bitwidths: list[int] = field(default_factory=lambda: [4, 8])
     row_group_sizes: list[int] = field(default_factory=lambda: [4])
@@ -126,6 +128,8 @@ class LogitRecord:
     scope: str
     method: str
     bitwidth: int
+    calibration_text_source: str
+    calibration_text_count: int
     logit_mse: float
     logit_cosine_similarity: float
     top5_token_overlap: float
@@ -161,6 +165,9 @@ def run_transformer_experiment(
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    if not config.calibration_texts:
+        raise ValueError("TransformerConfig.calibration_texts must not be empty")
 
     token_inputs = [
         tokenizer(t, return_tensors="pt")["input_ids"]
@@ -513,6 +520,8 @@ def _run_logit_experiment(
             scope=scope,
             method=method,
             bitwidth=bitwidth,
+            calibration_text_source=config.calibration_text_source,
+            calibration_text_count=len(config.calibration_texts),
             logit_mse=logit_mse,
             logit_cosine_similarity=logit_cos,
             top5_token_overlap=top5,
@@ -530,6 +539,47 @@ def _run_logit_experiment(
             on_progress("logit", method_idx + 1, n_methods)
 
     return records
+
+
+def load_text_batch(path: Path, max_texts: Optional[int] = None) -> list[str]:
+    """Load paragraph-separated evaluation texts from a UTF-8 resource file.
+
+    Lines beginning with ``#`` are metadata/comments and are ignored. Blank lines
+    separate examples, matching the tracked research-resource files.
+    """
+    if max_texts is not None and max_texts < 1:
+        raise ValueError("max_texts must be at least 1 when provided")
+
+    raw = path.read_text(encoding="utf-8")
+    texts: list[str] = []
+    current: list[str] = []
+
+    def flush_current() -> None:
+        if current:
+            text = " ".join(part.strip() for part in current).strip()
+            if text:
+                texts.append(text)
+            current.clear()
+
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            flush_current()
+            if max_texts is not None and len(texts) >= max_texts:
+                break
+            continue
+        if stripped.startswith("#"):
+            continue
+        current.append(stripped)
+
+    if max_texts is None or len(texts) < max_texts:
+        flush_current()
+
+    if max_texts is not None:
+        texts = texts[:max_texts]
+    if not texts:
+        raise ValueError(f"No evaluation texts found in {path}")
+    return texts
 
 
 def _common_method_keys(
@@ -775,6 +825,7 @@ _ACTIVATION_CSV_FIELDS = [
 
 _LOGIT_CSV_FIELDS = [
     "model_name", "scope", "method", "bitwidth",
+    "calibration_text_source", "calibration_text_count",
     "logit_mse", "logit_cosine_similarity", "top5_token_overlap",
     "loss", "original_loss", "loss_delta",
     "perplexity", "original_perplexity", "perplexity_ratio",

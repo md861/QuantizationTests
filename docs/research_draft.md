@@ -1240,7 +1240,7 @@ evidence on less degenerate models and evaluation text.
 3. ~~Run the same all-layer harness on `distilgpt2`~~ — **complete** (Section 16).
 4. ~~Run INT4 rotation presets on Pythia-14M, Pythia-70M, and distilgpt2~~ — **complete** (Sections 14.3, 15.3, and 16.3).
 5. ~~Synthesize the Milestone 3 rotation findings into a concise conclusion~~ — **complete** (Section 17).
-6. Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation.
+6. ~~Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation~~ — **complete** (Appendix A).
 7. Re-run a small, targeted subset on the larger text batch: Pythia-14M g4, Pythia-70M g4, and distilgpt2 g4 for row-grouped vs rotation+scale+row-grouped.
 8. After evaluation is more reliable, scale to larger open-source LLMs and compare against GPTQ/AWQ/bitsandbytes published baselines.
 
@@ -1271,5 +1271,13 @@ Current tracked figure references used in this draft:
 - `docs/figures/sweep_dashboard_top_width_32x32.png`
 - `docs/figures/sweep_dashboard_top_width_320x320.png`
 - `docs/figures/transformer_dashboard_tiny_gpt2.png`
+
+Current tracked text resources used in this draft:
+
+- `docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt` —
+  a small WikiText-2 raw validation sample for larger held-out loss/perplexity
+  checks. The file includes source, citation, and license notes, plus
+  paragraph-separated examples that can be loaded by the transformer benchmark
+  runner.
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.

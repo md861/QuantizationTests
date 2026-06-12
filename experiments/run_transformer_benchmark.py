@@ -30,6 +30,8 @@ class BenchmarkPreset:
     plots_dir: Path
     save_plots: bool = False
     incremental_results: bool = True
+    evaluation_text_file: Optional[Path] = None
+    max_eval_texts: Optional[int] = None
 
 
 PRESETS: dict[str, BenchmarkPreset] = {
@@ -165,15 +167,47 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write CSVs only at the end instead of appending during the run.",
     )
+    parser.add_argument(
+        "--eval-text-file",
+        type=Path,
+        default=None,
+        help=(
+            "Load paragraph-separated evaluation texts from this UTF-8 file "
+            "instead of the built-in three-sentence batch."
+        ),
+    )
+    parser.add_argument(
+        "--max-eval-texts",
+        type=int,
+        default=None,
+        help="Use at most this many texts from --eval-text-file.",
+    )
     return parser
 
 
 def build_config(args: argparse.Namespace) -> TransformerConfig:
-    from experiments.transformer_experiment import TransformerConfig
+    from experiments.transformer_experiment import TransformerConfig, load_text_batch
 
     preset = PRESETS[args.preset]
+    eval_text_file = args.eval_text_file or preset.evaluation_text_file
+    max_eval_texts = (
+        args.max_eval_texts
+        if args.max_eval_texts is not None
+        else preset.max_eval_texts
+    )
+    calibration_texts = None
+    calibration_text_source = None
+    if eval_text_file is not None:
+        calibration_texts = load_text_batch(eval_text_file, max_texts=max_eval_texts)
+        calibration_text_source = str(eval_text_file)
     return TransformerConfig(
         model_name=preset.model_name,
+        calibration_texts=calibration_texts
+        if calibration_texts is not None
+        else TransformerConfig().calibration_texts,
+        calibration_text_source=calibration_text_source
+        if calibration_text_source is not None
+        else TransformerConfig().calibration_text_source,
         single_layer_name=None,
         bitwidths=list(preset.bitwidths),
         top_width_pair_fractions=list(preset.top_width_pair_fractions),
@@ -266,6 +300,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"Plots: {config.plots_dir}")
     print(f"Bitwidths: {config.bitwidths}")
     print(f"Rotations: {config.top_width_pair_fractions or 'off'}")
+    print(
+        f"Evaluation texts: {len(config.calibration_texts)} "
+        f"from {config.calibration_text_source}"
+    )
     print(f"Local files only: {config.local_files_only}")
     print(f"Incremental CSVs: {config.incremental_results}")
 

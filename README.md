@@ -144,7 +144,7 @@ Completed all-layer runs:
 All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: sparse
 uncalibrated rotations are mixed and should not be the next main branch. Next:
-improve evaluation with a larger held-out text batch.
+run the targeted g4 comparisons on the tracked WikiText-2 validation sample.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 future transformer benchmark runs. Always launch from a detached tmux session with
@@ -184,7 +184,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-208 passed, 1 warning
+212 passed, 1 warning
 ```
 
 ## Reproduce Artifacts
@@ -203,6 +203,14 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/transformer_experim
 
 These commands write CSV files under `results/` and comparison figures under
 `plots/`.
+
+For transformer loss/perplexity reruns on the tracked WikiText-2 validation
+sample, pass the research resource explicitly:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py \
+  tiny-gpt2-smoke --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt
+```
 
 The analysis helper also writes a collated benchmark-style visual:
 

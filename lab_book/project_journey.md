@@ -4375,3 +4375,29 @@ This closes the immediate synthesis task. The next project step is to improve
 evaluation quality by adding a larger held-out text batch for loss/perplexity,
 then rerun only the targeted g4 comparisons on Pythia-14M, Pythia-70M, and
 distilgpt2.
+
+---
+
+## Session: 2026-06-12 — WikiText-2 held-out text resource
+
+Added a tracked WikiText-2 raw validation sample at
+`docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt`.
+The file includes source, citation, and license notes and is linked from the
+research draft appendix.
+
+The transformer benchmark runner now supports:
+
+```bash
+--eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt
+--max-eval-texts N
+```
+
+Logit CSV rows now record `calibration_text_source` and
+`calibration_text_count`, so larger held-out reruns can be distinguished from
+the historical built-in three-sentence calibration batch.
+
+Verification:
+
+```text
+212 passed, 1 warning in 20.19s
+```

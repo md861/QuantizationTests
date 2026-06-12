@@ -130,7 +130,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-208 passed, 1 warning
+212 passed, 1 warning
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -479,6 +479,7 @@ Two sweeps have been run:
 Milestone 3 transformer quantization harness.
 
 - **Config**: `TransformerConfig` — `model_name`, `calibration_texts`,
+  `calibration_text_source`,
   `single_layer_name` (None = all layers), `bitwidths` ([4, 8] by default),
   `row_group_sizes` (fixed sizes applied to every layer, e.g. [4]),
   `row_group_fractions` (sizes relative to each layer's n_rows: 0.5 → n/2,
@@ -516,7 +517,13 @@ Milestone 3 transformer quantization harness.
   of storing every layer/method reconstruction. This reduces temp disk pressure
   for larger Milestone 3 models such as Pythia while preserving the same output
   metrics: logit MSE, cosine similarity, top-5 token overlap, next-token loss
-  delta, perplexity, original perplexity, and perplexity ratio.
+  delta, perplexity, original perplexity, perplexity ratio, calibration text
+  source, and calibration text count.
+- **Held-out text resource**:
+  `docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt`
+  contains a small tracked WikiText-2 raw validation sample with attribution and
+  license notes. Use `--eval-text-file` on `experiments/run_transformer_benchmark.py`
+  to evaluate on it.
 - **Outputs**: `results/transformer_weight_metrics.csv`,
   `results/transformer_activation_metrics.csv`,
   `results/transformer_logit_metrics.csv`, and `plots/transformer_dashboard.png`.
@@ -616,7 +623,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-208 passed, 1 warning
+212 passed, 1 warning
 ```
 
 ## Design Conventions
@@ -675,13 +682,11 @@ a new better-rotation-strategy branch yet.
 
 Next steps for the handover session:
 
-1. Add a larger held-out text evaluation path for loss/perplexity so results are
-   less dependent on the tiny built-in calibration strings.
-2. Re-run only a targeted subset on the larger text batch: Pythia-14M,
+1. Re-run only a targeted subset on the larger text batch: Pythia-14M,
    Pythia-70M, and distilgpt2 g4 row-grouped vs rotation+scale+row-grouped.
-3. Update `README.md`, `project_summary.md`, `lab_book/project_journey.md`, and
+2. Update `README.md`, `project_summary.md`, `lab_book/project_journey.md`, and
    `docs/research_draft.md` with the larger-text evaluation results.
-4. Only after evaluation quality improves, decide whether to move toward larger
+3. Only after evaluation quality improves, decide whether to move toward larger
    open-source LLMs and GPTQ/AWQ/bitsandbytes comparisons.
 
 Acceptance check for Milestone 2 artifacts:

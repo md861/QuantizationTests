@@ -18,6 +18,8 @@ def _args(**overrides):
         save_plots=False,
         delete_hf_cache_after=False,
         no_incremental_results=False,
+        eval_text_file=None,
+        max_eval_texts=None,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -33,6 +35,7 @@ def test_pythia_int8_preset_builds_conservative_config():
     assert config.save_plots is False
     assert config.delete_hf_cache_after is False
     assert config.incremental_results is True
+    assert config.calibration_text_source == "built-in calibration texts"
 
 
 def test_config_honors_local_files_and_overrides(tmp_path):
@@ -53,6 +56,18 @@ def test_config_honors_local_files_and_overrides(tmp_path):
     assert config.save_plots is True
     assert config.delete_hf_cache_after is True
     assert config.incremental_results is False
+
+
+def test_config_loads_eval_text_file(tmp_path):
+    text_path = tmp_path / "eval.txt"
+    text_path.write_text("One text.\n\nTwo text.\n", encoding="utf-8")
+
+    config = runner.build_config(
+        _args(eval_text_file=text_path, max_eval_texts=1)
+    )
+
+    assert config.calibration_texts == ["One text."]
+    assert config.calibration_text_source == str(text_path)
 
 
 def test_configure_threads_validates_positive_count():

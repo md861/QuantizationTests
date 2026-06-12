@@ -20,6 +20,7 @@ from experiments.transformer_experiment import (
     _extract_weight,
     _fraction_tag,
     _get_linear_layers,
+    load_text_batch,
     _plot_dashboard,
     _resolve_group_sizes,
     _run_weight_experiment,
@@ -141,11 +142,11 @@ def test_dashboard_loss_delta_uses_symmetric_log_scale():
     activation_records = [ActivationRecord("m", "l", "global", 4, 1.0, 0.9, 0.1)]
     logit_records = [
         LogitRecord(
-            "m", "all_layers", "global", 4, 1.0, 0.9, 0.5,
+            "m", "all_layers", "global", 4, "fixture", 2, 1.0, 0.9, 0.5,
             2.0, 1.0, 1.0, math.e**2, math.e, math.e,
         ),
         LogitRecord(
-            "m", "all_layers", "global", 8, 1e-4, 0.99, 1.0,
+            "m", "all_layers", "global", 8, "fixture", 2, 1e-4, 0.99, 1.0,
             0.999999, 1.0, -1e-6, math.exp(0.999999), math.e,
             math.exp(-1e-6),
         ),
@@ -314,6 +315,39 @@ def test_get_linear_layers_excludes_lm_head():
     assert len(layers) > 0
 
 
+def test_load_text_batch_ignores_comments_and_splits_paragraphs(tmp_path):
+    path = tmp_path / "texts.txt"
+    path.write_text(
+        "# metadata\n"
+        "First paragraph line one.\n"
+        "First paragraph line two.\n"
+        "\n"
+        "# another comment\n"
+        "Second paragraph.\n",
+        encoding="utf-8",
+    )
+
+    assert load_text_batch(path) == [
+        "First paragraph line one. First paragraph line two.",
+        "Second paragraph.",
+    ]
+
+
+def test_load_text_batch_honors_max_texts(tmp_path):
+    path = tmp_path / "texts.txt"
+    path.write_text("One.\n\nTwo.\n\nThree.\n", encoding="utf-8")
+
+    assert load_text_batch(path, max_texts=2) == ["One.", "Two."]
+
+
+def test_load_text_batch_rejects_empty_resource(tmp_path):
+    path = tmp_path / "empty.txt"
+    path.write_text("# comments only\n\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="No evaluation texts"):
+        load_text_batch(path)
+
+
 # ── integration tests ─────────────────────────────────────────────────────────
 
 
@@ -376,6 +410,8 @@ def test_logit_records_fields_valid(experiment_results):
         )
         assert 0.0 <= r.top5_token_overlap <= 1.0
         assert r.bitwidth in (4, 8)
+        assert r.calibration_text_source == "built-in calibration texts"
+        assert r.calibration_text_count == 1
 
 
 def test_method_names_consistent_across_all_records(experiment_results):
@@ -405,6 +441,8 @@ def test_logit_csv_includes_perplexity_columns(tiny_config, experiment_results):
         assert "perplexity" in reader.fieldnames
         assert "original_perplexity" in reader.fieldnames
         assert "perplexity_ratio" in reader.fieldnames
+        assert "calibration_text_source" in reader.fieldnames
+        assert "calibration_text_count" in reader.fieldnames
 
 
 def test_int8_activation_drift_le_int4(experiment_results):
