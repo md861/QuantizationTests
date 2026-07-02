@@ -13,31 +13,31 @@ Known captured RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: ~40.8 min</th>
-    <th colspan="3">RunPod telemetry uptime: 5h 5m (~5.08 h)</th>
+    <th colspan="2">Logged work time: 40.8 min</th>
+    <th colspan="3">Telemetry uptime: 5h 5m</th>
   </tr>
   <tr>
-    <th colspan="5">Estimated active Pod cost so far: ~$1.32 compute, plus ~$0.02 container storage and ~$0.05 network-volume storage</th>
+    <th colspan="5">Compute: $1.32 | Storage: $0.07 | Total: $1.39</th>
   </tr>
   <tr>
     <th>Bucket</th>
-    <th>Captured Time</th>
-    <th>Est. Credits / Cost</th>
-    <th>Share Of Captured Time</th>
+    <th>Time</th>
+    <th>Compute Cost</th>
+    <th>Share</th>
     <th>Visual</th>
   </tr>
   <tr>
     <td>Setup / install</td>
-    <td>~35.0 min</td>
-    <td>~$0.15 compute + ~$0.002 container storage</td>
-    <td>~86%</td>
+    <td>35.0 min</td>
+    <td>$0.15</td>
+    <td>86%</td>
     <td><code>#################---</code></td>
   </tr>
   <tr>
     <td>Verification / readiness</td>
-    <td>~5.8 min</td>
-    <td>~$0.03 compute + &lt;$0.001 container storage</td>
-    <td>~14%</td>
+    <td>5.8 min</td>
+    <td>$0.03</td>
+    <td>14%</td>
     <td><code>###-----------------</code></td>
   </tr>
   <tr>
@@ -49,17 +49,10 @@ Known captured RunPod time so far:
   </tr>
   <tr>
     <td>Unlogged uptime / admin / idle</td>
-    <td>~4h 24m</td>
-    <td>~$1.15 compute + ~$0.01 container storage</td>
-    <td>not part of captured work-time share</td>
-    <td><code>????????????????????</code></td>
-  </tr>
-  <tr>
-    <td>Network volume storage</td>
-    <td>5h 5m elapsed</td>
-    <td>~$0.05 at 100 GB * $0.07/GB-month</td>
+    <td>264.2 min</td>
+    <td>$1.15</td>
     <td>n/a</td>
-    <td><code>storage</code></td>
+    <td><code>????????????????????</code></td>
   </tr>
 </table>
 
@@ -80,8 +73,9 @@ Interpretation:
   them. Otherwise estimate project Pod cost as `elapsed_hours * recorded hourly
   Pod rate`, and label it as an estimate.
 - Current observed rates from the RunPod details panel: compute `$0.26/hr`,
-  container storage `$0.003/hr`, displayed total `$0.26/hr` before separately
-  estimating network-volume storage.
+  container storage `$0.003/hr`, and network volume estimated from 100 GB at
+  `$0.07/GB-month`. The dashboard keeps row-level costs compute-only and shows
+  accumulated storage once in the header.
 - Actual benchmark runs must update both the usage ledger and the Benchmark Run
   Timings table in `project_summary.md`.
 

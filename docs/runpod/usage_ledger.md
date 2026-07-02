@@ -63,22 +63,22 @@ For every RunPod session segment, record:
 
 ## Current Known Entries
 
-| Date | Category | Task | Elapsed | Hourly Rate | Est. Credits / Cost | GPU | Commit | GPU used? | Evidence / output | Notes |
+| Date | Category | Task | Elapsed | Compute Rate | Est. Compute Cost | GPU | Commit | GPU used? | Evidence / output | Notes |
 |---|---|---|---:|---:|---:|---|---|---|---|---|
-| 2026-07-02 | setup | SSH alias, repo clone, tmux install, initial dependency attempts | timing not fully captured | $0.26/hr compute + $0.003/hr container storage | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | setup shell history and lab-book notes | Includes the discarded mixed `--system-site-packages` venv path. Future sessions should avoid this pattern. |
-| 2026-07-02 | setup | Clean self-contained `.venv` creation and package install | ~35 min | $0.26/hr compute + $0.003/hr container storage | ~$0.15 compute + ~$0.002 container storage | RTX 4000 Ada, ~20 GB | pre-093d41c | No, GPU idle at about 2 MiB | `/workspace/pq_clean_venv.log`, `/workspace/pq_clean_venv.exit` | Network-volume small-file writes made installation slow. |
-| 2026-07-02 | verification | CUDA/import checks and GPT-2/Transformers import verification | timing partially captured | $0.26/hr compute + $0.003/hr container storage | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | shell output, lab-book notes | First Transformers/GPT-2 imports were slow on network-volume venv but completed. |
-| 2026-07-02 | verification | Full repo test suite on Pod | 349.22s (0:05:49) | $0.26/hr compute + $0.003/hr container storage | ~$0.03 compute + &lt;$0.001 container storage | RTX 4000 Ada, ~20 GB | pre-093d41c | No benchmark GPU use; GPU idle after run | `/workspace/pq_pytest_clean.log` | `212 passed, 1 warning`; environment deployment-ready. |
-| 2026-07-02 | idle_admin | Telemetry uptime not covered by logged setup/verification segments | ~4h 24m | $0.26/hr compute + $0.003/hr container storage | ~$1.15 compute + ~$0.01 container storage | RTX 4000 Ada, ~20 GB | pre-ea17632 through ea17632 | No benchmark GPU use known | RunPod telemetry showed 5h 5m total uptime; logged work time was ~40.8 min | Treat as unlogged admin/idle overhead. Stop Pod outside short queued benchmark windows. |
-| 2026-07-02 | cleanup_sync | Sync RunPod checkout after docs commits | timing not captured | $0.26/hr compute + $0.003/hr container storage | not captured | RTX 4000 Ada, ~20 GB | 093d41c, 40a5de3, 9c94a51, 07b0530, c7d5d8a, 95a1461, ea17632 | No | git pull output | Documentation sync only. |
-| 2026-07-02 | storage | Network volume retained for repo/cache/artifacts | 5h 5m telemetry window | $0.07/GB-month for 100 GB | ~$0.05 | n/a | n/a | n/a | RunPod pricing docs and Pod details panel | Storage estimate is separate from active compute/container storage estimate. |
+| 2026-07-02 | setup | SSH alias, repo clone, tmux install, initial dependency attempts | timing not fully captured | $0.26/hr | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | setup shell history and lab-book notes | Includes the discarded mixed `--system-site-packages` venv path. Future sessions should avoid this pattern. |
+| 2026-07-02 | setup | Clean self-contained `.venv` creation and package install | 35.0 min | $0.26/hr | $0.15 | RTX 4000 Ada, ~20 GB | pre-093d41c | No, GPU idle at about 2 MiB | `/workspace/pq_clean_venv.log`, `/workspace/pq_clean_venv.exit` | Network-volume small-file writes made installation slow. |
+| 2026-07-02 | verification | CUDA/import checks and GPT-2/Transformers import verification | timing partially captured | $0.26/hr | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | shell output, lab-book notes | First Transformers/GPT-2 imports were slow on network-volume venv but completed. |
+| 2026-07-02 | verification | Full repo test suite on Pod | 5.8 min | $0.26/hr | $0.03 | RTX 4000 Ada, ~20 GB | pre-093d41c | No benchmark GPU use; GPU idle after run | `/workspace/pq_pytest_clean.log` | `212 passed, 1 warning`; environment deployment-ready. |
+| 2026-07-02 | idle_admin | Telemetry uptime not covered by logged setup/verification segments | 264.2 min | $0.26/hr | $1.15 | RTX 4000 Ada, ~20 GB | pre-ea17632 through ea17632 | No benchmark GPU use known | RunPod telemetry showed 5h 5m total uptime; logged work time was ~40.8 min | Treat as unlogged admin/idle overhead. Stop Pod outside short queued benchmark windows. |
+| 2026-07-02 | cleanup_sync | Sync RunPod checkout after docs commits | timing not captured | $0.26/hr | not captured | RTX 4000 Ada, ~20 GB | 093d41c, 40a5de3, 9c94a51, 07b0530, c7d5d8a, 95a1461, ea17632 | No | git pull output | Documentation sync only. |
+| 2026-07-02 | storage | Container + network volume storage | 5h 5m telemetry window | n/a | $0.07 | n/a | n/a | n/a | RunPod pricing docs and Pod details panel | Storage is accumulated once in the dashboard header, not distributed across compute rows. |
 
 ## Template
 
 Copy this row for future entries:
 
 ```markdown
-| YYYY-MM-DD | category | task | elapsed | hourly rate | est. credits / cost | GPU class / VRAM | commit | GPU used? | evidence / output | notes |
+| YYYY-MM-DD | category | task | elapsed | compute rate | est. compute cost | GPU class / VRAM | commit | GPU used? | evidence / output | notes |
 ```
 
 ## Maintenance Rules
@@ -95,6 +95,7 @@ Copy this row for future entries:
   If only account-level billing is available and the account has unrelated
   activity, do not treat it as project-specific truth.
 - If using a rate multiplied by elapsed time, record the hourly rate and label
-  the value as an estimate.
+  the value as an estimate. Keep row-level costs compute-only; accumulate
+  storage separately in the dashboard/header.
 - When possible, use `time`, runner elapsed logs, or tmux log timestamps instead
   of memory.
