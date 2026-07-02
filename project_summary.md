@@ -134,7 +134,7 @@ Current known passing test state:
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
 
-Git note: this folder is now a valid Git repo on branch `main`, tracking the private GitHub repository:
+Git note: this folder is now a valid Git repo on branch `main`, tracking the public GitHub repository:
 
 ```text
 https://github.com/md861/QuantizationTests
@@ -151,13 +151,14 @@ If another coding agent resumes this project, the safest order is:
 3. Treat `plots/` and `results/` as disposable generated artifacts unless the task explicitly says otherwise.
 4. Keep the current branch clean before making unrelated changes; check `git status --short --branch` first.
 5. Do not commit or push unless the user explicitly asks, or it is the agreed end-of-day checkpoint.
-6. When commit or push is requested, use the existing private remote `origin` for `main` in `QuantizationTests`.
+6. When commit or push is requested, use the existing public remote `origin` for `main` in `QuantizationTests`.
 7. Keep docs in sync with code changes, especially this summary and the lab book, so handoff remains easy.
 8. **Always update `README.md` before every commit and push.** The README is the public-facing entry point on GitHub and must never be stale. At minimum check: milestone statuses, progress table rows, current-milestone description, and the expected test count. Treat a stale README as a broken handoff.
 9. **Keep the research draft current before every commit and push when the work changes the research story.** Update `docs/research_draft.md` with new findings, examples, caveats, and figure references. Copy any paper-ready figure resources into `docs/figures/` and commit them with the draft. Do not rely on ignored `plots/` artifacts for GitHub-visible paper figures.
 10. **Always record rotation metadata for rotation experiments.** Any experiment, CSV, table, figure caption, or research-draft claim involving rotations must state the number of pair rotations applied per matrix/layer and the actual percentage/fraction of possible channel pairs used. For non-rotation baselines, record `rotation_count=0` and `rotation_pair_fraction=0.0`. For top-width sparse rotations, also record the configured candidate percentage as `rotation_candidate_fraction` and distinguish it from the actual independent rotation count/fraction.
 11. **Handover Diagnostic shorthand.** When the user says "handover diagnostic", do this checklist: read `project_summary.md`, skim the latest `lab_book/project_journey.md` entry, check `git status --short --branch`, inspect recent commits with `git log --oneline -12`, verify the test suite, search docs for stale milestone/test-count/output references, **check the Benchmark Run Timings table below and flag any missing entries**, then report what changed since the last session, current stale states, and the next recommended step.
-12. **Always record wall-clock timing for every benchmark run.** When launching a run, state the estimated duration upfront based on the timings table below. When the run completes, copy the `elapsed: Xs (Ymin)` line from the runner log into both the lab book session entry and the Benchmark Run Timings table. If timing was not captured, write "timing not captured" explicitly — never leave the table entry blank. Before launching any new run, tell the user the expected duration based on the table.
+12. **Always record wall-clock timing for every benchmark run.** When launching a run, state the estimated duration upfront based on the timings table below. When the run completes, copy the `elapsed: Xs (Ymin)` line from the runner log into both the lab book session entry and the Benchmark Run Timings table. If timing was not captured, write "timing not captured" explicitly — never leave the table entry blank.
+13. **RunPod credit guardrails.** Treat RunPod as a benchmark worker only, not as the default development environment. Keep code generation, ordinary tests, data analysis, plotting, README/research-draft/lab-book updates, and report writing local unless debugging a GPU-only failure. Before any RunPod run: make the smallest local dry run pass, estimate cost and duration, run a single-layer or small-subset smoke benchmark first, launch long jobs only in detached tmux, write logs and results under persistent /workspace, record commit hash, GPU, VRAM, peak memory, and elapsed time, pull back only artifacts needed for analysis, and stop the Pod as soon as the benchmark finishes.
 
 ## Benchmark Run Timings
 
@@ -538,9 +539,10 @@ Milestone 3 transformer quantization harness.
 
 ### `experiments/run_transformer_benchmark.py`
 
-Safer runner for the temporary Pythia disconnect detour. It wraps
+Safer runner for transformer benchmark work. It wraps
 `run_transformer_experiment` with conservative named presets, explicit
-Hugging Face cache modes, CPU-thread throttling, and incremental CSV output.
+Hugging Face cache modes, CPU-thread throttling, progress bars, elapsed-time
+logging, optional held-out evaluation text, and incremental CSV output.
 
 Current presets:
 
@@ -563,7 +565,7 @@ Important options:
   `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, and `TORCH_NUM_THREADS` for the process.
 - `--no-incremental-results`: opt out of the default incremental CSV append.
 
-Recommended Pythia flow:
+Example cached-run flow:
 
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py pythia-14m-int8-baseline --download-only
@@ -652,7 +654,7 @@ The living paper-style draft is:
 docs/research_draft.md
 ```
 
-It currently summarizes the matrix-level sandbox, INT8/INT4 examples, metrics, outlier failure modes, result-analysis dashboards, rotation/scaling tests, row-grouped quantization, top-width sparse rotation selection, and Milestone 2 sweep findings. Tracked paper figures live under `docs/figures/`. Keep claims cautious unless they are supported by sweeps or repeated evidence.
+It currently summarizes the matrix-level sandbox, INT8/INT4 examples, metrics, outlier failure modes, result-analysis dashboards, rotation/scaling tests, row-grouped quantization, top-width sparse rotation selection, Milestone 2 sweep findings, Milestone 3 transformer benchmarks, WikiText-2 validation reruns, and the negative current conclusion on uncalibrated sparse rotations. Tracked paper figures live under `docs/figures/`. Keep claims cautious unless they are supported by sweeps or repeated evidence.
 
 ## Current Baseline Result
 
@@ -684,20 +686,39 @@ a new better-rotation-strategy branch yet.
 
 Milestone 4 hardware/cache audit is complete: this machine has 31 GiB RAM, about
 226 GiB free on the project filesystem, a 535 MiB Hugging Face cache, and no
-usable CUDA device in the current environment. Treat larger-model work as
-CPU-only unless GPU access changes.
+usable CUDA device in the current environment. The user has access to RunPod
+GPUs, so larger-model GPU benchmarks should run there under strict credit
+guardrails while development, analysis, plotting, and documentation remain local.
+
+RunPod benchmark-worker setup is complete and deployment-ready for controlled
+smoke benchmarks. SSH access is configured locally as alias `runpod-pq`; raw
+connection details, keys, account identifiers, Pod IDs, ports, and hostnames are
+intentionally not committed. The repo is cloned at `/workspace/PQ_project` on a
+persistent `/workspace` network volume. Current baseline Pod class is RTX 4000
+Ada / about 20 GB VRAM / 53 GB RAM / 16 vCPU. The project venv on the Pod is a
+clean self-contained `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124,
+Transformers 5.12.1, CUDA available, and the full test suite verified:
+
+```text
+212 passed, 1 warning in 349.22s (0:05:49)
+```
 
 Next steps for the handover session:
 
 1. Add a TinyLlama 1.1B Milestone 4 preset plus a single-layer or small-subset
    smoke path to the safe benchmark runner.
-2. Pre-download/cache TinyLlama before any benchmark run.
-3. Define the first larger-model comparison matrix against project INT4
+2. Add GPU-aware benchmark logging before spending further RunPod credits:
+   device mode, CUDA availability, GPU name, VRAM, peak memory, commit hash, and
+   elapsed time.
+3. Pre-download/cache TinyLlama on RunPod before any benchmark run.
+4. Define the first larger-model comparison matrix against project INT4
    row-grouped paths and the lightest feasible external baseline. None of
    `bitsandbytes`, `auto_gptq`, `awq`, `accelerate`, or `datasets` is currently
-   installed.
+   installed locally.
+5. Use RunPod only for single-layer smoke and full GPU benchmarks; stop the Pod
+   when benchmark execution is done and continue analysis/documentation locally.
 
-Acceptance check for Milestone 2 artifacts:
+Regression and artifact acceptance checks:
 
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest

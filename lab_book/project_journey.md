@@ -1769,7 +1769,7 @@ Updated `project_summary.md`:
 
 - renamed the compact handoff from ParoQuant Project Summary to Quantization Lab Project Summary
 - corrected the Git note to reflect the current valid Git repository
-- recorded the private GitHub remote:
+- recorded the GitHub remote, now public:
   - `https://github.com/md861/QuantizationTests`
 - clarified that generated `plots/` and `results/` artifacts are local and ignored by Git
 - replaced the outdated outlier-experiment next step with the remaining Milestone 1 polish items:
@@ -2153,7 +2153,7 @@ Make the continuation path explicit enough that another coding agent can resume 
   - treat `plots/` and `results/` as disposable generated artifacts
   - check `git status --short --branch` before changing anything
   - avoid commits and pushes unless the user explicitly asks or a checkpoint is due
-  - use the existing private `origin` remote on `main` when a push is requested
+  - use the existing public `origin` remote on `main` when a push is requested
 
 ### Takeaway
 
@@ -4504,3 +4504,99 @@ Interpretation:
 - External baselines should probably start with the lightest dependency path;
   this environment currently has none of the GPTQ/AWQ/bitsandbytes packages
   installed.
+
+
+---
+
+## Session: 2026-07-02 - RunPod benchmark-worker policy
+
+The user confirmed access to RunPod GPUs for Milestone 4. RunPod should be used
+only as a benchmark worker for GPU-bound quantization experiments, not as the
+primary development environment.
+
+Credit guardrails for future agents:
+- Keep code generation, routine tests, data analysis, plotting, report writing,
+  README updates, research-draft updates, and lab-book updates local unless a
+  GPU-only failure must be debugged directly on RunPod.
+- Before spending RunPod credits, make the smallest local dry run pass and state
+  the expected duration/cost risk to the user.
+- On RunPod, run a single-layer or small-subset smoke benchmark before any
+  full-model benchmark.
+- Launch long RunPod jobs only inside detached `tmux`, write logs/results under
+  persistent `/workspace`, and record commit hash, GPU type, VRAM, peak memory,
+  and elapsed time.
+- Pull benchmark CSVs/logs/results back locally for analysis and documentation.
+- Stop the Pod as soon as the benchmark finishes; do not leave GPU Pods running
+  while doing local editing, analysis, or discussion.
+
+Immediate setup direction:
+- Configure SSH access from the local machine to a RunPod Pod.
+- Clone `https://github.com/md861/QuantizationTests.git` under
+  `/workspace/PQ_project` on the Pod.
+- Keep Hugging Face/model caches under persistent `/workspace` storage.
+- Add GPU-aware runner support before the first paid benchmark: device mode,
+  CUDA availability, GPU name, VRAM, peak memory, commit hash, elapsed time, and
+  a TinyLlama single-layer or small-subset smoke preset.
+
+
+---
+
+## Session: 2026-07-02 - RunPod SSH access configured
+
+Configured and verified benchmark-worker SSH access to the active RunPod Pod.
+
+Local SSH alias:
+
+```text
+runpod-pq
+```
+
+Security note: raw SSH host, port, user, and key paths are intentionally not
+recorded in committed docs. They live only in the local SSH config for the
+`runpod-pq` alias and in the RunPod console. Future agents should use the alias
+when available and avoid committing connection secrets or account identifiers.
+
+Remote environment verification:
+- GPU baseline for current work: NVIDIA RTX 4000 Ada Generation class
+- VRAM: about 20 GB (20,475 MiB reported by `nvidia-smi`)
+- system memory / CPU class selected by user: 53 GB RAM, 16 vCPU
+- driver observed during setup: 550.127.05
+- idle GPU memory during setup: 2 MiB
+- repo clone: `/workspace/PQ_project`
+- persistent workspace mount: `/workspace`
+- storage choice: network volume, chosen over volume disk because it is portable
+  across Pods, survives Pod termination, and is cheaper per GB in RunPod's
+  published storage table; 100 GB was the recommended minimum for TinyLlama-era
+  work with Hugging Face cache and benchmark artifacts
+- region choice: Europe-region network volume preferred when compatible GPUs are
+  available, because the user is Europe/London-based; fall back to a US region
+  only if GPU availability or price requires it
+- Python: 3.11.10
+- project virtualenv: `/workspace/PQ_project/.venv`, clean self-contained venv
+  without `--system-site-packages`
+- PyTorch in venv: 2.6.0+cu124, CUDA available
+- Transformers in venv: 5.12.1
+- installed into the venv: torch, CUDA wheel dependencies, numpy, matplotlib,
+  pytest, transformers, safetensors, tqdm
+- clean install log: `/workspace/pq_clean_venv.log`
+- clean install exit file: `/workspace/pq_clean_venv.exit` with exit code 0
+- full repo verification on the Pod:
+
+```text
+212 passed, 1 warning in 349.22s (0:05:49)
+```
+
+- test log: `/workspace/pq_pytest_clean.log`
+
+Operational notes:
+- The first dependency install on network-volume `/workspace` was slow because
+  writing many small virtualenv files is metadata-heavy. It did not use GPU
+  memory.
+- A first mixed virtualenv using `--system-site-packages` was discarded after
+  Transformers/GPT-2 imports proved unstable with the base image CUDA/Python
+  stack. Future agents should use the clean `/workspace/PQ_project/.venv`
+  instead of mixing system packages into project environments.
+- Future long setup and benchmark commands should run in detached `tmux` with
+  logs under `/workspace`.
+- Do not run full benchmarks yet. Next code step remains GPU-aware benchmark
+  logging plus TinyLlama single-layer or small-subset smoke support.

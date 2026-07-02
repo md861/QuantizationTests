@@ -1261,7 +1261,7 @@ ParoQuant design space.
 The next project step is not more uncalibrated rotation search. If rotations are
 revisited, they should use better pair selection or calibration-aware
 optimization rather than repeating the same sparse top-width preset. Otherwise,
-the project is ready to either close Milestone 3 or move toward larger-model
+Milestone 3 is now closed, and the project has moved toward larger-model
 benchmarking and GPTQ/AWQ/bitsandbytes comparisons.
 
 ## 18. Limitations

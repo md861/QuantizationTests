@@ -156,10 +156,14 @@ Next: begin Milestone 4 larger-model GPTQ/AWQ/bitsandbytes comparisons.
 
 ## Next Milestone 4
 
-Milestone 4 should proceed in small, hardware-aware steps:
+Milestone 4 should proceed in small, hardware-aware steps. The project has
+access to RunPod GPUs, but RunPod is reserved for benchmark execution only;
+code generation, local dry runs, analysis, plotting, and documentation stay on
+the local machine unless a GPU-only failure must be debugged remotely. Raw
+RunPod SSH details, keys, account identifiers, and Pod-specific connection
+strings must not be committed.
 
-1. Select the first feasible larger model target, starting with TinyLlama 1.1B
-   if local disk, RAM, and model cache constraints allow it.
+1. Select the first feasible larger model target, starting with TinyLlama 1.1B.
 2. Add a download/cache audit command for each target model before launching any
    quantization run.
 3. Define a narrow baseline matrix: original model, project row-grouped INT4
@@ -169,12 +173,32 @@ Milestone 4 should proceed in small, hardware-aware steps:
    reproducible tracked or documented evaluation source.
 5. Run one smoke benchmark on a single layer or small layer subset before any
    full-model run.
-6. Run full-model benchmarks only from detached tmux, recording elapsed time in
-   the Benchmark Run Timings table.
-7. Compare quality, runtime, memory pressure, and artifact size across the
+6. Run full-model benchmarks only from detached tmux, writing logs/results under
+   persistent `/workspace` on RunPod and recording elapsed time, GPU type, VRAM,
+   peak memory, and commit hash in the bookkeeping docs.
+7. Stop the RunPod Pod as soon as benchmark execution finishes, then pull the
+   CSVs/logs/results back locally for analysis and documentation.
+8. Compare quality, runtime, memory pressure, and artifact size across the
    project method and external baselines.
-8. Update the research draft, README, project summary, and lab book after each
+9. Update the research draft, README, project summary, and lab book after each
    completed model.
+
+Current RunPod setup notes:
+
+- SSH access is local-only via alias `runpod-pq`; raw connection details, keys,
+  account identifiers, Pod IDs, ports, and hostnames must not be committed.
+- The selected baseline worker class is RTX 4000 Ada with about 20 GB VRAM,
+  53 GB RAM, and 16 vCPU. This is enough for TinyLlama-era smoke tests and
+  small controlled baselines; reassess before larger models or memory-heavy
+  external baselines.
+- A persistent `/workspace` network volume is used instead of a Pod-local volume
+  disk because it survives Pod replacement, can be reattached across compatible
+  Pods, and was cheaper per GB in the RunPod pricing table checked during setup.
+  The recommended minimum for this phase is 100 GB to leave room for the repo,
+  venv, Hugging Face cache, logs, and benchmark artifacts.
+- The Pod repo lives at `/workspace/PQ_project`; its clean self-contained venv is
+  `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124 and Transformers 5.12.1.
+  Full repo verification on the Pod passed: `212 passed, 1 warning in 349.22s`.
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 future transformer benchmark runs. Always launch from a detached tmux session with
