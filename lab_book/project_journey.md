@@ -4514,6 +4514,10 @@ The user confirmed access to RunPod GPUs for Milestone 4. RunPod should be used
 only as a benchmark worker for GPU-bound quantization experiments, not as the
 primary development environment.
 
+Dedicated RunPod technical operations are now maintained in
+`docs/runpod_operations.md`; this lab book records the chronological setup and
+policy decisions.
+
 Credit guardrails for future agents:
 - Keep code generation, routine tests, data analysis, plotting, report writing,
   README updates, research-draft updates, and lab-book updates local unless a
@@ -4526,8 +4530,12 @@ Credit guardrails for future agents:
   persistent `/workspace`, and record commit hash, GPU type, VRAM, peak memory,
   and elapsed time.
 - Pull benchmark CSVs/logs/results back locally for analysis and documentation.
-- Stop the Pod as soon as the benchmark finishes; do not leave GPU Pods running
-  while doing local editing, analysis, or discussion.
+- Stop the Pod as soon as the benchmark finishes unless another GPU benchmark is
+  already queued to start within about 30 minutes. For a planned same-day batch,
+  the Pod may stay running between short back-to-back GPU jobs only when the
+  next command, expected runtime, and stop point are explicit. Do not leave GPU
+  Pods running during local editing, analysis, documentation, long discussion,
+  breaks, or overnight work.
 
 Immediate setup direction:
 - Configure SSH access from the local machine to a RunPod Pod.

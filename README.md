@@ -176,8 +176,11 @@ strings must not be committed.
 6. Run full-model benchmarks only from detached tmux, writing logs/results under
    persistent `/workspace` on RunPod and recording elapsed time, GPU type, VRAM,
    peak memory, and commit hash in the bookkeeping docs.
-7. Stop the RunPod Pod as soon as benchmark execution finishes, then pull the
-   CSVs/logs/results back locally for analysis and documentation.
+7. Stop the RunPod Pod as soon as benchmark execution finishes unless another
+   GPU benchmark is already queued to start within about 30 minutes. For a
+   planned same-day batch, keep the Pod running only between short back-to-back
+   GPU jobs with an explicit next command and stop point; otherwise stop it and
+   pull CSVs/logs/results back locally for analysis and documentation.
 8. Compare quality, runtime, memory pressure, and artifact size across the
    project method and external baselines.
 9. Update the research draft, README, project summary, and lab book after each
@@ -185,6 +188,7 @@ strings must not be committed.
 
 Current RunPod setup notes:
 
+- Detailed RunPod technical operations live in `docs/runpod_operations.md`.
 - SSH access is local-only via alias `runpod-pq`; raw connection details, keys,
   account identifiers, Pod IDs, ports, and hostnames must not be committed.
 - The selected baseline worker class is RTX 4000 Ada with about 20 GB VRAM,
