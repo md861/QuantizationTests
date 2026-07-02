@@ -13,11 +13,11 @@ Known captured RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: 40.8 min</th>
-    <th colspan="3">Telemetry uptime: 5h 5m</th>
+    <th colspan="2">Logged work time: 46.6 min</th>
+    <th colspan="3">Telemetry uptime last observed: 5h 5m</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: $1.32 | Storage: $0.07 | Total: $1.39 | Budget ceiling: about GBP 200</th>
+    <th colspan="5">Compute: $1.35 | Storage: $0.07 | Total: $1.42 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -30,22 +30,36 @@ Known captured RunPod time so far:
     <td>Setup / install</td>
     <td>35.0 min</td>
     <td>$0.15</td>
-    <td>86%</td>
-    <td><code>#################---</code></td>
+    <td>75%</td>
+    <td><code>###############-----</code></td>
   </tr>
   <tr>
     <td>Verification / readiness</td>
     <td>5.8 min</td>
     <td>$0.03</td>
-    <td>14%</td>
-    <td><code>###-----------------</code></td>
+    <td>12%</td>
+    <td><code>##------------------</code></td>
   </tr>
   <tr>
     <td>Benchmark compute</td>
-    <td>0.0 min</td>
+    <td>3.8 min</td>
+    <td>$0.02</td>
+    <td>8%</td>
+    <td><code>##------------------</code></td>
+  </tr>
+  <tr>
+    <td>Download / cache</td>
+    <td>0.5 min</td>
     <td>$0.00</td>
-    <td>0%</td>
+    <td>1%</td>
     <td><code>--------------------</code></td>
+  </tr>
+  <tr>
+    <td>RunPod debug / command wrapper</td>
+    <td>1.5 min</td>
+    <td>$0.01</td>
+    <td>3%</td>
+    <td><code>#-------------------</code></td>
   </tr>
   <tr>
     <td>Unlogged uptime / admin / idle</td>
@@ -58,9 +72,9 @@ Known captured RunPod time so far:
 
 Interpretation:
 
-- Current captured work time is setup-heavy because this Pod has only been
-  prepared and verified; no real GPU benchmark has run yet.
-- RunPod telemetry shows higher wall-clock uptime than our logged work time. The
+- Current captured work time is still setup-heavy, but the first TinyLlama
+  single-layer GPU smoke has now completed successfully.
+- RunPod telemetry has shown higher wall-clock uptime than our logged work time. The
   gap is tracked as unlogged uptime/admin/idle and should be reduced going
   forward by stopping the Pod outside short queued benchmark windows.
 - The full Pod test suite took `349.22s (0:05:49)` and is categorized as

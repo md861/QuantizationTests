@@ -4609,7 +4609,7 @@ Operational notes:
 - Do not run full benchmarks yet. Next code step remains GPU-aware benchmark
   logging plus TinyLlama single-layer or small-subset smoke support.
 
-## Session: 2026-07-02 ? Milestone 4 runner smoke instrumentation
+## Session: 2026-07-02 - Milestone 4 runner smoke instrumentation
 
 Implemented the first local Milestone 4 runner changes before spending more RunPod credits. The safe benchmark runner now includes a TinyLlama 1.1B single-layer INT4 smoke preset (`tinyllama-1.1b-int4-smoke`) targeting `model.layers.0.self_attn.q_proj` with one calibration text. The runner also accepts `--device auto|cpu|cuda` and writes `benchmark_metadata.json` with device request/resolution, CUDA availability, GPU name, VRAM, peak CUDA memory, commit hash, elapsed time, and result counts.
 
@@ -4627,3 +4627,29 @@ Local verification:
 ```
 
 Next RunPod step: sync the committed runner changes to `/workspace/PQ_project`, run the TinyLlama download/cache path in detached `tmux`, record the elapsed time and estimated spend in `docs/runpod/usage_ledger.md`, then run only the TinyLlama smoke benchmark before deciding whether the RTX 4000 Ada has enough headroom for any larger run.
+
+## Session: 2026-07-02 - TinyLlama RunPod smoke
+
+Synced RunPod checkout to commit `c15113a` and ran the first Milestone 4 TinyLlama preparation/smoke sequence on the RTX 4000 Ada worker. Raw SSH details remain intentionally omitted from commit-ready docs.
+
+RunPod cache prep:
+- Command path: `tinyllama-1.1b-int4-smoke --download-only --device cuda` inside detached `tmux`.
+- Result: exit 0, runner elapsed `29.2s`, Hugging Face cache about `2.1 GB`.
+- GPU remained idle at about `2 MiB`, so this is recorded as `download_cache`, not benchmark compute.
+
+TinyLlama smoke benchmark:
+- Preset: `tinyllama-1.1b-int4-smoke`.
+- Model: `TinyLlama/TinyLlama-1.1B-Chat-v1.0`.
+- Layer: `model.layers.0.self_attn.q_proj`, shape `(2048, 2048)`.
+- Device: CUDA on NVIDIA RTX 4000 Ada Generation.
+- Commit: `c15113a3e4fe5a31a585c88fdca3479aac122825`.
+- Elapsed: `228.3s (3.8 min)`.
+- Counts: `weight=9`, `activation=9`, `logit=9`.
+- Peak CUDA allocated: `2124 MB`; peak CUDA reserved: `2224 MB`; total VRAM in metadata: `20146.625 MB`.
+- Exit: 0.
+
+Representative smoke result: INT4 row-grouped g4 on this single layer had weight MSE about `1e-6`, activation MSE about `1e-5`, and PPL ratio `1.0095` on the one-text smoke batch. This is a readiness check only, not yet a research-grade TinyLlama benchmark.
+
+Budget tracking update: added ledger rows for command-wrapper debug overhead, download/cache, and benchmark smoke. The first real smoke used about `$0.02` compute at the observed `$0.26/hr` rate. Total RunPod dashboard estimate is now about `$1.42`, with the project budget ceiling recorded as about GBP 200.
+
+Next step: do not launch a full TinyLlama benchmark yet. First define the controlled Milestone 4 matrix, evaluation text source, expected runtime/cost, and whether external baselines need extra packages or a larger GPU class. The RTX 4000 Ada has ample memory headroom for the single-layer smoke, but this does not automatically approve full-model or external-baseline runs.

@@ -96,6 +96,7 @@ Current RunPod setup notes:
 - The Pod repo lives at `/workspace/PQ_project`; its clean self-contained venv is
   `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124 and Transformers 5.12.1.
   Full repo verification on the Pod passed: `212 passed, 1 warning in 349.22s`.
+  First TinyLlama single-layer INT4 smoke on the Pod passed at commit `c15113a`: `228.3s (3.8 min)`, peak CUDA allocated `2124 MB`, peak reserved `2224 MB`.
 
 ## Completed Milestone 3
 

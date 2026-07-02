@@ -39,7 +39,9 @@ Current baseline Pod class:
 - Verified Pod test state: `212 passed, 1 warning in 349.22s`
 
 This worker is enough for TinyLlama-era smoke tests and narrow controlled
-baselines. Current observed active-Pod rates are `$0.26/hr` compute and
+baselines. First TinyLlama single-layer INT4 smoke on this class completed in
+`228.3s (3.8 min)` with peak CUDA allocated `2124 MB` and peak reserved
+`2224 MB`. Current observed active-Pod rates are `$0.26/hr` compute and
 `$0.003/hr` container storage, with displayed total `$0.26/hr`; estimate
 network-volume storage separately. Reassess before larger models, longer contexts, broader evaluation
 sets, or memory-heavy external baselines.

@@ -186,6 +186,7 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | distilgpt2 | 82M | 24 | INT4 | none | 679s (11.3 min) | elapsed from runner log |
 | distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1024.9s (17.1 min) | elapsed from runner log |
 | distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1137.2s (19.0 min) | WikiText-2 validation sample, 7 texts |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 1 | INT4 | none | 228.3s (3.8 min) | RunPod RTX 4000 Ada smoke, single `q_proj` layer, 1 calibration text, peak CUDA allocated 2124 MB |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -705,11 +706,11 @@ Transformers 5.12.1, CUDA available, and the full test suite verified:
 
 Detailed RunPod technical operations live in `docs/runpod/operations.md`.
 
-Next steps for the handover session:
+Next steps after the first Milestone 4 smoke:
 
-1. Sync the new Milestone 4 runner changes to RunPod: the safe benchmark runner now has a TinyLlama 1.1B single-layer INT4 smoke preset and writes `benchmark_metadata.json` with device mode, CUDA availability, GPU name, VRAM, peak memory, commit hash, elapsed time, and record counts.
-2. Pre-download/cache TinyLlama on RunPod before any benchmark run, using detached `tmux` and the metadata/log paths recorded in `docs/runpod/usage_ledger.md`.
-3. Run only the TinyLlama smoke benchmark first, then decide whether the RTX 4000 Ada has enough headroom before any full benchmark or external baseline.
+1. Review the TinyLlama single-layer INT4 smoke result before any full benchmark: commit `c15113a`, elapsed `228.3s (3.8 min)`, peak CUDA allocated `2124 MB`, peak reserved `2224 MB`, counts `9/9/9`, and logit/perplexity outputs written under `results/transformer_tinyllama_1_1b_int4_smoke` on RunPod.
+2. The RTX 4000 Ada has ample memory headroom for this smoke path (`~2.2 GB` peak reserved out of about `20 GB` VRAM), but still pause before any full TinyLlama or external-baseline run to estimate duration/cost against the about GBP 200 RunPod budget ceiling.
+3. Define the next controlled Milestone 4 benchmark matrix and expected cost before launching it.
 4. Define the first larger-model comparison matrix against project INT4
    row-grouped paths and the lightest feasible external baseline. None of
    `bitsandbytes`, `auto_gptq`, `awq`, `accelerate`, or `datasets` is currently
