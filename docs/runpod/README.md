@@ -11,12 +11,12 @@ strings.
 
 Known captured RunPod time so far:
 
-| Bucket | Captured Time | Share Of Captured Time | Visual |
-|---|---:|---:|---|
-| Setup / install | ~35.0 min | ~86% | `#################---` |
-| Verification / readiness | ~5.8 min | ~14% | `###-----------------` |
-| Benchmark compute | 0.0 min | 0% | `--------------------` |
-| Cleanup / sync | timing not captured | n/a | `?` |
+| Bucket | Captured Time | Est. Credits / Cost | Share Of Captured Time | Visual |
+|---|---:|---:|---:|---|
+| Setup / install | ~35.0 min | not captured | ~86% | `#################---` |
+| Verification / readiness | ~5.8 min | not captured | ~14% | `###-----------------` |
+| Benchmark compute | 0.0 min | 0 | 0% | `--------------------` |
+| Cleanup / sync | timing not captured | not captured | n/a | `?` |
 
 Interpretation:
 
@@ -27,6 +27,9 @@ Interpretation:
 - Several setup/sync/admin windows were not precisely timed. They are recorded
   as `timing not captured` in the ledger so future agents can improve tracking
   instead of silently dropping overhead.
+- Credits/cost were not captured for the initial setup session. Going forward,
+  copy the credit or USD amount from the RunPod console/billing view whenever it
+  is available, and mark uncertain values as estimates.
 - Actual benchmark runs must update both the usage ledger and the Benchmark Run
   Timings table in `project_summary.md`.
 
