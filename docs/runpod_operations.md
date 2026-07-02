@@ -38,6 +38,35 @@ This worker is enough for TinyLlama-era smoke tests and narrow controlled
 baselines. Reassess before larger models, longer contexts, broader evaluation
 sets, or memory-heavy external baselines.
 
+## Selection Obstacles Encountered
+
+GPU and storage selection had a few practical constraints that future agents
+should remember:
+
+- GPU availability is region-dependent and can be low for popular cards. Prefer
+  the smallest GPU that can answer the current research question instead of
+  waiting for a larger card by default.
+- The RTX 4000 Ada class was chosen as a low-cost starting point because about
+  20 GB VRAM is enough for TinyLlama-era smoke tests and narrow baselines. It is
+  not a blanket approval for larger LLMs, longer contexts, larger eval batches,
+  or memory-heavy GPTQ/AWQ/bitsandbytes workflows.
+- If a benchmark plan appears likely to exceed 20 GB VRAM, pause and ask the
+  user before switching Pod class. Do not burn time trying repeated failing runs
+  on an under-sized GPU.
+- RunPod may require choosing either a network volume or a volume disk before a
+  GPU Pod can be deployed. Use a network volume for this project unless the user
+  explicitly chooses an ephemeral throwaway run.
+- Data center choice matters because a network volume must be compatible with
+  where the Pod runs. Prefer a Europe-region volume for the user's current
+  workflow when compatible GPUs are available; fall back to another region only
+  for availability or price reasons.
+- Network volumes reduce rebuild friction but can make virtualenv installs slow
+  because they write many small files. Run dependency installs in `tmux`, log to
+  `/workspace`, and avoid unnecessary package upgrades.
+- Volume disk can be simpler for one-off disposable Pods, but it is less useful
+  here because we want cache, repo, venv, logs, and artifacts to survive Pod
+  replacement.
+
 ## Storage Policy
 
 Use a network volume for `/workspace`.
