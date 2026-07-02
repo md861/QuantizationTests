@@ -18,10 +18,10 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 
 | Milestone | Focus | Status |
 | --- | --- | --- |
-| 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
-| 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
-| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; INT4 rotation presets ✓; WikiText-2 validation ✓ | Complete |
 | 4. Real LLM Benchmarking | Scale to larger open-source LLMs and compare against GPTQ, AWQ, and bitsandbytes | Next |
+| 3. Tiny Transformer Integration | Apply INT4/INT8 quantizer to `sshleifer/tiny-gpt2` ✓, `roneneldan/TinyStories-1M` ✓, `EleutherAI/pythia-14m` ✓, `EleutherAI/pythia-70m` ✓, `distilgpt2` ✓; INT4 rotation presets ✓; WikiText-2 validation ✓ | Complete |
+| 2. ParoQuant Core | Givens rotations, channel scaling, grouped quantization, and outlier suppression | Complete |
+| 1. Quantization Sandbox | Matrix generation, INT8/INT4 quantization, metrics, spectra, and visual diagnostics | Complete |
 
 ## Progress
 
@@ -45,60 +45,55 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Comparative sweep experiment | Complete |
 | Transformer harness (weight + activation + logit metrics) | Complete |
 
-## Completed Milestone 1
+## Next Milestone 4
 
-Milestone 1 built the quantization sandbox:
+Milestone 4 should proceed in small, hardware-aware steps. The project has
+access to RunPod GPUs, but RunPod is reserved for benchmark execution only;
+code generation, local dry runs, analysis, plotting, and documentation stay on
+the local machine unless a GPU-only failure must be debugged remotely. Raw
+RunPod SSH details, keys, account identifiers, and Pod-specific connection
+strings must not be committed.
 
-- matrix generation for Gaussian, heavy-tailed, and outlier-heavy data
-- symmetric INT8 and INT4 quantization
-- reconstruction metrics: MSE, MAE, cosine similarity, relative Frobenius error, SNR
-- singular-value spectrum diagnostics
-- value, residual, and quantized-code histogram diagnostics
-- comparison plots showing original matrices, residuals, spectra, and metrics
+1. Select the first feasible larger model target, starting with TinyLlama 1.1B.
+2. Add a download/cache audit command for each target model before launching any
+   quantization run.
+3. Define a narrow baseline matrix: original model, project row-grouped INT4
+   g4/g8-style paths where feasible, and one or more library baselines from
+   GPTQ, AWQ, or bitsandbytes.
+4. Extend evaluation text beyond the small WikiText-2 sample while keeping a
+   reproducible tracked or documented evaluation source.
+5. Run one smoke benchmark on a single layer or small layer subset before any
+   full-model run.
+6. Run full-model benchmarks only from detached tmux, writing logs/results under
+   persistent `/workspace` on RunPod and recording elapsed time, GPU type, VRAM,
+   peak memory, and commit hash in the bookkeeping docs.
+7. Stop the RunPod Pod as soon as benchmark execution finishes unless another
+   GPU benchmark is already queued to start within about 30 minutes. For a
+   planned same-day batch, keep the Pod running only between short back-to-back
+   GPU jobs with an explicit next command and stop point; otherwise stop it and
+   pull CSVs/logs/results back locally for analysis and documentation.
+8. Compare quality, runtime, memory pressure, and artifact size across the
+   project method and external baselines.
+9. Update the research draft, README, project summary, and lab book after each
+   completed model.
 
-## Completed Milestone 2
+Current RunPod setup notes:
 
-Milestone 2 implemented the ParoQuant core: transformations applied before
-quantization to reduce outlier pressure:
-
-- **Pairwise Givens rotations** (`quant/rotations.py`): rotate any column pair
-  by an angle that minimises the joint max-abs, redistributing outlier energy
-  across channels before INT4/INT8 quantization.  Key functions:
-  `rotation_matrix`, `apply_rotation`, `optimal_angle`, `rotate_channel_pair`,
-  `channel_widths`, `top_width_channel_pairs`, `rotate_top_width_pairs`,
-  `apply_sequential_rotations`.
-- Verified via entry-zeroing (arctan2 angle analytically zeros a target entry),
-  full Givens QR decomposition (Q@R=A cross-checked against `numpy.linalg.qr`),
-  and column orthogonalisation (Jacobi angle drives inner product to machine zero).
-- **Per-channel scaling** (`quant/scaling.py`): compute one reversible positive
-  factor per column so nonzero channel max-abs values share a target before
-  quantization. Key functions: `column_max_abs`, `compute_channel_scaling`,
-  `apply_channel_scaling`, `invert_channel_scaling`, `balance_channel_max_abs`.
-- **Grouped quantization** (`quant/quantizer.py`): two strategies — (1) column-grouped:
-  contiguous column blocks share one scale per block; (2) row-grouped: each column
-  is split into row-groups each with their own scale (the industry-standard GPTQ/AWQ
-  approach, giving tighter precision when outliers are localised within a column).
-  Key functions: `grouped_symmetric_quantize`, `row_grouped_symmetric_quantize`,
-  `quantize_int8_grouped`, `quantize_int4_grouped`,
-  `quantize_int8_row_grouped`, `quantize_int4_row_grouped`.
-- **Rotation/scaling experiment** (`experiments/rotation_experiment.py`):
-  compares baseline INT4, rotation-only INT4, scaling-only INT4, and
-  rotation+scaling INT4 on one controlled outlier-heavy matrix.
-- **Comparative sweep experiment** (`experiments/sweep_experiment.py`):
-  sweeps 12 quantization paths (global, col-grouped, row-grouped, scale+global,
-  rotate+global, rotate+scale+global, rotate+scale+row-grouped) across a grid
-  of seeds, outlier fractions, and outlier scales. Outputs `results/sweep_metrics.csv`
-  and a 4-panel `plots/sweep_dashboard.png`. Key finding: row-grouped and
-  rotate+scale+row-grouped are the only paths that consistently beat global INT4
-  for row-localised outliers; column-grouped gives no improvement at any group size.
-  Optional `top_width_pair_fractions` add ParoQuant-style sparse rotation paths
-  such as `top_width_rotate_p10_global` and
-  `top_width_rotate_scale_p10_row_g4`, selecting independent channel pairs from
-  the top percentage of max-abs width differences.
-  Sweep CSV rows include `rotation_count`, `rotation_pair_fraction`, and
-  `rotation_candidate_fraction` so rotation-heavy comparisons remain interpretable.
-  Summary tables report condition-wise mean and standard deviation for MSE ratio
-  and zero fraction; dashboard error bars show the same cross-condition spread.
+- Detailed RunPod technical operations live in `docs/runpod/operations.md`.
+- SSH access is local-only via alias `runpod-pq`; raw connection details, keys,
+  account identifiers, Pod IDs, ports, and hostnames must not be committed.
+- The selected baseline worker class is RTX 4000 Ada with about 20 GB VRAM,
+  50 GB RAM, and 9 vCPU on the current Pod. This is enough for TinyLlama-era
+  smoke tests and small controlled baselines; reassess before larger models or
+  memory-heavy external baselines.
+- A persistent `/workspace` network volume is used instead of a Pod-local volume
+  disk because it survives Pod replacement, can be reattached across compatible
+  Pods, and was cheaper per GB in the RunPod pricing table checked during setup.
+  The recommended minimum for this phase is 100 GB to leave room for the repo,
+  venv, Hugging Face cache, logs, and benchmark artifacts.
+- The Pod repo lives at `/workspace/PQ_project`; its clean self-contained venv is
+  `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124 and Transformers 5.12.1.
+  Full repo verification on the Pod passed: `212 passed, 1 warning in 349.22s`.
 
 ## Completed Milestone 3
 
@@ -154,55 +149,60 @@ tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
 Next: begin Milestone 4 larger-model GPTQ/AWQ/bitsandbytes comparisons.
 
-## Next Milestone 4
+## Completed Milestone 2
 
-Milestone 4 should proceed in small, hardware-aware steps. The project has
-access to RunPod GPUs, but RunPod is reserved for benchmark execution only;
-code generation, local dry runs, analysis, plotting, and documentation stay on
-the local machine unless a GPU-only failure must be debugged remotely. Raw
-RunPod SSH details, keys, account identifiers, and Pod-specific connection
-strings must not be committed.
+Milestone 2 implemented the ParoQuant core: transformations applied before
+quantization to reduce outlier pressure:
 
-1. Select the first feasible larger model target, starting with TinyLlama 1.1B.
-2. Add a download/cache audit command for each target model before launching any
-   quantization run.
-3. Define a narrow baseline matrix: original model, project row-grouped INT4
-   g4/g8-style paths where feasible, and one or more library baselines from
-   GPTQ, AWQ, or bitsandbytes.
-4. Extend evaluation text beyond the small WikiText-2 sample while keeping a
-   reproducible tracked or documented evaluation source.
-5. Run one smoke benchmark on a single layer or small layer subset before any
-   full-model run.
-6. Run full-model benchmarks only from detached tmux, writing logs/results under
-   persistent `/workspace` on RunPod and recording elapsed time, GPU type, VRAM,
-   peak memory, and commit hash in the bookkeeping docs.
-7. Stop the RunPod Pod as soon as benchmark execution finishes unless another
-   GPU benchmark is already queued to start within about 30 minutes. For a
-   planned same-day batch, keep the Pod running only between short back-to-back
-   GPU jobs with an explicit next command and stop point; otherwise stop it and
-   pull CSVs/logs/results back locally for analysis and documentation.
-8. Compare quality, runtime, memory pressure, and artifact size across the
-   project method and external baselines.
-9. Update the research draft, README, project summary, and lab book after each
-   completed model.
+- **Pairwise Givens rotations** (`quant/rotations.py`): rotate any column pair
+  by an angle that minimises the joint max-abs, redistributing outlier energy
+  across channels before INT4/INT8 quantization.  Key functions:
+  `rotation_matrix`, `apply_rotation`, `optimal_angle`, `rotate_channel_pair`,
+  `channel_widths`, `top_width_channel_pairs`, `rotate_top_width_pairs`,
+  `apply_sequential_rotations`.
+- Verified via entry-zeroing (arctan2 angle analytically zeros a target entry),
+  full Givens QR decomposition (Q@R=A cross-checked against `numpy.linalg.qr`),
+  and column orthogonalisation (Jacobi angle drives inner product to machine zero).
+- **Per-channel scaling** (`quant/scaling.py`): compute one reversible positive
+  factor per column so nonzero channel max-abs values share a target before
+  quantization. Key functions: `column_max_abs`, `compute_channel_scaling`,
+  `apply_channel_scaling`, `invert_channel_scaling`, `balance_channel_max_abs`.
+- **Grouped quantization** (`quant/quantizer.py`): two strategies — (1) column-grouped:
+  contiguous column blocks share one scale per block; (2) row-grouped: each column
+  is split into row-groups each with their own scale (the industry-standard GPTQ/AWQ
+  approach, giving tighter precision when outliers are localised within a column).
+  Key functions: `grouped_symmetric_quantize`, `row_grouped_symmetric_quantize`,
+  `quantize_int8_grouped`, `quantize_int4_grouped`,
+  `quantize_int8_row_grouped`, `quantize_int4_row_grouped`.
+- **Rotation/scaling experiment** (`experiments/rotation_experiment.py`):
+  compares baseline INT4, rotation-only INT4, scaling-only INT4, and
+  rotation+scaling INT4 on one controlled outlier-heavy matrix.
+- **Comparative sweep experiment** (`experiments/sweep_experiment.py`):
+  sweeps 12 quantization paths (global, col-grouped, row-grouped, scale+global,
+  rotate+global, rotate+scale+global, rotate+scale+row-grouped) across a grid
+  of seeds, outlier fractions, and outlier scales. Outputs `results/sweep_metrics.csv`
+  and a 4-panel `plots/sweep_dashboard.png`. Key finding: row-grouped and
+  rotate+scale+row-grouped are the only paths that consistently beat global INT4
+  for row-localised outliers; column-grouped gives no improvement at any group size.
+  Optional `top_width_pair_fractions` add ParoQuant-style sparse rotation paths
+  such as `top_width_rotate_p10_global` and
+  `top_width_rotate_scale_p10_row_g4`, selecting independent channel pairs from
+  the top percentage of max-abs width differences.
+  Sweep CSV rows include `rotation_count`, `rotation_pair_fraction`, and
+  `rotation_candidate_fraction` so rotation-heavy comparisons remain interpretable.
+  Summary tables report condition-wise mean and standard deviation for MSE ratio
+  and zero fraction; dashboard error bars show the same cross-condition spread.
 
-Current RunPod setup notes:
+## Completed Milestone 1
 
-- Detailed RunPod technical operations live in `docs/runpod/operations.md`.
-- SSH access is local-only via alias `runpod-pq`; raw connection details, keys,
-  account identifiers, Pod IDs, ports, and hostnames must not be committed.
-- The selected baseline worker class is RTX 4000 Ada with about 20 GB VRAM,
-  53 GB RAM, and 16 vCPU. This is enough for TinyLlama-era smoke tests and
-  small controlled baselines; reassess before larger models or memory-heavy
-  external baselines.
-- A persistent `/workspace` network volume is used instead of a Pod-local volume
-  disk because it survives Pod replacement, can be reattached across compatible
-  Pods, and was cheaper per GB in the RunPod pricing table checked during setup.
-  The recommended minimum for this phase is 100 GB to leave room for the repo,
-  venv, Hugging Face cache, logs, and benchmark artifacts.
-- The Pod repo lives at `/workspace/PQ_project`; its clean self-contained venv is
-  `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124 and Transformers 5.12.1.
-  Full repo verification on the Pod passed: `212 passed, 1 warning in 349.22s`.
+Milestone 1 built the quantization sandbox:
+
+- matrix generation for Gaussian, heavy-tailed, and outlier-heavy data
+- symmetric INT8 and INT4 quantization
+- reconstruction metrics: MSE, MAE, cosine similarity, relative Frobenius error, SNR
+- singular-value spectrum diagnostics
+- value, residual, and quantized-code histogram diagnostics
+- comparison plots showing original matrices, residuals, spectra, and metrics
 
 Use the safer benchmark runner (`experiments/run_transformer_benchmark.py`) for
 future transformer benchmark runs. Always launch from a detached tmux session with
