@@ -219,6 +219,11 @@ tmux new-session -d -s bench && tmux send-keys -t bench \
 This repository prioritizes clarity, modularity, reproducibility, and
 mathematical transparency over production inference performance.
 
+Milestone 4 GPU benchmarks use [RunPod](https://www.runpod.io/) compute as the
+project's benchmark-worker infrastructure. RunPod is used only for GPU-bound
+benchmark execution; local development, analysis, plotting, and documentation
+remain local.
+
 This project is being developed with the help of AI-assisted coding, with the
 lab book and project summary used to keep the research process inspectable.
 
