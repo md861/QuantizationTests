@@ -188,7 +188,7 @@ strings must not be committed.
 
 Current RunPod setup notes:
 
-- Detailed RunPod technical operations live in `docs/runpod_operations.md`.
+- Detailed RunPod technical operations live in `docs/runpod/operations.md`.
 - SSH access is local-only via alias `runpod-pq`; raw connection details, keys,
   account identifiers, Pod IDs, ports, and hostnames must not be committed.
 - The selected baseline worker class is RTX 4000 Ada with about 20 GB VRAM,

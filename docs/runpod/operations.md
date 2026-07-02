@@ -1,8 +1,9 @@
 # RunPod Operations
 
 This note captures the technical operating policy for using RunPod as the
-project's GPU benchmark worker. Keep this file commit-safe: do not record raw
-SSH hosts, ports, usernames, private key paths, Pod IDs, API keys, account
+project's GPU benchmark worker. The folder index at `README.md` contains the
+current usage dashboard. Keep this file commit-safe: do not record raw SSH
+hosts, ports, usernames, private key paths, Pod IDs, API keys, account
 identifiers, or one-off connection strings.
 
 ## Current Role
@@ -82,6 +83,21 @@ Reasons:
 
 Recommended minimum for the current phase: 100 GB. This leaves room for the
 repo, virtual environment, Hugging Face cache, logs, CSVs, and benchmark plots.
+
+## Usage Accounting
+
+Maintain `docs/runpod/usage_ledger.md` for RunPod time accounting. This ledger
+is separate from the benchmark timing table in `project_summary.md`:
+
+- benchmark timing table: actual benchmark compute runtimes used for research
+  comparison and future runtime prediction
+- RunPod usage ledger: setup, dependency installs, downloads, verification,
+  debugging, idle windows, cleanup/sync, plus benchmark runs
+
+Every RunPod segment should record category, elapsed time, GPU class, commit
+hash when relevant, whether meaningful GPU compute was used, log/output path, and
+notes. If exact timing was missed, write `timing not captured` explicitly and
+improve instrumentation before the next run.
 
 ## Credit Guardrails
 

@@ -4515,7 +4515,7 @@ only as a benchmark worker for GPU-bound quantization experiments, not as the
 primary development environment.
 
 Dedicated RunPod technical operations are now maintained in
-`docs/runpod_operations.md`; this lab book records the chronological setup and
+`docs/runpod/operations.md`; this lab book records the chronological setup and
 policy decisions.
 
 Credit guardrails for future agents:
