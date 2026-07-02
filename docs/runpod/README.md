@@ -11,12 +11,46 @@ strings.
 
 Known captured RunPod time so far:
 
-| Bucket | Captured Time | Est. Credits / Cost | Share Of Captured Time | Visual |
-|---|---:|---:|---:|---|
-| Setup / install | ~35.0 min | not captured | ~86% | `#################---` |
-| Verification / readiness | ~5.8 min | not captured | ~14% | `###-----------------` |
-| Benchmark compute | 0.0 min | 0 | 0% | `--------------------` |
-| Cleanup / sync | timing not captured | not captured | n/a | `?` |
+<table>
+  <tr>
+    <th colspan="5">Total captured Pod uptime: ~40.8 min, plus uncaptured setup/sync windows</th>
+  </tr>
+  <tr>
+    <th>Bucket</th>
+    <th>Captured Time</th>
+    <th>Est. Credits / Cost</th>
+    <th>Share Of Captured Time</th>
+    <th>Visual</th>
+  </tr>
+  <tr>
+    <td>Setup / install</td>
+    <td>~35.0 min</td>
+    <td>rate not captured; estimate as 0.583 h * hourly rate</td>
+    <td>~86%</td>
+    <td><code>#################---</code></td>
+  </tr>
+  <tr>
+    <td>Verification / readiness</td>
+    <td>~5.8 min</td>
+    <td>rate not captured; estimate as 0.097 h * hourly rate</td>
+    <td>~14%</td>
+    <td><code>###-----------------</code></td>
+  </tr>
+  <tr>
+    <td>Benchmark compute</td>
+    <td>0.0 min</td>
+    <td>0</td>
+    <td>0%</td>
+    <td><code>--------------------</code></td>
+  </tr>
+  <tr>
+    <td>Cleanup / sync</td>
+    <td>timing not captured</td>
+    <td>not captured</td>
+    <td>n/a</td>
+    <td><code>?</code></td>
+  </tr>
+</table>
 
 Interpretation:
 
@@ -27,9 +61,12 @@ Interpretation:
 - Several setup/sync/admin windows were not precisely timed. They are recorded
   as `timing not captured` in the ledger so future agents can improve tracking
   instead of silently dropping overhead.
-- Credits/cost were not captured for the initial setup session. Going forward,
-  copy the credit or USD amount from the RunPod console/billing view whenever it
-  is available, and mark uncertain values as estimates.
+- Account-level billing can be contaminated by other Pods or users on the same
+  RunPod account. Prefer per-Pod billing line items when the console provides
+  them. Otherwise estimate project Pod cost as `elapsed_hours * recorded hourly
+  Pod rate`, and label it as an estimate.
+- The hourly Pod rate was not captured for the initial setup session, so the
+  dashboard shows formulas instead of retroactive dollar/credit values.
 - Actual benchmark runs must update both the usage ledger and the Benchmark Run
   Timings table in `project_summary.md`.
 

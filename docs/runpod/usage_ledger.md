@@ -20,7 +20,16 @@ Track two different time costs separately:
    explain where RunPod credits go outside benchmark computation.
 
 For cost reasoning, record elapsed wall-clock time even when GPU memory/use is
-low, because a running GPU Pod can still consume credits.
+low, because a running GPU Pod can still consume credits. If the RunPod account
+is shared or has other active resources, account-level billing may be
+contaminated by unrelated usage. Prefer per-Pod billing line items when
+available; otherwise estimate this project's Pod cost as:
+
+```text
+estimated Pod cost = elapsed_hours * recorded hourly Pod rate
+```
+
+Label rate-based values as estimates.
 
 ## Entry Categories
 
@@ -47,25 +56,27 @@ For every RunPod session segment, record:
 - Commit hash, if tied to repo work
 - Whether GPU compute was meaningfully used
 - Log/output path, if available
-- Estimated credits or USD spent, if available from the RunPod console/billing view
+- Hourly Pod rate used for estimates, if exact per-Pod billing is unavailable
+- Estimated credits or USD spent, preferably exact per-Pod billing; otherwise
+  `elapsed_hours * hourly_rate`, labeled as an estimate
 - Notes and next action
 
 ## Current Known Entries
 
-| Date | Category | Task | Elapsed | Est. Credits / Cost | GPU | Commit | GPU used? | Evidence / output | Notes |
-|---|---|---|---:|---:|---|---|---|---|---|
-| 2026-07-02 | setup | SSH alias, repo clone, tmux install, initial dependency attempts | timing not fully captured | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | setup shell history and lab-book notes | Includes the discarded mixed `--system-site-packages` venv path. Future sessions should avoid this pattern. |
-| 2026-07-02 | setup | Clean self-contained `.venv` creation and package install | ~35 min | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No, GPU idle at about 2 MiB | `/workspace/pq_clean_venv.log`, `/workspace/pq_clean_venv.exit` | Network-volume small-file writes made installation slow. |
-| 2026-07-02 | verification | CUDA/import checks and GPT-2/Transformers import verification | timing partially captured | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | shell output, lab-book notes | First Transformers/GPT-2 imports were slow on network-volume venv but completed. |
-| 2026-07-02 | verification | Full repo test suite on Pod | 349.22s (0:05:49) | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No benchmark GPU use; GPU idle after run | `/workspace/pq_pytest_clean.log` | `212 passed, 1 warning`; environment deployment-ready. |
-| 2026-07-02 | cleanup_sync | Sync RunPod checkout after docs commits | timing not captured | not captured | RTX 4000 Ada, ~20 GB | 093d41c, 40a5de3, 9c94a51 | No | git pull output | Documentation sync only. |
+| Date | Category | Task | Elapsed | Hourly Rate | Est. Credits / Cost | GPU | Commit | GPU used? | Evidence / output | Notes |
+|---|---|---|---:|---:|---:|---|---|---|---|---|
+| 2026-07-02 | setup | SSH alias, repo clone, tmux install, initial dependency attempts | timing not fully captured | not captured | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | setup shell history and lab-book notes | Includes the discarded mixed `--system-site-packages` venv path. Future sessions should avoid this pattern. |
+| 2026-07-02 | setup | Clean self-contained `.venv` creation and package install | ~35 min | not captured | estimate formula: 0.583 h * hourly rate | RTX 4000 Ada, ~20 GB | pre-093d41c | No, GPU idle at about 2 MiB | `/workspace/pq_clean_venv.log`, `/workspace/pq_clean_venv.exit` | Network-volume small-file writes made installation slow. |
+| 2026-07-02 | verification | CUDA/import checks and GPT-2/Transformers import verification | timing partially captured | not captured | not captured | RTX 4000 Ada, ~20 GB | pre-093d41c | No meaningful GPU use observed | shell output, lab-book notes | First Transformers/GPT-2 imports were slow on network-volume venv but completed. |
+| 2026-07-02 | verification | Full repo test suite on Pod | 349.22s (0:05:49) | not captured | estimate formula: 0.097 h * hourly rate | RTX 4000 Ada, ~20 GB | pre-093d41c | No benchmark GPU use; GPU idle after run | `/workspace/pq_pytest_clean.log` | `212 passed, 1 warning`; environment deployment-ready. |
+| 2026-07-02 | cleanup_sync | Sync RunPod checkout after docs commits | timing not captured | not captured | not captured | RTX 4000 Ada, ~20 GB | 093d41c, 40a5de3, 9c94a51 | No | git pull output | Documentation sync only. |
 
 ## Template
 
 Copy this row for future entries:
 
 ```markdown
-| YYYY-MM-DD | category | task | elapsed | est. credits / cost | GPU class / VRAM | commit | GPU used? | evidence / output | notes |
+| YYYY-MM-DD | category | task | elapsed | hourly rate | est. credits / cost | GPU class / VRAM | commit | GPU used? | evidence / output | notes |
 ```
 
 ## Maintenance Rules
@@ -78,7 +89,10 @@ Copy this row for future entries:
   Timings table in `project_summary.md`.
 - If timing or cost was not captured, write `timing not captured` or
   `not captured` explicitly and improve instrumentation before the next run.
-- Prefer exact credits/USD from the RunPod console or billing export. If using a
-  rate multiplied by elapsed time, label the value as an estimate.
+- Prefer exact per-Pod credits/USD from the RunPod console or billing export.
+  If only account-level billing is available and the account has unrelated
+  activity, do not treat it as project-specific truth.
+- If using a rate multiplied by elapsed time, record the hourly rate and label
+  the value as an estimate.
 - When possible, use `time`, runner elapsed logs, or tmux log timestamps instead
   of memory.
