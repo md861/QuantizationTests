@@ -28,15 +28,20 @@ Current baseline Pod class:
 
 - GPU: NVIDIA RTX 4000 Ada Generation class
 - VRAM: about 20 GB
-- System memory / CPU class: about 53 GB RAM / 16 vCPU
-- Persistent workspace: `/workspace` on a network volume
+- System memory / CPU class: 50 GB RAM / 9 vCPU observed on current Pod
+- Persistent workspace: `/workspace` on a 100 GB network volume
 - Repo path on Pod: `/workspace/PQ_project`
 - Project venv on Pod: `/workspace/PQ_project/.venv`
+- Region observed during setup: EU-RO-1 secure cloud
+- Container disk observed during setup: 20 GB
+- Template/image family observed during setup: RunPod PyTorch CUDA 12.4 / torch v240 family
 - Verified Pod stack: PyTorch 2.6.0+cu124, Transformers 5.12.1, CUDA available
 - Verified Pod test state: `212 passed, 1 warning in 349.22s`
 
 This worker is enough for TinyLlama-era smoke tests and narrow controlled
-baselines. Reassess before larger models, longer contexts, broader evaluation
+baselines. Current observed active-Pod rates are `$0.26/hr` compute and
+`$0.003/hr` container storage, with displayed total `$0.26/hr`; estimate
+network-volume storage separately. Reassess before larger models, longer contexts, broader evaluation
 sets, or memory-heavy external baselines.
 
 ## Selection Obstacles Encountered
