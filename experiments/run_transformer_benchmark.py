@@ -8,8 +8,11 @@ Torch CPU threads so editor extension processes have room to breathe.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -32,6 +35,8 @@ class BenchmarkPreset:
     incremental_results: bool = True
     evaluation_text_file: Optional[Path] = None
     max_eval_texts: Optional[int] = None
+    single_layer_name: Optional[str] = None
+    calibration_texts: Optional[list[str]] = None
 
 
 PRESETS: dict[str, BenchmarkPreset] = {
@@ -41,6 +46,15 @@ PRESETS: dict[str, BenchmarkPreset] = {
         top_width_pair_fractions=[],
         results_dir=Path("results/smoke_tiny_gpt2_runner"),
         plots_dir=Path("plots/smoke_tiny_gpt2_runner"),
+    ),
+    "tinyllama-1.1b-int4-smoke": BenchmarkPreset(
+        model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        results_dir=Path("results/transformer_tinyllama_1_1b_int4_smoke"),
+        plots_dir=Path("plots/transformer_tinyllama_1_1b_int4_smoke"),
+        single_layer_name="model.layers.0.self_attn.q_proj",
+        calibration_texts=["Quantization smoke test."],
     ),
     "pythia-14m-int8-baseline": BenchmarkPreset(
         model_name="EleutherAI/pythia-14m",
@@ -135,6 +149,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use only locally cached Hugging Face files.",
     )
     parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Device for model execution; auto uses CUDA when available.",
+    )
+    parser.add_argument(
         "--torch-threads",
         type=int,
         default=None,
@@ -204,11 +224,13 @@ def build_config(args: argparse.Namespace) -> TransformerConfig:
         model_name=preset.model_name,
         calibration_texts=calibration_texts
         if calibration_texts is not None
+        else preset.calibration_texts
+        if preset.calibration_texts is not None
         else TransformerConfig().calibration_texts,
         calibration_text_source=calibration_text_source
         if calibration_text_source is not None
         else TransformerConfig().calibration_text_source,
-        single_layer_name=None,
+        single_layer_name=preset.single_layer_name,
         bitwidths=list(preset.bitwidths),
         top_width_pair_fractions=list(preset.top_width_pair_fractions),
         results_dir=args.results_dir or preset.results_dir,
@@ -218,6 +240,7 @@ def build_config(args: argparse.Namespace) -> TransformerConfig:
         incremental_results=not bool(args.no_incremental_results)
         and preset.incremental_results,
         delete_hf_cache_after=bool(args.delete_hf_cache_after),
+        device=args.device,
     )
 
 
@@ -256,6 +279,77 @@ def print_presets() -> None:
             f"rotations={rotations} results={preset.results_dir}"
         )
 
+
+
+
+def _git_commit_hash() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _resolved_device_label(device_request: str) -> str:
+    if device_request == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    return device_request
+
+
+def _cuda_memory_mb(value: Optional[int]) -> Optional[float]:
+    if value is None:
+        return None
+    return round(value / (1024 * 1024), 3)
+
+
+def _collect_benchmark_metadata(
+    *,
+    args: argparse.Namespace,
+    config,
+    elapsed_seconds: Optional[float] = None,
+    counts: Optional[dict[str, int]] = None,
+) -> dict[str, object]:
+    cuda_available = torch.cuda.is_available()
+    cuda_device_count = torch.cuda.device_count() if cuda_available else 0
+    gpu_name = None
+    vram_total_mb = None
+    peak_allocated_mb = None
+    peak_reserved_mb = None
+    if cuda_available:
+        device_index = torch.cuda.current_device()
+        props = torch.cuda.get_device_properties(device_index)
+        gpu_name = props.name
+        vram_total_mb = _cuda_memory_mb(props.total_memory)
+        peak_allocated_mb = _cuda_memory_mb(torch.cuda.max_memory_allocated(device_index))
+        peak_reserved_mb = _cuda_memory_mb(torch.cuda.max_memory_reserved(device_index))
+
+    return {
+        "preset": args.preset,
+        "model_name": config.model_name,
+        "single_layer_name": config.single_layer_name,
+        "bitwidths": list(config.bitwidths),
+        "top_width_pair_fractions": list(config.top_width_pair_fractions),
+        "device_request": args.device,
+        "resolved_device": _resolved_device_label(args.device),
+        "cuda_available": cuda_available,
+        "cuda_device_count": cuda_device_count,
+        "gpu_name": gpu_name,
+        "vram_total_mb": vram_total_mb,
+        "cuda_peak_memory_allocated_mb": peak_allocated_mb,
+        "cuda_peak_memory_reserved_mb": peak_reserved_mb,
+        "commit_hash": _git_commit_hash(),
+        "elapsed_seconds": round(elapsed_seconds, 3) if elapsed_seconds is not None else None,
+        "counts": counts or {},
+    }
+
+
+def _write_benchmark_metadata(results_dir: Path, metadata: dict[str, object]) -> Path:
+    results_dir.mkdir(parents=True, exist_ok=True)
+    path = results_dir / "benchmark_metadata.json"
+    path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 def _make_progress_callback(label: str):
     try:
@@ -300,6 +394,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"Plots: {config.plots_dir}")
     print(f"Bitwidths: {config.bitwidths}")
     print(f"Rotations: {config.top_width_pair_fractions or 'off'}")
+    print(f"Single layer: {config.single_layer_name or 'all'}")
+    print(f"Device request: {args.device}")
+    print(f"Resolved device: {_resolved_device_label(args.device)}")
     print(
         f"Evaluation texts: {len(config.calibration_texts)} "
         f"from {config.calibration_text_source}"
@@ -308,22 +405,40 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"Incremental CSVs: {config.incremental_results}")
 
     if args.download_only:
-        import time as _time
-        t0 = _time.time()
+        t0 = time.time()
         download_artifacts(config.model_name, local_files_only=config.local_files_only)
-        print(f"download elapsed: {_time.time() - t0:.1f}s")
+        elapsed = time.time() - t0
+        metadata = _collect_benchmark_metadata(
+            args=args,
+            config=config,
+            elapsed_seconds=elapsed,
+            counts={"download_only": 1},
+        )
+        metadata_path = _write_benchmark_metadata(config.results_dir, metadata)
+        print(f"metadata: {metadata_path}")
+        print(f"download elapsed: {elapsed:.1f}s")
         return 0
 
-    import time as _time
     from experiments.transformer_experiment import print_summary, run_transformer_experiment
 
     config.on_progress = _make_progress_callback(args.preset)
 
-    t0 = _time.time()
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+    t0 = time.time()
     wr, ar, lr = run_transformer_experiment(config)
-    elapsed = _time.time() - t0
+    elapsed = time.time() - t0
     print_summary(wr, ar, lr)
+    counts = {"weight": len(wr), "activation": len(ar), "logit": len(lr)}
+    metadata = _collect_benchmark_metadata(
+        args=args,
+        config=config,
+        elapsed_seconds=elapsed,
+        counts=counts,
+    )
+    metadata_path = _write_benchmark_metadata(config.results_dir, metadata)
     print(f"counts weight={len(wr)} activation={len(ar)} logit={len(lr)}")
+    print(f"metadata: {metadata_path}")
     print(f"elapsed: {elapsed:.1f}s ({elapsed/60:.1f}min)")
     return 0
 

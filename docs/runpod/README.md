@@ -17,7 +17,7 @@ Known captured RunPod time so far:
     <th colspan="3">Telemetry uptime: 5h 5m</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: $1.32 | Storage: $0.07 | Total: $1.39</th>
+    <th colspan="5">Compute: $1.32 | Storage: $0.07 | Total: $1.39 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -77,7 +77,9 @@ Interpretation:
   `$0.07/GB-month`. The dashboard keeps row-level costs compute-only and shows
   accumulated storage once in the header.
 - Actual benchmark runs must update both the usage ledger and the Benchmark Run
-  Timings table in `project_summary.md`.
+  Timings table in `project_summary.md`. Keep cumulative RunPod benchmark spend
+  under the project budget ceiling of about GBP 200; pause and ask the user
+  before any plan that could materially change the expected spend profile.
 
 ## Files
 

@@ -20,6 +20,7 @@ def _args(**overrides):
         no_incremental_results=False,
         eval_text_file=None,
         max_eval_texts=None,
+        device="auto",
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -38,6 +39,17 @@ def test_pythia_int8_preset_builds_conservative_config():
     assert config.calibration_text_source == "built-in calibration texts"
 
 
+def test_tinyllama_smoke_preset_uses_single_layer_and_one_text():
+    config = runner.build_config(_args(preset="tinyllama-1.1b-int4-smoke"))
+
+    assert config.model_name == "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    assert config.single_layer_name == "model.layers.0.self_attn.q_proj"
+    assert config.bitwidths == [4]
+    assert config.top_width_pair_fractions == []
+    assert config.calibration_texts == ["Quantization smoke test."]
+    assert "tinyllama" in str(config.results_dir)
+
+
 def test_config_honors_local_files_and_overrides(tmp_path):
     config = runner.build_config(
         _args(
@@ -47,6 +59,7 @@ def test_config_honors_local_files_and_overrides(tmp_path):
             save_plots=True,
             delete_hf_cache_after=True,
             no_incremental_results=True,
+            device="cpu",
         )
     )
 
@@ -56,6 +69,7 @@ def test_config_honors_local_files_and_overrides(tmp_path):
     assert config.save_plots is True
     assert config.delete_hf_cache_after is True
     assert config.incremental_results is False
+    assert config.device == "cpu"
 
 
 def test_config_loads_eval_text_file(tmp_path):
@@ -73,6 +87,27 @@ def test_config_loads_eval_text_file(tmp_path):
 def test_configure_threads_validates_positive_count():
     with pytest.raises(ValueError, match="torch-threads"):
         runner.configure_threads(0)
+
+
+def test_metadata_writer_records_numeric_elapsed_and_counts(tmp_path, monkeypatch):
+    args = _args(preset="tinyllama-1.1b-int4-smoke", device="cpu")
+    config = runner.build_config(args)
+    monkeypatch.setattr(runner, "_git_commit_hash", lambda: "abc123")
+
+    metadata = runner._collect_benchmark_metadata(
+        args=args,
+        config=config,
+        elapsed_seconds=1.23456,
+        counts={"weight": 1, "activation": 1, "logit": 1},
+    )
+    path = runner._write_benchmark_metadata(tmp_path, metadata)
+
+    assert path.name == "benchmark_metadata.json"
+    assert metadata["elapsed_seconds"] == 1.235
+    assert metadata["commit_hash"] == "abc123"
+    assert metadata["counts"] == {"weight": 1, "activation": 1, "logit": 1}
+    assert metadata["resolved_device"] == "cpu"
+    assert path.read_text(encoding="utf-8").strip().startswith("{")
 
 
 def test_download_only_uses_local_files_flag(monkeypatch):

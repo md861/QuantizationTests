@@ -31,6 +31,10 @@ estimated Pod cost = elapsed_hours * recorded hourly Pod rate
 
 Label rate-based values as estimates.
 
+## Budget Guardrail
+
+Project budget ceiling: about GBP 200 total RunPod benchmark spend. Treat this as a hard planning limit for benchmark work. Record estimated compute and storage costs after every Pod segment, keep the dashboard current, and pause before any GPU-class change or benchmark expansion that could materially alter expected spend.
+
 ## Entry Categories
 
 Use one of these categories in the ledger:

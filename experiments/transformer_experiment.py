@@ -88,6 +88,7 @@ class TransformerConfig:
     local_files_only: bool = False
     incremental_results: bool = False
     delete_hf_cache_after: bool = False
+    device: str = "auto"
     # Optional progress callback: on_progress(phase, done, total)
     # phase is "layer" or "logit"; done and total are int counts.
     on_progress: object = field(default=None, repr=False, compare=False)
@@ -153,6 +154,8 @@ def run_transformer_experiment(
     tuples to avoid collisions when the same method runs at multiple bitwidths.
     """
     print(f"Loading {config.model_name}...")
+    device = _resolve_torch_device(config.device)
+    print(f"Device: {device}")
     model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
         local_files_only=config.local_files_only,
@@ -161,6 +164,7 @@ def run_transformer_experiment(
         config.model_name,
         local_files_only=config.local_files_only,
     )
+    model.to(device)
     model.eval()
 
     if tokenizer.pad_token is None:
@@ -170,7 +174,7 @@ def run_transformer_experiment(
         raise ValueError("TransformerConfig.calibration_texts must not be empty")
 
     token_inputs = [
-        tokenizer(t, return_tensors="pt")["input_ids"]
+        tokenizer(t, return_tensors="pt")["input_ids"].to(device)
         for t in config.calibration_texts
     ]
 
@@ -707,6 +711,18 @@ def _top5_overlap(
 # ── model utilities ───────────────────────────────────────────────────────────
 
 
+def _resolve_torch_device(device: str) -> torch.device:
+    if device == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA was requested but is not available")
+        return torch.device("cuda")
+    if device == "cpu":
+        return torch.device("cpu")
+    raise ValueError("device must be one of: auto, cpu, cuda")
+
+
 def _get_module(model, name: str):
     obj = model
     for part in name.split("."):
@@ -745,7 +761,7 @@ def _extract_weight(module) -> np.ndarray:
     Always returns a copy so callers are not inadvertently holding a view into the
     module's parameter storage (which would change if copy_() is called later).
     """
-    w = module.weight.detach().float().numpy()
+    w = module.weight.detach().float().cpu().numpy()
     if isinstance(module, torch.nn.Linear):
         w = w.T  # (out, in) → (in, out)
     return w.copy()  # always a fresh contiguous array
@@ -758,7 +774,7 @@ def _set_weight(module, w: np.ndarray) -> None:
     # copy_() does not always apply correctly.
     w_store = w.T.copy() if isinstance(module, torch.nn.Linear) else w
     with torch.no_grad():
-        module.weight.copy_(torch.tensor(w_store, dtype=module.weight.dtype))
+        module.weight.copy_(torch.as_tensor(w_store, dtype=module.weight.dtype, device=module.weight.device))
 
 
 def _clear_hf_cache(model_name: str) -> None:

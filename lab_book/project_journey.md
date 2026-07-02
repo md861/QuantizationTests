@@ -4567,7 +4567,7 @@ when available and avoid committing connection secrets or account identifiers.
 Remote environment verification:
 - GPU baseline for current work: NVIDIA RTX 4000 Ada Generation class
 - VRAM: about 20 GB (20,475 MiB reported by `nvidia-smi`)
-- system memory / CPU class selected by user: 53 GB RAM, 16 vCPU
+- system memory / CPU class observed on deployed Pod: 50 GB RAM, 9 vCPU
 - driver observed during setup: 550.127.05
 - idle GPU memory during setup: 2 MiB
 - repo clone: `/workspace/PQ_project`
@@ -4608,3 +4608,22 @@ Operational notes:
   logs under `/workspace`.
 - Do not run full benchmarks yet. Next code step remains GPU-aware benchmark
   logging plus TinyLlama single-layer or small-subset smoke support.
+
+## Session: 2026-07-02 ? Milestone 4 runner smoke instrumentation
+
+Implemented the first local Milestone 4 runner changes before spending more RunPod credits. The safe benchmark runner now includes a TinyLlama 1.1B single-layer INT4 smoke preset (`tinyllama-1.1b-int4-smoke`) targeting `model.layers.0.self_attn.q_proj` with one calibration text. The runner also accepts `--device auto|cpu|cuda` and writes `benchmark_metadata.json` with device request/resolution, CUDA availability, GPU name, VRAM, peak CUDA memory, commit hash, elapsed time, and result counts.
+
+The core transformer harness now resolves `auto/cpu/cuda`, moves the model and token tensors to the selected device, extracts weights through CPU copies for NumPy quantization, and restores weights on the module's native device. This keeps local CPU development working while making RunPod GPU smoke runs observable.
+
+Bookkeeping updates made during the session:
+- Corrected stale RunPod sizing references to the observed current Pod class: RTX 4000 Ada, about 20 GB VRAM, 50 GB RAM, 9 vCPU.
+- Added the project RunPod budget ceiling: keep total benchmark spend under about GBP 200 and track estimated costs after every Pod segment.
+- Updated local expected test state after adding runner tests.
+
+Local verification:
+
+```text
+214 passed, 2 warnings in 20.35s
+```
+
+Next RunPod step: sync the committed runner changes to `/workspace/PQ_project`, run the TinyLlama download/cache path in detached `tmux`, record the elapsed time and estimated spend in `docs/runpod/usage_ledger.md`, then run only the TinyLlama smoke benchmark before deciding whether the RTX 4000 Ada has enough headroom for any larger run.

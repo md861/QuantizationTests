@@ -129,7 +129,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-212 passed, 1 warning
+214 passed, 2 warnings
 ```
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
@@ -627,7 +627,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-212 passed, 1 warning
+214 passed, 2 warnings
 ```
 
 ## Design Conventions
@@ -695,7 +695,7 @@ smoke benchmarks. SSH access is configured locally as alias `runpod-pq`; raw
 connection details, keys, account identifiers, Pod IDs, ports, and hostnames are
 intentionally not committed. The repo is cloned at `/workspace/PQ_project` on a
 persistent `/workspace` network volume. Current baseline Pod class is RTX 4000
-Ada / about 20 GB VRAM / 53 GB RAM / 16 vCPU. The project venv on the Pod is a
+Ada / about 20 GB VRAM / 50 GB RAM / 9 vCPU. The project venv on the Pod is a
 clean self-contained `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124,
 Transformers 5.12.1, CUDA available, and the full test suite verified:
 
@@ -707,18 +707,15 @@ Detailed RunPod technical operations live in `docs/runpod/operations.md`.
 
 Next steps for the handover session:
 
-1. Add a TinyLlama 1.1B Milestone 4 preset plus a single-layer or small-subset
-   smoke path to the safe benchmark runner.
-2. Add GPU-aware benchmark logging before spending further RunPod credits:
-   device mode, CUDA availability, GPU name, VRAM, peak memory, commit hash, and
-   elapsed time.
-3. Pre-download/cache TinyLlama on RunPod before any benchmark run.
+1. Sync the new Milestone 4 runner changes to RunPod: the safe benchmark runner now has a TinyLlama 1.1B single-layer INT4 smoke preset and writes `benchmark_metadata.json` with device mode, CUDA availability, GPU name, VRAM, peak memory, commit hash, elapsed time, and record counts.
+2. Pre-download/cache TinyLlama on RunPod before any benchmark run, using detached `tmux` and the metadata/log paths recorded in `docs/runpod/usage_ledger.md`.
+3. Run only the TinyLlama smoke benchmark first, then decide whether the RTX 4000 Ada has enough headroom before any full benchmark or external baseline.
 4. Define the first larger-model comparison matrix against project INT4
    row-grouped paths and the lightest feasible external baseline. None of
    `bitsandbytes`, `auto_gptq`, `awq`, `accelerate`, or `datasets` is currently
    installed locally.
 5. Use RunPod only for single-layer smoke and full GPU benchmarks; stop the Pod
-   when benchmark execution is done and continue analysis/documentation locally.
+   when benchmark execution is done and continue analysis/documentation locally. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200 and update `docs/runpod/usage_ledger.md` after every Pod segment.
 
 Regression and artifact acceptance checks:
 

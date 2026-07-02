@@ -106,6 +106,8 @@ improve instrumentation before the next run.
 
 ## Credit Guardrails
 
+Project budget ceiling: keep total RunPod benchmark spend under about GBP 200. Track estimated compute and storage spend in `docs/runpod/usage_ledger.md` after every Pod segment. Pause and ask the user before changing Pod class, launching a broader benchmark matrix, or continuing after a failed run pattern that could materially increase spend.
+
 Before spending RunPod credits:
 
 1. Make the smallest relevant local dry run pass.
