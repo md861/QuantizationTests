@@ -1272,7 +1272,7 @@ The current results are intentionally preliminary.
 - Rotation-pair selection now includes both a simple two-largest-column heuristic and an opt-in top-width-difference independent-pair heuristic. It still does not optimize pair choices or angles using transformer calibration data.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - The first transformer benchmark uses `sshleifer/tiny-gpt2`, whose linear layers are extremely small; the near-lossless `g1` row-grouped results are therefore harness-validation evidence, not a realistic compression result.
-- The first transformer runs used the same three-sentence calibration batch: "The quick brown fox jumps over the lazy dog.", "Quantization reduces the precision of neural network weights to lower bitwidths.", and "Language models learn statistical patterns from large text corpora." A tracked WikiText-2 validation sample now provides a better held-out check, but it is still small; larger corpora would be needed before treating perplexity ratios as benchmark-quality estimates.
+- The first transformer runs used the same three-sentence calibration batch: "The quick brown fox jumps over the lazy dog.", "Quantization reduces the precision of neural network weights to lower bitwidths.", and "Language models learn statistical patterns from large text corpora." A tracked 256-record WikiText-2 validation resource now provides the primary held-out text for Milestone 4 comparisons. It is still a bounded validation subset, so full benchmark claims should remain tied to the stated source, count, and extraction recipe.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
@@ -1285,7 +1285,7 @@ Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardw
 The next Milestone 4 steps are:
 
 1. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
-2. Choose a reproducible evaluation text source larger than the current tiny smoke/WikiText-style samples, and document or track it so perplexity comparisons are interpretable.
+2. Use the tracked 256-record WikiText-2 raw validation resource for research-grade TinyLlama comparisons, and reserve tiny built-in or one-text batches for smoke checks only.
 3. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
 4. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
 5. Run full benchmarks only from detached tmux under persistent /workspace, recording elapsed time, GPU type, VRAM, peak memory, commit hash, result counts, and estimated spend.
@@ -1322,10 +1322,15 @@ Current tracked figure references used in this draft:
 
 Current tracked text resources used in this draft:
 
+- `docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt` —
+  the primary Milestone 4 WikiText-2 raw validation resource for held-out
+  loss/perplexity checks. It contains 256 paragraph-separated records,
+  23,742 words, and 125,852 UTF-8 bytes, generated from the Salesforce/wikitext
+  `wikitext-2-raw-v1` validation split in source order after skipping empty
+  rows and section-heading rows. The file header records source, revision,
+  extraction recipe, attribution, and license notes.
 - `docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt` —
-  a small WikiText-2 raw validation sample for larger held-out loss/perplexity
-  checks. The file includes source, citation, and license notes, plus
-  paragraph-separated examples that can be loaded by the transformer benchmark
-  runner.
+  a smaller historical WikiText-2 raw validation sample retained for prior
+  rerun provenance and lightweight local checks.
 
 Generated experiment outputs under `plots/` and `results/` remain local ignored artifacts. Paper figures are copied into `docs/figures/` when they are ready to be referenced by the tracked draft.

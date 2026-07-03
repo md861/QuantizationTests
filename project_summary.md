@@ -98,6 +98,7 @@ Implemented so far:
   disconnect-safe presets, `--local-files-only`, `--torch-threads`, `--download-only`,
   and incremental CSV writes; run all heavy benchmarks from this runner in a
   detached tmux session, not from the VSCode integrated terminal
+- optional bitsandbytes NF4 external baseline runner at experiments/bitsandbytes_baseline.py; reports logit/loss/perplexity plus runtime and memory metadata only, keeping bitsandbytes separate from project weight/activation reconstruction metrics and optional for local tests
 - top-width rotation fractions are capped model-wide for transformer runs:
   requested p5/p10/p20 paths are lowered when needed so the widest selected layer
   stays within `max_rotation_pairs=1000`; for TinyStories this produced one
@@ -126,11 +127,7 @@ Run tests with:
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 ```
 
-Current known passing test state:
-
-```text
-214 passed, 2 warnings
-```
+For the current passing count and test-scope note, see the canonical Tests section below.
 
 Matplotlib note: use `MPLCONFIGDIR=/tmp/paroquant-mpl` because the default home config path may be read-only.
 
@@ -161,6 +158,12 @@ If another coding agent resumes this project, the safest order is:
 13. **RunPod credit guardrails.** Treat RunPod as a benchmark worker only, not as the default development environment. Follow `docs/runpod/operations.md` for Pod setup, storage, stop-window, security policy, and `docs/runpod/usage_ledger.md` for RunPod time accounting. Keep code generation, ordinary tests, data analysis, plotting, README/research-draft/lab-book updates, and report writing local unless debugging a GPU-only failure. Before any RunPod run: make the smallest local dry run pass, estimate cost and duration, run a single-layer or small-subset smoke benchmark first, launch long jobs only in detached tmux, write logs and results under persistent /workspace, record commit hash, GPU, VRAM, peak memory, and elapsed time, and pull back only artifacts needed for analysis. Stop the Pod after each benchmark unless another GPU benchmark is already queued to start within about 30 minutes.
 
 14. **Shell and editing discipline.** Prefer WSL-native commands for repo work and use local helpers when present: make status, make test, make collect-tests, or scripts/codex.cmd status. Avoid complex PowerShell-mediated one-liner edits against WSL files because PowerShell, wsl.exe, Bash, Perl, and sed can each interpret dollar signs, pipes, backticks, quotes, and escapes differently. Keep pipelines inside bash -lc when a pipeline is needed. Prefer apply_patch for manual edits when it can access the file; otherwise use small, inspectable WSL line-based edits. Avoid Perl/Python one-liners with shell-sensitive variables or heredocs from PowerShell. If a WSL command fails with Access is denied in the managed environment, treat it as a sandbox/launch-context boundary and rerun the same necessary command through the approved/escalated path rather than debugging it as a project failure.
+
+15. **Single source of truth for tests.** Keep the canonical test command, scope, and latest passing count only in the Tests section below. Do not duplicate the passing count elsewhere. When tests are added/removed or the count changes, update that section and run a stale-doc search before commit:
+
+```bash
+rg "passed, [0-9]+ warnings|tests/test_" project_summary.md README.md docs/research_draft.md
+```
 
 ## Benchmark Run Timings
 
@@ -526,10 +529,14 @@ Milestone 3 transformer quantization harness.
   delta, perplexity, original perplexity, perplexity ratio, calibration text
   source, and calibration text count.
 - **Held-out text resource**:
-  `docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt`
-  contains a small tracked WikiText-2 raw validation sample with attribution and
-  license notes. Use `--eval-text-file` on `experiments/run_transformer_benchmark.py`
-  to evaluate on it.
+  `docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt`
+  contains the primary tracked Milestone 4 WikiText-2 raw validation resource:
+  256 paragraph-separated records, 23,742 words, and 125,852 UTF-8 bytes,
+  with attribution, license notes, dataset revision, and extraction recipe in
+  the file header. Use `--eval-text-file` on
+  `experiments/run_transformer_benchmark.py` or
+  `experiments/bitsandbytes_baseline.py` to evaluate on it. The older
+  `wikitext2_raw_validation_sample.txt` remains as a tiny historical sample.
 - **Outputs**: `results/transformer_weight_metrics.csv`,
   `results/transformer_activation_metrics.csv`,
   `results/transformer_logit_metrics.csv`, and `plots/transformer_dashboard.png`.
@@ -604,22 +611,9 @@ The dashboard includes:
 
 ## Tests
 
-Current test files:
-
-- `tests/test_matrix_factory.py`
-- `tests/test_quantizer.py`
-- `tests/test_metrics.py`
-- `tests/test_spectrum.py`
-- `tests/test_visualize.py`
-- `tests/test_baseline_experiment.py`
-- `tests/test_outlier_experiment.py`
-- `tests/test_analyze_results.py`
-- `tests/test_rotations.py`
-- `tests/test_scaling.py`
-- `tests/test_rotation_experiment.py`
-- `tests/test_sweep_experiment.py`
-- `tests/test_integration.py`
-- `tests/test_transformer_experiment.py`
+Test scope: all `tests/test_*.py` files in [`tests/`](tests/).
+Do not manually maintain a long test-file list here; use the folder glob as the
+source of truth.
 
 Run all tests:
 
@@ -630,7 +624,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-214 passed, 2 warnings
+221 passed, 2 warnings
 ```
 
 ## Design Conventions
@@ -712,7 +706,7 @@ Next steps after the first Milestone 4 smoke:
 
 1. Treat the TinyLlama single-layer INT4 smoke as a readiness check only: commit c15113a, elapsed 228.3s (3.8 min), peak CUDA allocated 2124 MB, peak CUDA reserved 2224 MB, counts 9/9/9, and logit/perplexity outputs under results/transformer_tinyllama_1_1b_int4_smoke on RunPod.
 2. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
-3. Choose a reproducible evaluation text source larger than the current tiny smoke/WikiText-style samples, and document or track it so perplexity comparisons are interpretable.
+3. Use the tracked 256-record WikiText-2 raw validation resource for research-grade TinyLlama comparisons; reserve one-text or tiny built-in samples for smoke checks only.
 4. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
 5. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
 6. Run full benchmarks only from detached tmux under persistent /workspace, recording elapsed time, GPU type, VRAM, peak memory, commit hash, result counts, and estimated spend.

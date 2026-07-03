@@ -46,6 +46,8 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Transformer harness (weight + activation + logit metrics) | Complete |
 | Milestone 4 GPU-aware runner metadata | Complete |
 | TinyLlama 1.1B smoke preset | Complete |
+| bitsandbytes NF4 external baseline runner | Initial setup |
+| WikiText-2 256-record evaluation resource | Complete |
 
 ## Next Milestone 4
 
@@ -58,7 +60,7 @@ strings must not be committed.
 
 1. Treat the completed TinyLlama single-layer INT4 RunPod smoke as a readiness check only, not a research-grade benchmark.
 2. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
-3. Extend evaluation text beyond the small WikiText-2 sample while keeping the source reproducible, tracked, or explicitly documented.
+3. Use the tracked 256-record WikiText-2 raw validation resource for research-grade TinyLlama comparisons, and keep any smaller text batch clearly labeled as a smoke-only input.
 4. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
 5. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
 6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, commit hash, and estimated spend in the bookkeeping docs.
@@ -66,6 +68,13 @@ strings must not be committed.
 8. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger after every Pod segment.
 9. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines.
 10. Update the research draft, README, project summary, and lab book after each completed model.
+
+The first external baseline scaffold is experiments/bitsandbytes_baseline.py.
+It is intentionally separate from the project quantizer harness: bitsandbytes
+loads quantized Transformers runtime modules, so the fair shared comparison is
+logit/loss/perplexity plus runtime and memory metadata, not project weight or
+activation reconstruction tables. Keep bitsandbytes optional; normal local
+tests do not require the package or CUDA.
 
 Current RunPod setup notes:
 
@@ -229,7 +238,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-214 passed, 2 warnings
+221 passed, 2 warnings
 ```
 
 ## Reproduce Artifacts
@@ -249,12 +258,12 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/transformer_experim
 These commands write CSV files under `results/` and comparison figures under
 `plots/`.
 
-For transformer loss/perplexity reruns on the tracked WikiText-2 validation
-sample, pass the research resource explicitly:
+For transformer loss/perplexity reruns on the tracked 256-record WikiText-2
+validation resource, pass the research resource explicitly:
 
 ```bash
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python experiments/run_transformer_benchmark.py \
-  tiny-gpt2-smoke --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_sample.txt
+  tiny-gpt2-smoke --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt
 ```
 
 The analysis helper also writes a collated benchmark-style visual:

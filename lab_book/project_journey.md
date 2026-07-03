@@ -4668,3 +4668,32 @@ Current Milestone 4 direction:
 - update RunPod usage accounting and research docs after each GPU segment.
 
 Also added post-restart autonomy checks to the handover diagnostic in project_summary.md so future agents verify PowerShell/WSL tool health after VS Code restarts. Local Codex helper files remain ignored via .git/info/exclude and are not intended for commit.
+
+## Session: 2026-07-03 - bitsandbytes external baseline scaffold
+
+Added the first Milestone 4 external-baseline scaffold for bitsandbytes NF4. The new runner lives at experiments/bitsandbytes_baseline.py and intentionally stays separate from the core project quantizer harness: bitsandbytes loads quantized Transformers runtime modules, so the fair shared metrics are logit MSE, top-5 overlap, loss/perplexity, elapsed time, and CUDA memory metadata rather than project weight or activation reconstruction tables.
+
+The runner keeps bitsandbytes optional through lazy configuration setup and a CUDA guard. Local unit coverage uses fake config classes and small NumPy logits, so normal local tests do not require a GPU, model downloads, or the bitsandbytes package.
+
+Local verification after adding the scaffold:
+
+```text
+220 passed, 2 warnings in 20.53s
+```
+
+Parallel evaluation-text review recommended using a tracked 256-record WikiText-2 raw validation subset for Milestone 4 comparisons, generated deterministically from Salesforce/wikitext, config wikitext-2-raw-v1, validation split. The following entry implements and documents that resource before any research-grade TinyLlama or bitsandbytes benchmark.
+
+
+## Session: 2026-07-03 - Milestone 4 evaluation text resource
+
+Created the primary tracked Milestone 4 held-out text resource at `docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt`. It is generated from `Salesforce/wikitext`, config `wikitext-2-raw-v1`, validation split, using the Hugging Face datasets server rows API at observed dataset revision `b08601e04326c79dfdd32d625aee71d232d685c3`.
+
+Extraction recipe: iterate validation rows in source order, strip whitespace, skip empty rows and section-heading rows matching `^=+ ... =+$`, then keep the first 256 remaining text records as blank-line-separated evaluation paragraphs. The resulting evaluation body has 256 records, 23,742 words, and 125,852 UTF-8 bytes.
+
+Updated README, project summary, and research draft references so this resource is the default research-grade text input for Milestone 4 TinyLlama and bitsandbytes comparisons. Tiny one-text and built-in text batches are now explicitly smoke-only inputs.
+
+Local verification after adding the resource and bitsandbytes scaffold:
+
+```text
+221 passed, 2 warnings in 19.77s
+```
