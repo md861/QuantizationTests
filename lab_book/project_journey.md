@@ -4697,3 +4697,14 @@ Local verification after adding the resource and bitsandbytes scaffold:
 ```text
 221 passed, 2 warnings in 19.77s
 ```
+
+
+## Session: 2026-07-03 - RunPod bnb smoke and TinyLlama matrix lock
+
+Verified the replacement RunPod Pod through the local-only inventory. Observed runtime hardware: NVIDIA RTX 4000 Ada Generation, 20475 MiB VRAM, driver 550.127.05. The attached network volume preserved `/workspace/PQ_project` and `/workspace/PQ_project/.venv`; the Pod checkout was synced to commit `4b5d5d0`.
+
+Installed optional external-baseline dependencies in the Pod venv: Accelerate 1.14.0, bitsandbytes 0.49.2, and psutil 7.2.2. Also installed tmux on the replacement Pod. A first bnb smoke with `--local-files-only` failed because TinyLlama artifacts were not in the new Pod cache and outgoing HF traffic was disabled. The fix is now documented: keep Hugging Face cache under `/workspace/hf_cache` via `HF_HOME=/workspace/hf_cache` and `HUGGINGFACE_HUB_CACHE=/workspace/hf_cache/hub`, run online cache prep once after Pod replacement, then use `--local-files-only` only after cache verification.
+
+Re-cached TinyLlama into `/workspace/hf_cache`; runner download elapsed was 27.6s and the persistent HF cache is about 2.1 GB. Then ran a one-record WikiText-2 bitsandbytes NF4 smoke with `--local-files-only`. Result: exit 0, runner elapsed 44.2s, method `external_bitsandbytes_nf4_float16`, logit MSE 0.311986, logit cosine 0.992700, top-5 overlap 0.865285, loss delta 0.044535, PPL ratio 1.04554, peak CUDA allocated 2173.082 MB, peak reserved 2268 MB. Outputs are under `results/bitsandbytes_tinyllama_nf4_smoke/` on the Pod.
+
+Locked the first controlled TinyLlama matrix: original HF reference, project INT4 `global`, project INT4 `row_grouped_g4`, project INT4 `row_grouped_g8`, project INT4 `scale_row_g4`, project INT4 `scale_row_g8`, and bitsandbytes NF4 float16, all on the same 256-record WikiText-2 resource for research-grade comparisons. Rotations are excluded from this first TinyLlama matrix.

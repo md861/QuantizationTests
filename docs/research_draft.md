@@ -1282,15 +1282,31 @@ Milestone 3 is closed: the planned small-transformer baselines, INT4 rotation pr
 
 Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardware/cache audit is complete, RunPod is configured as the GPU benchmark worker, and the first TinyLlama 1.1B single-layer INT4 smoke has passed. That smoke is a readiness check only, not yet a research-grade benchmark.
 
-The next Milestone 4 steps are:
+The first controlled TinyLlama matrix is now fixed around one clean question:
+how do project INT4 g4/g8 row-grouping paths compare with bitsandbytes NF4 on
+the same 256 WikiText-2 validation records?
 
-1. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
-2. Use the tracked 256-record WikiText-2 raw validation resource for research-grade TinyLlama comparisons, and reserve tiny built-in or one-text batches for smoke checks only.
-3. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
-4. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
-5. Run full benchmarks only from detached tmux under persistent /workspace, recording elapsed time, GPU type, VRAM, peak memory, commit hash, result counts, and estimated spend.
-6. Compare perplexity/logit quality, runtime, memory pressure, and artifact size across the project method and the first external baseline.
-7. Document the result and update the RunPod usage ledger before adding the next model or baseline.
+Planned rows:
+
+1. Original HuggingFace TinyLlama reference logits/loss.
+2. Project INT4 `global` on all compatible linear layers, excluding `lm_head`, as a negative/control row.
+3. Project INT4 `row_grouped_g4` on all compatible linear layers.
+4. Project INT4 `row_grouped_g8` on all compatible linear layers.
+5. Project INT4 `scale_row_g4` on all compatible linear layers.
+6. Project INT4 `scale_row_g8` on all compatible linear layers.
+7. bitsandbytes NF4 `float16` as the first external runtime baseline.
+
+Rotations are intentionally excluded from this first TinyLlama matrix because
+Milestone 3 found the current sparse uncalibrated rotation path weak or
+negative. Compare bitsandbytes only on shared end-to-end fields: logit MSE,
+logit cosine, top-5 overlap, loss delta, PPL/PPL ratio, runtime, peak CUDA
+memory, and artifact size. Do not compare bitsandbytes against project
+weight/activation reconstruction tables.
+
+Next execution steps: add a dedicated full-matrix TinyLlama runner/preset,
+run a small project-method smoke if matrix settings change, then run the
+project INT4 matrix and bitsandbytes NF4 256-text eval as separate detached
+RunPod jobs with ledger/lab-book updates after each segment.
 
 ## Appendix A. Reproducing Current Figures
 

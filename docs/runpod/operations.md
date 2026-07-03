@@ -91,6 +91,20 @@ Reasons:
 Recommended minimum for the current phase: 100 GB. This leaves room for the
 repo, virtual environment, Hugging Face cache, logs, CSVs, and benchmark plots.
 
+### Persistent Hugging Face Cache
+
+Keep Hugging Face artifacts on the network volume, not the Pod container/root
+disk. Before any model download, cache prep, smoke, or benchmark on RunPod, set:
+
+```bash
+export HF_HOME=/workspace/hf_cache
+export HUGGINGFACE_HUB_CACHE=/workspace/hf_cache/hub
+```
+
+Run online cache prep once after a new Pod or volume migration, then use
+`--local-files-only` only after the model/tokenizer cache has been verified.
+Do not assume `/root/.cache/huggingface` survived Pod replacement.
+
 ## Usage Accounting
 
 Maintain `docs/runpod/usage_ledger.md` for RunPod time accounting. This ledger
@@ -136,9 +150,22 @@ documentation, long discussion, breaks, or overnight work.
 
 ## Command Discipline
 
+- Use simple direct SSH commands for short checks and setup. Avoid deeply nested
+  PowerShell -> WSL -> SSH -> Bash command strings when a direct command will do.
+- Prefer one shell boundary per command. If local orchestration must cross from
+  PowerShell into WSL and then SSH, keep the remote command short and literal.
+- Do not place unescaped shell status variables such as `$?` inside PowerShell
+  command strings; PowerShell may expand them before the command reaches Linux.
 - Use detached `tmux` for long installs, downloads, and benchmarks.
+- If a remote command needs complex quoting, environment setup, log redirection,
+  or exit-file capture, write a small shell script on the Pod and run that script
+  instead of stacking quoting layers.
+- If the managed filesystem sandbox blocks a WSL operation, retry the same simple
+  operation with the approved escalation path instead of inventing a more complex
+  quoting workaround.
 - Prefer small smoke runs before full-model runs.
-- Keep Hugging Face/model caches under `/workspace`.
+- Keep Hugging Face/model caches under `/workspace/hf_cache` with `HF_HOME` and
+  `HUGGINGFACE_HUB_CACHE` exported as shown above.
 - Keep logs under `/workspace` with descriptive names.
 - Do not rely on VSCode or an interactive SSH session staying connected.
 - Do not run full benchmarks until GPU-aware runner logging records device mode,

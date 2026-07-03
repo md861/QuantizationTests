@@ -155,7 +155,7 @@ If another coding agent resumes this project, the safest order is:
 10. **Always record rotation metadata for rotation experiments.** Any experiment, CSV, table, figure caption, or research-draft claim involving rotations must state the number of pair rotations applied per matrix/layer and the actual percentage/fraction of possible channel pairs used. For non-rotation baselines, record `rotation_count=0` and `rotation_pair_fraction=0.0`. For top-width sparse rotations, also record the configured candidate percentage as `rotation_candidate_fraction` and distinguish it from the actual independent rotation count/fraction.
 11. **Handover Diagnostic shorthand.** When the user says "handover diagnostic" or after a VS Code/Codex restart, do this checklist: read `project_summary.md`, skim the latest `lab_book/project_journey.md` entry, check `git status --short --branch`, inspect recent commits with `git log --oneline -12`, verify the test suite, search docs for stale milestone/test-count/output references, **check the Benchmark Run Timings table below and flag any missing entries**, run the post-restart autonomy checks (`git --version` from PowerShell if available, `./scripts/codex.cmd status` from PowerShell if the local helper exists, or `make status` from WSL if the local helper exists), then report what changed since the last session, current stale states, tool/autonomy health, and the next recommended step.
 12. **Always record wall-clock timing for every benchmark run.** When launching a run, state the estimated duration upfront based on the timings table below. When the run completes, copy the `elapsed: Xs (Ymin)` line from the runner log into both the lab book session entry and the Benchmark Run Timings table. If timing was not captured, write "timing not captured" explicitly — never leave the table entry blank.
-13. **RunPod credit guardrails.** Treat RunPod as a benchmark worker only, not as the default development environment. Follow `docs/runpod/operations.md` for Pod setup, storage, stop-window, security policy, and `docs/runpod/usage_ledger.md` for RunPod time accounting. Keep code generation, ordinary tests, data analysis, plotting, README/research-draft/lab-book updates, and report writing local unless debugging a GPU-only failure. Before any RunPod run: make the smallest local dry run pass, estimate cost and duration, run a single-layer or small-subset smoke benchmark first, launch long jobs only in detached tmux, write logs and results under persistent /workspace, record commit hash, GPU, VRAM, peak memory, and elapsed time, and pull back only artifacts needed for analysis. Stop the Pod after each benchmark unless another GPU benchmark is already queued to start within about 30 minutes.
+13. **RunPod credit guardrails.** Treat RunPod as a benchmark worker only, not as the default development environment. Follow `docs/runpod/operations.md` for Pod setup, storage, stop-window, security policy, and `docs/runpod/usage_ledger.md` for RunPod time accounting. Keep code generation, ordinary tests, data analysis, plotting, README/research-draft/lab-book updates, and report writing local unless debugging a GPU-only failure. Before any RunPod run: make the smallest local dry run pass, estimate cost and duration, run a single-layer or small-subset smoke benchmark first, launch long jobs only in detached tmux, write logs and results under persistent /workspace, record commit hash, GPU, VRAM, peak memory, and elapsed time, and pull back only artifacts needed for analysis. Keep Hugging Face cache under `/workspace/hf_cache` via `HF_HOME` and `HUGGINGFACE_HUB_CACHE`; rerun online cache prep after Pod replacement before using `--local-files-only`. Stop the Pod after each benchmark unless another GPU benchmark is already queued to start within about 30 minutes.
 
 14. **Shell and editing discipline.** Prefer WSL-native commands for repo work and use local helpers when present: make status, make test, make collect-tests, or scripts/codex.cmd status. Avoid complex PowerShell-mediated one-liner edits against WSL files because PowerShell, wsl.exe, Bash, Perl, and sed can each interpret dollar signs, pipes, backticks, quotes, and escapes differently. Keep pipelines inside bash -lc when a pipeline is needed. Prefer apply_patch for manual edits when it can access the file; otherwise use small, inspectable WSL line-based edits. Avoid Perl/Python one-liners with shell-sensitive variables or heredocs from PowerShell. If a WSL command fails with Access is denied in the managed environment, treat it as a sandbox/launch-context boundary and rerun the same necessary command through the approved/escalated path rather than debugging it as a project failure.
 
@@ -687,30 +687,51 @@ usable CUDA device in the current environment. The user has access to RunPod
 GPUs, so larger-model GPU benchmarks should run there under strict credit
 guardrails while development, analysis, plotting, and documentation remain local.
 
-RunPod benchmark-worker setup is complete and deployment-ready for controlled
-smoke benchmarks. SSH access is configured locally as alias `runpod-pq`; raw
-connection details, keys, account identifiers, Pod IDs, ports, and hostnames are
-intentionally not committed. The repo is cloned at `/workspace/PQ_project` on a
-persistent `/workspace` network volume. Current baseline Pod class is RTX 4000
-Ada / about 20 GB VRAM / 50 GB RAM / 9 vCPU. The project venv on the Pod is a
-clean self-contained `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124,
-Transformers 5.12.1, CUDA available, and the full test suite verified:
+RunPod benchmark-worker setup is active for controlled smoke benchmarks. SSH
+access is configured locally as alias `runpod-pq`; raw connection details,
+keys, account identifiers, Pod IDs, ports, and hostnames are intentionally not
+committed. The repo is cloned at `/workspace/PQ_project` on a persistent
+`/workspace` network volume. The current replacement Pod observed on
+2026-07-03 is NVIDIA RTX 4000 Ada Generation with 20475 MiB VRAM and driver
+550.127.05, synced to commit `4b5d5d0`. The project venv on the Pod is a clean
+self-contained `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124,
+Transformers 5.12.1, Accelerate 1.14.0, bitsandbytes 0.49.2, CUDA available,
+and the full test suite previously verified on this worker class:
 
 ```text
 212 passed, 1 warning in 349.22s (0:05:49)
 ```
 
-Detailed RunPod technical operations live in `docs/runpod/operations.md`.
+Hugging Face cache must live on the network volume via `HF_HOME=/workspace/hf_cache`
+and `HUGGINGFACE_HUB_CACHE=/workspace/hf_cache/hub`; TinyLlama is currently
+cached there at about 2.1 GB. Detailed RunPod technical operations live in
+`docs/runpod/operations.md`.
 
-Next steps after the first Milestone 4 smoke:
+Locked first TinyLlama comparison matrix:
 
-1. Treat the TinyLlama single-layer INT4 smoke as a readiness check only: commit c15113a, elapsed 228.3s (3.8 min), peak CUDA allocated 2124 MB, peak CUDA reserved 2224 MB, counts 9/9/9, and logit/perplexity outputs under results/transformer_tinyllama_1_1b_int4_smoke on RunPod.
-2. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
-3. Use the tracked 256-record WikiText-2 raw validation resource for research-grade TinyLlama comparisons; reserve one-text or tiny built-in samples for smoke checks only.
-4. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
-5. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
-6. Run full benchmarks only from detached tmux under persistent /workspace, recording elapsed time, GPU type, VRAM, peak memory, commit hash, result counts, and estimated spend.
-7. Use RunPod only for GPU-bound benchmark execution; stop the Pod when benchmark execution is done, continue analysis/documentation locally, keep total RunPod benchmark spend under about GBP 200, and update docs/runpod/usage_ledger.md after every Pod segment.
+| Row | Method | Scope | Eval texts | Purpose |
+| --- | --- | --- | ---: | --- |
+| 1 | Original HF model | Reference logits/loss only | 256 | Anchor loss/PPL/logits |
+| 2 | Project INT4 `global` | All compatible linear layers, excluding `lm_head` | 256 | Negative/control row |
+| 3 | Project INT4 `row_grouped_g4` | All compatible linear layers | 256 | Main project row |
+| 4 | Project INT4 `row_grouped_g8` | All compatible linear layers | 256 | Conservative row-group comparison |
+| 5 | Project INT4 `scale_row_g4` | All compatible linear layers | 256 | Check whether scaling helps |
+| 6 | Project INT4 `scale_row_g8` | All compatible linear layers | 256 | Scaling check for g8 |
+| 7 | bitsandbytes NF4 `float16` | External runtime baseline | 256 | First external baseline |
+
+Do not include rotations in the first TinyLlama matrix. Use
+`docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt` for
+research-grade comparisons and reserve one-text/built-in text batches for
+smoke checks. Compare bitsandbytes only on shared end-to-end fields: logit
+MSE/cosine, top-5 overlap, loss delta, PPL/PPL ratio, elapsed time, peak CUDA
+memory, and artifact size.
+
+Next steps after the first bnb smoke:
+
+1. Add a dedicated TinyLlama full-matrix runner/preset or CLI path with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.
+2. Run another project-method small smoke if the matrix/preset changes.
+3. Run the project INT4 matrix and bitsandbytes NF4 256-text eval as separate RunPod jobs under detached tmux, writing logs/results under `/workspace`.
+4. Update RunPod ledger, lab book, research draft, and project summary after each GPU segment; stop the Pod unless another GPU job is ready within about 30 minutes.
 
 Regression and artifact acceptance checks:
 

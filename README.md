@@ -48,6 +48,8 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | TinyLlama 1.1B smoke preset | Complete |
 | bitsandbytes NF4 external baseline runner | Initial setup |
 | WikiText-2 256-record evaluation resource | Complete |
+| RunPod persistent Hugging Face cache policy | Complete |
+| TinyLlama bitsandbytes NF4 one-record smoke | Complete |
 
 ## Next Milestone 4
 
@@ -76,6 +78,12 @@ logit/loss/perplexity plus runtime and memory metadata, not project weight or
 activation reconstruction tables. Keep bitsandbytes optional; normal local
 tests do not require the package or CUDA.
 
+The first controlled TinyLlama matrix is locked: original Hugging Face
+reference, project INT4 global, project INT4 row_grouped_g4/g8, project INT4
+scale_row_g4/g8, and bitsandbytes NF4 float16. Do not include rotations in this
+first matrix; use the tracked 256-record WikiText-2 resource and compare bnb to
+the project methods only on shared end-to-end fields.
+
 Current RunPod setup notes:
 
 - Detailed RunPod technical operations live in `docs/runpod/operations.md`.
@@ -93,7 +101,14 @@ Current RunPod setup notes:
 - The Pod repo lives at `/workspace/PQ_project`; its clean self-contained venv is
   `/workspace/PQ_project/.venv` with PyTorch 2.6.0+cu124 and Transformers 5.12.1.
   Full repo verification on the Pod passed: `212 passed, 1 warning in 349.22s`.
-  First TinyLlama single-layer INT4 smoke on the Pod passed at commit `c15113a`: `228.3s (3.8 min)`, peak CUDA allocated `2124 MB`, peak reserved `2224 MB`.
+  Hugging Face cache should be kept under `/workspace/hf_cache` so model files
+  survive Pod replacement.
+- First TinyLlama single-layer INT4 smoke on the Pod passed at commit `c15113a`:
+  `228.3s (3.8 min)`, peak CUDA allocated `2124 MB`, peak reserved `2224 MB`.
+- First TinyLlama bitsandbytes NF4 one-record smoke passed at commit `4b5d5d0`:
+  `44.2s` runner elapsed, peak CUDA allocated `2173 MB`, logit MSE `0.311986`,
+  top-5 overlap `0.865`, and perplexity ratio `1.04554`. Treat this as a
+  readiness smoke, not the final research comparison.
 
 ## Completed Milestone 3
 
