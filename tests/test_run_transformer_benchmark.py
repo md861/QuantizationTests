@@ -45,9 +45,27 @@ def test_tinyllama_smoke_preset_uses_single_layer_and_one_text():
     assert config.model_name == "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     assert config.single_layer_name == "model.layers.0.self_attn.q_proj"
     assert config.bitwidths == [4]
+    assert config.row_group_sizes == [4]
+    assert config.row_group_fractions == [0.5, 0.25, 0.0625]
     assert config.top_width_pair_fractions == []
     assert config.calibration_texts == ["Quantization smoke test."]
     assert "tinyllama" in str(config.results_dir)
+
+
+def test_tinyllama_matrix_preset_uses_all_layers_g4_g8_and_eval_resource():
+    config = runner.build_config(_args(preset="tinyllama-1.1b-int4-matrix"))
+
+    assert config.model_name == "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    assert config.single_layer_name is None
+    assert config.bitwidths == [4]
+    assert config.row_group_sizes == [4, 8]
+    assert config.row_group_fractions == []
+    assert config.top_width_pair_fractions == []
+    assert len(config.calibration_texts) == 256
+    assert config.calibration_text_source == (
+        "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"
+    )
+    assert str(config.results_dir).endswith("transformer_tinyllama_1_1b_int4_matrix")
 
 
 def test_config_honors_local_files_and_overrides(tmp_path):

@@ -31,6 +31,8 @@ class BenchmarkPreset:
     top_width_pair_fractions: list[float]
     results_dir: Path
     plots_dir: Path
+    row_group_sizes: Optional[list[int]] = None
+    row_group_fractions: Optional[list[float]] = None
     save_plots: bool = False
     incremental_results: bool = True
     evaluation_text_file: Optional[Path] = None
@@ -55,6 +57,20 @@ PRESETS: dict[str, BenchmarkPreset] = {
         plots_dir=Path("plots/transformer_tinyllama_1_1b_int4_smoke"),
         single_layer_name="model.layers.0.self_attn.q_proj",
         calibration_texts=["Quantization smoke test."],
+    ),
+    "tinyllama-1.1b-int4-matrix": BenchmarkPreset(
+        model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        row_group_sizes=[4, 8],
+        row_group_fractions=[],
+        results_dir=Path("results/transformer_tinyllama_1_1b_int4_matrix"),
+        plots_dir=Path("plots/transformer_tinyllama_1_1b_int4_matrix"),
+        evaluation_text_file=Path(
+            "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"
+        ),
+        max_eval_texts=256,
+        single_layer_name=None,
     ),
     "pythia-14m-int8-baseline": BenchmarkPreset(
         model_name="EleutherAI/pythia-14m",
@@ -232,6 +248,12 @@ def build_config(args: argparse.Namespace) -> TransformerConfig:
         else TransformerConfig().calibration_text_source,
         single_layer_name=preset.single_layer_name,
         bitwidths=list(preset.bitwidths),
+        row_group_sizes=list(preset.row_group_sizes)
+        if preset.row_group_sizes is not None
+        else TransformerConfig().row_group_sizes,
+        row_group_fractions=list(preset.row_group_fractions)
+        if preset.row_group_fractions is not None
+        else TransformerConfig().row_group_fractions,
         top_width_pair_fractions=list(preset.top_width_pair_fractions),
         results_dir=args.results_dir or preset.results_dir,
         plots_dir=args.plots_dir or preset.plots_dir,
@@ -330,6 +352,8 @@ def _collect_benchmark_metadata(
         "model_name": config.model_name,
         "single_layer_name": config.single_layer_name,
         "bitwidths": list(config.bitwidths),
+        "row_group_sizes": list(config.row_group_sizes),
+        "row_group_fractions": list(config.row_group_fractions),
         "top_width_pair_fractions": list(config.top_width_pair_fractions),
         "device_request": args.device,
         "resolved_device": _resolved_device_label(args.device),
@@ -393,6 +417,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"Results: {config.results_dir}")
     print(f"Plots: {config.plots_dir}")
     print(f"Bitwidths: {config.bitwidths}")
+    print(f"Row group sizes: {config.row_group_sizes}")
+    print(f"Row group fractions: {config.row_group_fractions or 'off'}")
     print(f"Rotations: {config.top_width_pair_fractions or 'off'}")
     print(f"Single layer: {config.single_layer_name or 'all'}")
     print(f"Device request: {args.device}")

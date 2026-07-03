@@ -4708,3 +4708,18 @@ Installed optional external-baseline dependencies in the Pod venv: Accelerate 1.
 Re-cached TinyLlama into `/workspace/hf_cache`; runner download elapsed was 27.6s and the persistent HF cache is about 2.1 GB. Then ran a one-record WikiText-2 bitsandbytes NF4 smoke with `--local-files-only`. Result: exit 0, runner elapsed 44.2s, method `external_bitsandbytes_nf4_float16`, logit MSE 0.311986, logit cosine 0.992700, top-5 overlap 0.865285, loss delta 0.044535, PPL ratio 1.04554, peak CUDA allocated 2173.082 MB, peak reserved 2268 MB. Outputs are under `results/bitsandbytes_tinyllama_nf4_smoke/` on the Pod.
 
 Locked the first controlled TinyLlama matrix: original HF reference, project INT4 `global`, project INT4 `row_grouped_g4`, project INT4 `row_grouped_g8`, project INT4 `scale_row_g4`, project INT4 `scale_row_g8`, and bitsandbytes NF4 float16, all on the same 256-record WikiText-2 resource for research-grade comparisons. Rotations are excluded from this first TinyLlama matrix.
+
+## Session: 2026-07-03 - TinyLlama matrix preset
+
+Ran a stale-state check before continuing Milestone 4. The branch was clean and synced; current docs had no actionable stale state beyond the expected test count changing after adding one runner test.
+
+Implemented the dedicated project-method TinyLlama preset `tinyllama-1.1b-int4-matrix` in `experiments/run_transformer_benchmark.py`. The preset targets `TinyLlama/TinyLlama-1.1B-Chat-v1.0`, all compatible linear layers (`single_layer_name=None`), INT4 only, no rotations, fixed row groups `[4, 8]`, no fraction-derived row groups, and the tracked 256-record WikiText-2 raw validation resource. Runner metadata now records row-group sizes and row-group fractions.
+
+Local verification:
+
+```text
+tests/test_run_transformer_benchmark.py: 9 passed, 1 warning in 5.30s
+Full suite: 222 passed, 2 warnings in 19.49s
+```
+
+Runtime planning for the full project INT4 matrix: budget 4-6 hours on the RTX 4000 Ada worker, with a wider 3-8 hour guardrail until the matrix smoke gives a better calibration point. Record command wall time, runner elapsed time, metadata elapsed time, and ledger elapsed time for the smoke and full run.

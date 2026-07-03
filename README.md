@@ -50,6 +50,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
+| TinyLlama INT4 full-matrix preset | Complete |
 
 ## Next Milestone 4
 
@@ -253,7 +254,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-221 passed, 2 warnings
+222 passed, 2 warnings
 ```
 
 ## Reproduce Artifacts
