@@ -160,6 +160,9 @@ documentation, long discussion, breaks, or overnight work.
 - If a remote command needs complex quoting, environment setup, log redirection,
   or exit-file capture, write a small shell script on the Pod and run that script
   instead of stacking quoting layers.
+- For local helper scripts created only to perform an edit, place them under WSL /tmp
+  rather than the repository, and remove them before status/commit. Do not create
+  repo-root .tmp_*.py files for transient edits.
 - If the managed filesystem sandbox blocks a WSL operation, retry the same simple
   operation with the approved escalation path instead of inventing a more complex
   quoting workaround.
