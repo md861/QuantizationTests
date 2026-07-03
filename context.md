@@ -296,6 +296,8 @@ Potential future experiments:
 ---
 
 # Important Notes
+Agent shell note: prefer WSL-native repo commands and local helpers for routine work. Avoid complex PowerShell-mediated one-liner edits against WSL files; PowerShell, wsl.exe, Bash, Perl, and sed can each consume quoting and escaping differently. Keep pipelines inside bash -lc, use apply_patch when available, otherwise use small inspectable WSL line-based edits, and treat WSL Access is denied failures as sandbox/launch-context boundaries that should be retried through the approved path.
+
 
 This project is educational and research-oriented.
 
