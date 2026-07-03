@@ -17,6 +17,7 @@ from experiments.transformer_experiment import (
     _common_method_keys,
     _dequantize_method,
     _effective_top_width_pair_fractions,
+    _configured_method_keys,
     _extract_weight,
     _fraction_tag,
     _get_linear_layers,
@@ -457,3 +458,23 @@ def test_int8_logit_drift_le_int4(experiment_results):
     mse4 = next(r.logit_mse for r in lr if r.method == "global" and r.bitwidth == 4)
     mse8 = next(r.logit_mse for r in lr if r.method == "global" and r.bitwidth == 8)
     assert mse8 <= mse4 + 1e-7, "INT8 global logit drift should not exceed INT4"
+
+
+def test_configured_method_keys_filters_logit_methods():
+    class DummyLinear(torch.nn.Linear):
+        pass
+
+    layers = {"a": DummyLinear(4, 4, bias=False)}
+    config = TransformerConfig(
+        bitwidths=[4],
+        row_group_sizes=[4, 8],
+        row_group_fractions=[],
+        top_width_pair_fractions=[],
+        logit_only=True,
+        logit_method_names=["global", "row_grouped_g4"],
+    )
+
+    assert _configured_method_keys(config, layers) == [
+        ("global", 4),
+        ("row_grouped_g4", 4),
+    ]

@@ -4738,3 +4738,18 @@ Full suite: 222 passed, 2 warnings in 21.10s
 ```
 
 Next RunPod action: sync this optimization, rerun the one-text matrix smoke, and use its elapsed time to update the full 256-text runtime projection before launching the full step 3 job.
+
+## Session: 2026-07-03 - Milestone 4 logit-only project matrix path
+
+Added a `--logit-only` runner mode for Milestone 4 project-method comparisons. This skips per-layer weight and activation reconstruction tables and evaluates only end-to-end logit/loss/perplexity metrics, matching the shared comparison surface with bitsandbytes. The mode also supports `--logit-methods` for timing smoke subsets, and benchmark metadata records whether logit-only mode and method filters were used.
+
+This became necessary after two all-layer one-text TinyLlama smokes exceeded one hour each: the full Milestone 3 harness was spending too much time on CPU-side reconstruction/activation bookkeeping before reaching the shared bnb comparison metrics.
+
+Verification:
+
+```text
+Focused runner/transformer tests: 51 passed, 2 warnings in 9.88s
+Full suite: 224 passed, 2 warnings in 19.82s
+```
+
+Next RunPod action: sync this commit, run a one-text `--logit-only` matrix smoke, then update the full 256-text runtime projection before launching the step 3 job.

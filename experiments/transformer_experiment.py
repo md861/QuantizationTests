@@ -89,6 +89,8 @@ class TransformerConfig:
     incremental_results: bool = False
     delete_hf_cache_after: bool = False
     device: str = "auto"
+    logit_only: bool = False
+    logit_method_names: Optional[list[str]] = None
     # Optional progress callback: on_progress(phase, done, total)
     # phase is "layer" or "logit"; done and total are int counts.
     on_progress: object = field(default=None, repr=False, compare=False)
@@ -205,33 +207,41 @@ def run_transformer_experiment(
     method_keys_by_layer: dict[str, dict[tuple[str, int], None]] = {}
     n_layers = len(layers)
 
-    for layer_idx, (layer_name, module) in enumerate(layers.items()):
-        w = _extract_weight(module)
-        print(f"  {layer_name}: shape={w.shape}")
-        wr, method_deqs = _run_weight_experiment(
+    if config.logit_only:
+        method_keys = _configured_method_keys(
             config,
-            layer_name,
-            w,
+            layers,
             top_width_pair_fractions=top_width_pair_fractions,
         )
-        weight_records.extend(wr)
-        ar = _run_activation_experiment(
-            model,
-            token_inputs,
-            layer_name,
-            module,
-            w,
-            method_deqs,
-            config.model_name,
-        )
-        activation_records.extend(ar)
-        if config.incremental_results:
-            _append_weight_csv(weight_csv_path, wr)
-            _append_activation_csv(activation_csv_path, ar)
-        method_keys_by_layer[layer_name] = dict.fromkeys(method_deqs)
-        del method_deqs
-        if config.on_progress is not None:
-            config.on_progress("layer", layer_idx + 1, n_layers)
+        method_keys_by_layer = {layer_name: dict.fromkeys(method_keys) for layer_name in layers}
+    else:
+        for layer_idx, (layer_name, module) in enumerate(layers.items()):
+            w = _extract_weight(module)
+            print(f"  {layer_name}: shape={w.shape}")
+            wr, method_deqs = _run_weight_experiment(
+                config,
+                layer_name,
+                w,
+                top_width_pair_fractions=top_width_pair_fractions,
+            )
+            weight_records.extend(wr)
+            ar = _run_activation_experiment(
+                model,
+                token_inputs,
+                layer_name,
+                module,
+                w,
+                method_deqs,
+                config.model_name,
+            )
+            activation_records.extend(ar)
+            if config.incremental_results:
+                _append_weight_csv(weight_csv_path, wr)
+                _append_activation_csv(activation_csv_path, ar)
+            method_keys_by_layer[layer_name] = dict.fromkeys(method_deqs)
+            del method_deqs
+            if config.on_progress is not None:
+                config.on_progress("layer", layer_idx + 1, n_layers)
 
     scope = (
         f"single_layer:{config.single_layer_name}"
@@ -599,6 +609,48 @@ def _common_method_keys(
         common.intersection_update(methods)
 
     return [key for key in layer_methods[0] if key in common]
+
+
+def _configured_method_keys(
+    config: TransformerConfig,
+    layers: dict,
+    top_width_pair_fractions: Optional[list[float]] = None,
+) -> list[tuple[str, int]]:
+    """Return configured method keys common to every selected layer."""
+    if top_width_pair_fractions is None:
+        top_width_pair_fractions = config.top_width_pair_fractions
+
+    ordered: list[tuple[str, int]] = []
+    common: Optional[set[tuple[str, int]]] = None
+    allowed = set(config.logit_method_names or [])
+
+    for module in layers.values():
+        n_rows, _ = _extract_weight(module).shape
+        group_sizes = _resolve_group_sizes(
+            config.row_group_sizes, config.row_group_fractions, n_rows
+        )
+        layer_keys: list[tuple[str, int]] = []
+        for bitwidth in config.bitwidths:
+            layer_keys.append(("global", bitwidth))
+            layer_keys.extend((f"row_grouped_g{g}", bitwidth) for g in group_sizes)
+            layer_keys.extend((f"scale_row_g{g}", bitwidth) for g in group_sizes)
+            for fraction in top_width_pair_fractions:
+                tag = _fraction_tag(float(fraction))
+                layer_keys.extend(
+                    (f"top_width_rotate_{tag}_scale_row_g{g}", bitwidth)
+                    for g in group_sizes
+                )
+        if allowed:
+            layer_keys = [key for key in layer_keys if key[0] in allowed]
+        if common is None:
+            ordered = layer_keys
+            common = set(layer_keys)
+        else:
+            common.intersection_update(layer_keys)
+
+    if common is None:
+        return []
+    return [key for key in ordered if key in common]
 
 
 def _dequantize_method(

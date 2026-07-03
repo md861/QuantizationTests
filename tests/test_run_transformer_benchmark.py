@@ -21,6 +21,8 @@ def _args(**overrides):
         eval_text_file=None,
         max_eval_texts=None,
         device="auto",
+        logit_only=False,
+        logit_methods=None,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -88,6 +90,8 @@ def test_config_honors_local_files_and_overrides(tmp_path):
     assert config.delete_hf_cache_after is True
     assert config.incremental_results is False
     assert config.device == "cpu"
+    assert config.logit_only is False
+    assert config.logit_method_names is None
 
 
 def test_config_loads_eval_text_file(tmp_path):
@@ -100,6 +104,15 @@ def test_config_loads_eval_text_file(tmp_path):
 
     assert config.calibration_texts == ["One text."]
     assert config.calibration_text_source == str(text_path)
+
+
+def test_config_honors_logit_only_method_filter():
+    config = runner.build_config(
+        _args(logit_only=True, logit_methods="global,row_grouped_g4")
+    )
+
+    assert config.logit_only is True
+    assert config.logit_method_names == ["global", "row_grouped_g4"]
 
 
 def test_configure_threads_validates_positive_count():

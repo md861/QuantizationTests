@@ -52,6 +52,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
 | TinyLlama INT4 full-matrix preset | Complete |
 | Row-grouped quantization vectorized implementation | Complete |
+| TinyLlama project logit-only matrix path | Complete |
 
 ## Next Milestone 4
 
@@ -84,7 +85,9 @@ The first controlled TinyLlama matrix is locked: original Hugging Face
 reference, project INT4 global, project INT4 row_grouped_g4/g8, project INT4
 scale_row_g4/g8, and bitsandbytes NF4 float16. Do not include rotations in this
 first matrix; use the tracked 256-record WikiText-2 resource and compare bnb to
-the project methods only on shared end-to-end fields.
+the project methods only on shared end-to-end fields. Use `--logit-only` for
+Milestone 4 project-method runs when weight/activation reconstruction tables are
+not part of the comparison.
 
 Current RunPod setup notes:
 
@@ -255,7 +258,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-222 passed, 2 warnings
+224 passed, 2 warnings
 ```
 
 ## Reproduce Artifacts

@@ -1304,9 +1304,9 @@ memory, and artifact size. Do not compare bitsandbytes against project
 weight/activation reconstruction tables.
 
 Next execution steps: run a small project-method smoke for the dedicated
-`tinyllama-1.1b-int4-matrix` preset, then run the project INT4 matrix and
-bitsandbytes NF4 256-text eval as separate detached RunPod jobs with
-ledger/lab-book updates after each segment.
+`tinyllama-1.1b-int4-matrix` preset using `--logit-only`, then run the project
+INT4 logit-only matrix and bitsandbytes NF4 256-text eval as separate detached
+RunPod jobs with ledger/lab-book updates after each segment.
 
 ## Appendix A. Reproducing Current Figures
 

@@ -218,6 +218,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Use at most this many texts from --eval-text-file.",
     )
+    parser.add_argument(
+        "--logit-only",
+        action="store_true",
+        help="Skip per-layer weight/activation metrics and run only end-to-end logit/loss metrics.",
+    )
+    parser.add_argument(
+        "--logit-methods",
+        default=None,
+        help="Comma-separated method names to evaluate in --logit-only mode.",
+    )
     return parser
 
 
@@ -263,7 +273,16 @@ def build_config(args: argparse.Namespace) -> TransformerConfig:
         and preset.incremental_results,
         delete_hf_cache_after=bool(args.delete_hf_cache_after),
         device=args.device,
+        logit_only=bool(args.logit_only),
+        logit_method_names=_parse_logit_methods(args.logit_methods),
     )
+
+
+def _parse_logit_methods(value: Optional[str]) -> Optional[list[str]]:
+    if value is None:
+        return None
+    methods = [part.strip() for part in value.split(",") if part.strip()]
+    return methods or None
 
 
 def configure_threads(torch_threads: Optional[int]) -> None:
@@ -355,6 +374,8 @@ def _collect_benchmark_metadata(
         "row_group_sizes": list(config.row_group_sizes),
         "row_group_fractions": list(config.row_group_fractions),
         "top_width_pair_fractions": list(config.top_width_pair_fractions),
+        "logit_only": bool(config.logit_only),
+        "logit_method_names": list(config.logit_method_names or []),
         "device_request": args.device,
         "resolved_device": _resolved_device_label(args.device),
         "cuda_available": cuda_available,
@@ -420,6 +441,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"Row group sizes: {config.row_group_sizes}")
     print(f"Row group fractions: {config.row_group_fractions or 'off'}")
     print(f"Rotations: {config.top_width_pair_fractions or 'off'}")
+    print(f"Logit only: {config.logit_only}")
+    print(f"Logit methods: {config.logit_method_names or 'all'}")
     print(f"Single layer: {config.single_layer_name or 'all'}")
     print(f"Device request: {args.device}")
     print(f"Resolved device: {_resolved_device_label(args.device)}")

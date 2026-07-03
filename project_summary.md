@@ -625,7 +625,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-222 passed, 2 warnings
+224 passed, 2 warnings
 ```
 
 ## Design Conventions
@@ -730,8 +730,8 @@ memory, and artifact size.
 Next steps after the first bnb smoke:
 
 1. Dedicated TinyLlama full-matrix preset added as `tinyllama-1.1b-int4-matrix` with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.
-2. Run the project-method small smoke for the matrix preset again after the row-grouped vectorization fix, then use that elapsed time to refine the full 256-text estimate.
-3. Run the project INT4 matrix and bitsandbytes NF4 256-text eval as separate RunPod jobs under detached tmux, writing logs/results under `/workspace`.
+2. Run the project-method small smoke with `tinyllama-1.1b-int4-matrix --logit-only --max-eval-texts 1`, then use that elapsed time to refine the full 256-text estimate.
+3. Run the project INT4 logit-only matrix and bitsandbytes NF4 256-text eval as separate RunPod jobs under detached tmux, writing logs/results under `/workspace`.
 4. Update RunPod ledger, lab book, research draft, and project summary after each GPU segment; stop the Pod unless another GPU job is ready within about 30 minutes.
 
 Regression and artifact acceptance checks:
