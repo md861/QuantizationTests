@@ -51,6 +51,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
 | TinyLlama INT4 full-matrix preset | Complete |
+| Row-grouped quantization vectorized implementation | Complete |
 
 ## Next Milestone 4
 

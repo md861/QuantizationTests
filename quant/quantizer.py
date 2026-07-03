@@ -143,19 +143,19 @@ def row_grouped_symmetric_quantize(
     dequantized = np.zeros_like(matrix, dtype=matrix.dtype)
     all_scales = np.zeros((n_cols, n_row_groups), dtype=np.float64)
 
-    for col in range(n_cols):
-        for g, row_start in enumerate(range(0, n_rows, row_group_size)):
-            row_end = min(row_start + row_group_size, n_rows)
-            group = matrix[row_start:row_end, col]
-            scale = _scale_for_values(group, qmax)
-            all_scales[col, g] = scale
+    for g, row_start in enumerate(range(0, n_rows, row_group_size)):
+        row_end = min(row_start + row_group_size, n_rows)
+        group = matrix[row_start:row_end, :]
+        scales = np.max(np.abs(group), axis=0).astype(np.float64) / qmax
+        scales[scales == 0.0] = 1.0
+        all_scales[:, g] = scales
 
-            group_q = np.round(group / scale)
-            group_q = np.clip(group_q, qmin, qmax).astype(output_dtype)
-            quantized[row_start:row_end, col] = group_q
-            dequantized[row_start:row_end, col] = (
-                group_q.astype(np.float64) * scale
-            ).astype(matrix.dtype, copy=False)
+        group_q = np.round(group / scales)
+        group_q = np.clip(group_q, qmin, qmax).astype(output_dtype)
+        quantized[row_start:row_end, :] = group_q
+        dequantized[row_start:row_end, :] = (
+            group_q.astype(np.float64) * scales
+        ).astype(matrix.dtype, copy=False)
 
     return QuantizationResult(
         quantized=quantized,

@@ -4723,3 +4723,18 @@ Full suite: 222 passed, 2 warnings in 19.49s
 ```
 
 Runtime planning for the full project INT4 matrix: budget 4-6 hours on the RTX 4000 Ada worker, with a wider 3-8 hour guardrail until the matrix smoke gives a better calibration point. Record command wall time, runner elapsed time, metadata elapsed time, and ledger elapsed time for the smoke and full run.
+
+## Session: 2026-07-03 - Row-grouped TinyLlama performance fix
+
+The first all-layer one-text TinyLlama matrix smoke was stopped after about 60 minutes because it had only written 95 weight and 95 activation rows and GPU utilization was idle/low. Diagnosis: `row_grouped_symmetric_quantize` looped in Python over every column and every row group, which is too slow for TinyLlama MLP matrices.
+
+Vectorized `row_grouped_symmetric_quantize` by processing each row group across all columns at once. This preserves the same scale layout `(n_cols, n_row_groups)` while removing the inner Python column loop.
+
+Verification:
+
+```text
+Focused quantizer/transformer/runner tests: 73 passed, 2 warnings in 9.58s
+Full suite: 222 passed, 2 warnings in 21.10s
+```
+
+Next RunPod action: sync this optimization, rerun the one-text matrix smoke, and use its elapsed time to update the full 256-text runtime projection before launching the full step 3 job.

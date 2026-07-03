@@ -257,6 +257,7 @@ Implements symmetric full-matrix quantization and stores both integer codes and 
   - Quantizes contiguous **row** groups within each column independently (the GPTQ/AWQ approach).
   - Gives $n_{\mathrm{cols}} \times \lceil n_{\mathrm{rows}} / g \rceil$ scales in total.
   - Outliers in one row-group only inflate that group's scale; all other groups keep tight precision.
+  - Implementation is vectorized by row group across all columns to keep TinyLlama-scale INT4 runs feasible.
 - `quantize_int8_row_grouped(matrix, row_group_size=...)`
 - `quantize_int4_row_grouped(matrix, row_group_size=...)`
 
@@ -729,7 +730,7 @@ memory, and artifact size.
 Next steps after the first bnb smoke:
 
 1. Dedicated TinyLlama full-matrix preset added as `tinyllama-1.1b-int4-matrix` with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.
-2. Run the project-method small smoke for the matrix preset before the full 256-text job.
+2. Run the project-method small smoke for the matrix preset again after the row-grouped vectorization fix, then use that elapsed time to refine the full 256-text estimate.
 3. Run the project INT4 matrix and bitsandbytes NF4 256-text eval as separate RunPod jobs under detached tmux, writing logs/results under `/workspace`.
 4. Update RunPod ledger, lab book, research draft, and project summary after each GPU segment; stop the Pod unless another GPU job is ready within about 30 minutes.
 
