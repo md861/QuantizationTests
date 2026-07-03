@@ -1278,29 +1278,19 @@ These limitations are useful: they define the next experiments rather than weake
 
 ## 19. Next Work
 
-The next research steps move from harness validation to transformer-level
-evidence on less degenerate models and evaluation text.
+Milestone 3 is closed: the planned small-transformer baselines, INT4 rotation presets, larger held-out text reruns, and rotation synthesis are complete. The active next work is Milestone 4 larger-model benchmarking.
 
-1. ~~Run the same all-layer harness on `EleutherAI/pythia-14m`~~ — **complete** (Section 14).
-2. ~~Run the same all-layer harness on `EleutherAI/pythia-70m`~~ — **complete** (Section 15).
-3. ~~Run the same all-layer harness on `distilgpt2`~~ — **complete** (Section 16).
-4. ~~Run INT4 rotation presets on Pythia-14M, Pythia-70M, and distilgpt2~~ — **complete** (Sections 14.3, 15.3, and 16.3).
-5. ~~Synthesize the Milestone 3 rotation findings into a concise conclusion~~ — **complete** (Section 17).
-6. ~~Replace or supplement the built-in calibration strings with a larger held-out text batch for loss/perplexity evaluation~~ — **complete** (Appendix A).
-7. ~~Re-run a small, targeted subset on the larger text batch: Pythia-14M g4, Pythia-70M g4, and distilgpt2 g4 for row-grouped vs rotation+scale+row-grouped~~ — **complete** (Section 17).
-8. Start Milestone 4: scale to larger open-source LLMs and compare against GPTQ/AWQ/bitsandbytes published baselines.
+Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardware/cache audit is complete, RunPod is configured as the GPU benchmark worker, and the first TinyLlama 1.1B single-layer INT4 smoke has passed. That smoke is a readiness check only, not yet a research-grade benchmark.
 
-Milestone 4 should begin with a deliberately narrow first target:
+The next Milestone 4 steps are:
 
-1. Audit available RAM, disk, HuggingFace cache state, and expected CPU runtime.
-2. Select the smallest feasible larger model target, preferably TinyLlama 1.1B
-   if it fits the local environment.
-3. Choose the first baseline set: original model, project row-grouped INT4, and
-   one external baseline from GPTQ, AWQ, or bitsandbytes.
-4. Run a single-layer or small-layer smoke test before a full-model run.
-5. Run the full benchmark from detached tmux and record elapsed time.
-6. Compare perplexity/logit quality, runtime, memory pressure, and artifact size.
-7. Document the result before adding the next model or baseline.
+1. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
+2. Choose a reproducible evaluation text source larger than the current tiny smoke/WikiText-style samples, and document or track it so perplexity comparisons are interpretable.
+3. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
+4. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
+5. Run full benchmarks only from detached tmux under persistent /workspace, recording elapsed time, GPU type, VRAM, peak memory, commit hash, result counts, and estimated spend.
+6. Compare perplexity/logit quality, runtime, memory pressure, and artifact size across the project method and the first external baseline.
+7. Document the result and update the RunPod usage ledger before adding the next model or baseline.
 
 ## Appendix A. Reproducing Current Figures
 

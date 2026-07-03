@@ -45,7 +45,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Comparative sweep experiment | Complete |
 | Transformer harness (weight + activation + logit metrics) | Complete |
 | Milestone 4 GPU-aware runner metadata | Complete |
-| TinyLlama 1.1B smoke preset | Ready for RunPod smoke |
+| TinyLlama 1.1B smoke preset | Complete |
 
 ## Next Milestone 4
 
@@ -56,28 +56,16 @@ the local machine unless a GPU-only failure must be debugged remotely. Raw
 RunPod SSH details, keys, account identifiers, and Pod-specific connection
 strings must not be committed.
 
-1. First larger model target selected: TinyLlama 1.1B, with a single-layer INT4 smoke preset added to the safe benchmark runner.
-2. Use the runner download/cache path before launching any quantization run; it now writes `benchmark_metadata.json` with device, CUDA, GPU, VRAM, commit, elapsed-time, and count fields.
-3. Define a narrow baseline matrix: original model, project row-grouped INT4
-   g4/g8-style paths where feasible, and one or more library baselines from
-   GPTQ, AWQ, or bitsandbytes.
-4. Extend evaluation text beyond the small WikiText-2 sample while keeping a
-   reproducible tracked or documented evaluation source.
-5. Run one smoke benchmark on a single layer or small layer subset before any
-   full-model run.
-6. Run full-model benchmarks only from detached tmux, writing logs/results under
-   persistent `/workspace` on RunPod and recording elapsed time, GPU type, VRAM,
-   peak memory, commit hash, and estimated spend in the bookkeeping docs.
-7. Stop the RunPod Pod as soon as benchmark execution finishes unless another
-   GPU benchmark is already queued to start within about 30 minutes. For a
-   planned same-day batch, keep the Pod running only between short back-to-back
-   GPU jobs with an explicit next command and stop point; otherwise stop it and
-   pull CSVs/logs/results back locally for analysis and documentation.
+1. Treat the completed TinyLlama single-layer INT4 RunPod smoke as a readiness check only, not a research-grade benchmark.
+2. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
+3. Extend evaluation text beyond the small WikiText-2 sample while keeping the source reproducible, tracked, or explicitly documented.
+4. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
+5. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
+6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, commit hash, and estimated spend in the bookkeeping docs.
+7. Stop the RunPod Pod as soon as benchmark execution finishes unless another GPU benchmark is already queued to start within about 30 minutes; otherwise pull CSVs/logs/results back locally for analysis and documentation.
 8. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger after every Pod segment.
-9. Compare quality, runtime, memory pressure, and artifact size across the
-   project method and external baselines.
-10. Update the research draft, README, project summary, and lab book after each
-   completed model.
+9. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines.
+10. Update the research draft, README, project summary, and lab book after each completed model.
 
 Current RunPod setup notes:
 

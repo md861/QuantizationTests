@@ -117,27 +117,20 @@ The goal is to reduce outlier concentration and improve low-bit quantization qua
 Milestone 1 (Quantization Sandbox), Milestone 2 (ParoQuant Core), and
 Milestone 3 (Tiny Transformer Integration) are complete.
 
-The project is now ready to begin:
+The project has now begun:
 
 # Milestone 4 — Real LLM Benchmarking
 
 Planned steps:
 
-1. Audit local hardware, disk, model cache, and runtime constraints before
-   selecting each larger model.
-2. Start with the smallest feasible larger target, preferably TinyLlama 1.1B
-   if local resources allow it.
-3. Establish a reproducible evaluation text source larger than the current
-   WikiText-2 sample.
-4. Run smoke tests on one layer or a small layer subset before any full-model
-   benchmark.
-5. Benchmark the project INT4 row-grouped path and any feasible rotation/scaling
-   variants.
-6. Compare against external quantization baselines: GPTQ, AWQ, and/or
-   bitsandbytes.
-7. Record wall-clock runtime, memory pressure, output quality, and artifact size.
-8. Update the research draft, README, project summary, and lab book after each
-   model.
+1. Local hardware/cache audit is complete; RunPod is configured as the GPU benchmark worker.
+2. The first larger target is TinyLlama 1.1B; its single-layer INT4 RunPod smoke passed and is a readiness check only.
+3. Define the controlled TinyLlama benchmark matrix before any full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
+4. Establish a reproducible evaluation text source larger than the current tiny smoke/WikiText-style samples.
+5. Estimate RunPod runtime/cost before each GPU run and run another narrow smoke whenever the matrix, evaluation text, dependencies, or GPU class changes.
+6. Run full benchmarks only from detached tmux under persistent /workspace, recording elapsed time, GPU, VRAM, peak memory, commit hash, result counts, and estimated spend.
+7. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines.
+8. Update the research draft, README, project summary, lab book, and RunPod usage ledger after each model or GPU segment.
 
 ---
 

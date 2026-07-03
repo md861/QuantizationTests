@@ -4653,3 +4653,18 @@ Representative smoke result: INT4 row-grouped g4 on this single layer had weight
 Budget tracking update: added ledger rows for command-wrapper debug overhead, download/cache, and benchmark smoke. The first real smoke used about `$0.02` compute at the observed `$0.26/hr` rate. Total RunPod dashboard estimate is now about `$1.42`, with the project budget ceiling recorded as about GBP 200.
 
 Next step: do not launch a full TinyLlama benchmark yet. First define the controlled Milestone 4 matrix, evaluation text source, expected runtime/cost, and whether external baselines need extra packages or a larger GPU class. The RTX 4000 Ada has ample memory headroom for the single-layer smoke, but this does not automatically approve full-model or external-baseline runs.
+
+
+## Session: 2026-07-03 - Milestone 4 next-step documentation cleanup
+
+Updated the Milestone 4 handoff docs after reviewing the repo state and blueprint. The TinyLlama 1.1B single-layer RunPod smoke is now treated consistently as complete but only as a readiness check, not as a research-grade benchmark.
+
+Current Milestone 4 direction:
+- define the controlled TinyLlama comparison matrix before any full run;
+- choose a reproducible evaluation text source larger than the tiny smoke/WikiText-style samples;
+- estimate RunPod runtime and cost before each GPU run;
+- run another narrow smoke whenever comparison matrix, eval text, dependencies, or GPU class changes;
+- run full benchmarks only from detached tmux under persistent /workspace;
+- update RunPod usage accounting and research docs after each GPU segment.
+
+Also added post-restart autonomy checks to the handover diagnostic in project_summary.md so future agents verify PowerShell/WSL tool health after VS Code restarts. Local Codex helper files remain ignored via .git/info/exclude and are not intended for commit.
