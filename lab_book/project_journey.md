@@ -4859,3 +4859,32 @@ WikiText-2 subset result, not a general claim against NF4.
 
 Bookkeeping updates: research draft, project summary, README, RunPod usage
 ledger, and RunPod dashboard were updated with the completed Step 4 row.
+
+## Session: 2026-07-04 - Break handover after first TinyLlama comparison
+
+Prepared the project for a clean pause after completing the first controlled
+Milestone 4 TinyLlama comparison. Local, GitHub, and RunPod were synced at
+commit `6d6009d` before this handover pass, and the RunPod worker was verified
+idle after the benchmark with GPU memory back at about 2 MiB and no active
+`tmux` sessions reported.
+
+Current state:
+
+- Milestone 3 is closed.
+- The first Milestone 4 TinyLlama project matrix is complete and documented.
+- The first external baseline, bitsandbytes NF4 float16 on the same 256-record
+  WikiText-2 resource, is complete and documented.
+- On this bounded subset, project `scale_row_g4` is the quality winner
+  (`0.112199` logit MSE, `0.901881` top-5, `0.986014` PPL ratio), while
+  bitsandbytes NF4 is the faster single-method runtime baseline (`231.4s`
+  runner elapsed, `6m17s` wall).
+- The RunPod bootstrap helper is committed at `tools/runpod_bootstrap.sh` so new
+  or migrated Pods can reinstall ephemeral container tools such as `tmux` and
+  re-check GPU/cache/venv state.
+
+Next recommended action after the break: stop the current RunPod Pod unless a
+new GPU benchmark will start within about 30 minutes, then choose the next
+external-baseline direction: GPTQ, AWQ, another bitsandbytes variant, or a
+different project INT4 model/run. Keep raw RunPod connection details out of the
+repo and continue using `/workspace/hf_cache` for persistent Hugging Face
+artifacts.

@@ -757,10 +757,10 @@ matrix.
 
 Next steps after the first TinyLlama comparison:
 
-1. Dedicated TinyLlama full-matrix preset added as `tinyllama-1.1b-int4-matrix` with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.
-2. Project-method `tinyllama-1.1b-int4-matrix --logit-only` 256-text run is complete at commit `ceddbaf`: runner elapsed `1004.4s (16.7 min)`, command wall `19m20s`, peak CUDA allocated `2274 MB`, counts weight=0 activation=0 logit=5.
-3. Decide the next external-baseline direction: GPTQ, AWQ, another bnb variant, or a different project INT4 model/run.
-4. Update RunPod ledger, lab book, research draft, and project summary after each GPU segment; stop the Pod unless another GPU job is ready within about 30 minutes.
+1. Stop the current RunPod Pod unless another GPU benchmark is ready to launch within about 30 minutes.
+2. Decide the next external-baseline direction: GPTQ, AWQ, another bnb variant, or a different project INT4 model/run.
+3. Before the next GPU segment, estimate runtime/cost from the benchmark timing table, run `tools/runpod_bootstrap.sh` on any new or migrated Pod, and launch long jobs inside detached `tmux`.
+4. Continue updating RunPod ledger, lab book, research draft, README, and project summary after each GPU segment.
 
 Regression and artifact acceptance checks:
 
