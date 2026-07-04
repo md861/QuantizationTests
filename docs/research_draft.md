@@ -1276,9 +1276,9 @@ The current results are intentionally preliminary.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 19. Next Work
+## 19. Milestone 4 TinyLlama Benchmarking
 
-Milestone 3 is closed: the planned small-transformer baselines, INT4 rotation presets, larger held-out text reruns, and rotation synthesis are complete. The active next work is Milestone 4 larger-model benchmarking.
+Milestone 3 is closed: the planned small-transformer baselines, INT4 rotation presets, larger held-out text reruns, and rotation synthesis are complete. Milestone 4 is now the active larger-model benchmarking phase.
 
 Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardware/cache audit is complete, RunPod is configured as the GPU benchmark worker, and the first TinyLlama 1.1B single-layer INT4 smoke has passed. That smoke is a readiness check only, not yet a research-grade benchmark.
 

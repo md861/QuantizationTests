@@ -71,6 +71,10 @@ should remember:
 - Network volumes reduce rebuild friction but can make virtualenv installs slow
   because they write many small files. Run dependency installs in `tmux`, log to
   `/workspace`, and avoid unnecessary package upgrades.
+- Network volumes do not preserve OS packages installed into the Pod container
+  layer. Tools installed with `apt-get`, such as `tmux`, may need reinstalling
+  after Pod replacement or migration unless they are baked into the selected
+  template/image.
 - Volume disk can be simpler for one-off disposable Pods, but it is less useful
   here because we want cache, repo, venv, logs, and artifacts to survive Pod
   replacement.
@@ -127,14 +131,17 @@ Project budget ceiling: keep total RunPod benchmark spend under about GBP 200. T
 Before spending RunPod credits:
 
 1. Make the smallest relevant local dry run pass.
-2. State the expected duration and cost risk to the user.
-3. Confirm the target commit hash.
-4. Run a single-layer or small-subset smoke benchmark first.
-5. Launch long jobs only inside detached `tmux`.
-6. Write logs and results under persistent `/workspace`.
-7. Record GPU type, VRAM, peak memory, commit hash, elapsed time, and output
+2. On a new or migrated Pod, run `tools/runpod_bootstrap.sh` from
+   `/workspace/PQ_project` to verify the repo, GPU, venv, Hugging Face cache,
+   and required system tools. Use `--no-install` for a read-only check.
+3. State the expected duration and cost risk to the user.
+4. Confirm the target commit hash.
+5. Run a single-layer or small-subset smoke benchmark first.
+6. Launch long jobs only inside detached `tmux`.
+7. Write logs and results under persistent `/workspace`.
+8. Record GPU type, VRAM, peak memory, commit hash, elapsed time, and output
    paths in the bookkeeping docs.
-8. Pull back only artifacts needed for local analysis and reporting.
+9. Pull back only artifacts needed for local analysis and reporting.
 
 ## Stop-Window Policy
 
