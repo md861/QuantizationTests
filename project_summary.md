@@ -193,6 +193,7 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1137.2s (19.0 min) | WikiText-2 validation sample, 7 texts |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 1 | INT4 | none | 228.3s (3.8 min) | RunPod RTX 4000 Ada smoke, single `q_proj` layer, 1 calibration text, peak CUDA allocated 2124 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 154 | INT4 logit-only matrix | none | 1004.4s (16.7 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, 5 project methods, peak CUDA allocated 2274 MB |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | bitsandbytes NF4 float16 | none | 231.4s (3.9 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, peak CUDA allocated 2274 MB |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -745,17 +746,20 @@ Group size 4 is stronger than group size 8 on logit MSE/top-5, and scaling is
 neutral-to-slightly positive at g4. This is a project logit-only result; do not
 compare it against bitsandbytes on weight/activation reconstruction fields.
 
-Pre-Step-4 metric inventory: the one-record bitsandbytes NF4 smoke is complete
-(logit MSE 0.311986, top-5 0.865285, loss delta +0.044535, PPL ratio 1.04554,
-44.2s runner elapsed, peak CUDA allocated 2173 MB), and the project 256-text
-logit-only matrix is complete as shown above. The bitsandbytes NF4 256-text row
-remains pending and is the next required run before external-baseline comparison.
+Completed external-baseline comparison: bitsandbytes NF4 float16 on the same
+256-record WikiText-2 resource produced logit MSE 0.253299, top-5 0.857917,
+loss delta +0.023453, and PPL ratio 1.023730. Runtime was 231.4s runner elapsed
+and 6m17s command wall, with peak CUDA allocated 2274 MB. On this bounded
+TinyLlama subset, the best project row (`scale_row_g4`) is higher quality
+(logit MSE 0.112199, top-5 0.901881, PPL ratio 0.986014), while bnb is faster
+because it evaluates one external method rather than the five-row project
+matrix.
 
-Next steps after the project INT4 matrix:
+Next steps after the first TinyLlama comparison:
 
 1. Dedicated TinyLlama full-matrix preset added as `tinyllama-1.1b-int4-matrix` with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.
 2. Project-method `tinyllama-1.1b-int4-matrix --logit-only` 256-text run is complete at commit `ceddbaf`: runner elapsed `1004.4s (16.7 min)`, command wall `19m20s`, peak CUDA allocated `2274 MB`, counts weight=0 activation=0 logit=5.
-3. Restore/update RunPod SSH access if needed, then run the bitsandbytes NF4 256-text eval on the same WikiText-2 resource as the next separate RunPod job, writing logs/results under `/workspace`.
+3. Decide the next external-baseline direction: GPTQ, AWQ, another bnb variant, or a different project INT4 model/run.
 4. Update RunPod ledger, lab book, research draft, and project summary after each GPU segment; stop the Pod unless another GPU job is ready within about 30 minutes.
 
 Regression and artifact acceptance checks:

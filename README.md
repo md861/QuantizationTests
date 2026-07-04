@@ -113,14 +113,19 @@ Current RunPod setup notes:
 - First TinyLlama bitsandbytes NF4 one-record smoke passed at commit `4b5d5d0`:
   `44.2s` runner elapsed, peak CUDA allocated `2173 MB`, logit MSE `0.311986`,
   top-5 overlap `0.865`, loss delta `+0.044535`, and perplexity ratio `1.04554`.
-  Treat this as a readiness smoke, not the final research comparison; the
-  256-text bitsandbytes Step 4 row is still pending.
+  Treat this as a readiness smoke, not the final research comparison.
 - First TinyLlama project INT4 logit-only 256-text matrix passed at commit
   `ceddbaf`: `1004.4s (16.7 min)` runner elapsed, `19m20s` command wall,
   peak CUDA allocated `2274 MB`, with `scale_row_g4` giving PPL ratio `0.9860`
   and top-5 overlap `0.9019` on the tracked WikiText-2 resource.
   The result makes `global` INT4 the failure/control row and shows g4 row grouping
   is essentially loss-neutral on this bounded TinyLlama validation subset.
+- First TinyLlama bitsandbytes NF4 256-text run passed at commit `92b4f5e`:
+  `231.4s` runner elapsed, `6m17s` command wall, peak CUDA allocated `2274 MB`,
+  logit MSE `0.253299`, top-5 overlap `0.857917`, loss delta `+0.023453`, and
+  perplexity ratio `1.023730`. On this bounded comparison, project
+  `scale_row_g4` has better quality, while bnb is faster because it evaluates a
+  single external method rather than the five project rows.
 
 ## Completed Milestone 3
 

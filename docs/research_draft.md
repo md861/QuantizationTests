@@ -1343,23 +1343,26 @@ all-layer one-text full-harness attempts were stopped after about one hour each
 because they were dominated by CPU-side reconstruction/activation bookkeeping
 rather than the shared end-to-end metrics.
 
-The remaining row in the first controlled TinyLlama matrix is bitsandbytes NF4
-`float16` on the same 256 WikiText-2 records. After that run, compare both
-result tables on the shared end-to-end fields only.
+The final row in the first controlled TinyLlama matrix, bitsandbytes NF4
+`float16`, completed on the same 256 WikiText-2 records at commit `92b4f5e`.
+Compare both result tables on the shared end-to-end fields only.
 
-Metrics already calculated before the Step 4 bitsandbytes 256-text run are:
+Completed shared-metric inventory:
 
 | Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime | Peak CUDA | Status |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | bitsandbytes NF4 smoke | 1 | 0.311986 | 0.865285 | +0.044535 | 1.04554 | 44.2s runner / 262.2s wall | 2173 MB allocated | Complete |
 | project INT4 logit-only smoke, `row_grouped_g4` | 1 | 0.117619 | 0.9078 | +0.0007 | 1.0007 | 264.1s runner / 7m8.5s wall | not recorded in available docs | Complete |
 | project INT4 logit-only 256-text, `scale_row_g4` | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall | 2274 MB allocated | Complete |
-| bitsandbytes NF4 256-text | 256 | pending | pending | pending | pending | pending | pending | Step 4 pending |
+| bitsandbytes NF4 256-text | 256 | 0.253299 | 0.857917 | +0.023453 | 1.023730 | 231.4s runner / 6m17s wall | 2274 MB allocated | Complete |
 
 The bnb smoke is useful only as a dependency/runtime sanity check because it used
-one record. The project 256-text row is the first research-grade project-method
-result for this matrix; the bnb 256-text row is still required before making the
-external-baseline comparison.
+one record. On the 256-record comparison, bitsandbytes NF4 is faster than the
+project logit-only matrix run because it evaluates one external method rather
+than five project methods, but its quality is weaker than the best project INT4
+row on this bounded subset: `scale_row_g4` has lower logit MSE, higher top-5
+overlap, and a slightly favorable loss/PPL delta. This result should be framed
+as a narrow TinyLlama/WikiText-2 subset finding, not a broad claim against NF4.
 
 ## Appendix A. Reproducing Current Figures
 

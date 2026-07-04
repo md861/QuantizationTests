@@ -4813,3 +4813,49 @@ Reran the handover stale-state check after the RunPod dashboard reconciliation c
 RunPod usage bookkeeping is reconciled for the current documented ledger: docs/runpod/README.md shows 201.5 minutes of logged work, the 5h5m telemetry reference, and the Step 3 project matrix costs. docs/runpod/usage_ledger.md includes the completed TinyLlama project INT4 logit-only 256-text run and the two aborted full-harness attempts that informed the logit-only path.
 
 The saved RunPod SSH alias is still refusing the current endpoint, so the next session should restore/update RunPod access before Step 4. Milestone 4 next work remains: run the bitsandbytes NF4 256-text evaluation on the same WikiText-2 resource, then compare only shared metrics against the project INT4 logit-only 256-text matrix.
+
+## Session: 2026-07-04 - TinyLlama bitsandbytes NF4 256-text baseline
+
+Restored RunPod access using the current Pod connection details supplied out of
+band, without committing raw SSH endpoints, ports, key paths, Pod IDs, or account
+details. Added and pushed `tools/runpod_bootstrap.sh` at commit `92b4f5e`, then
+synced `/workspace/PQ_project` to that commit. The bootstrap check verified the
+RTX 4000 Ada worker, `/workspace/hf_cache` at about 2.1 GB, the self-contained
+project venv, and installed missing container-layer tools `tmux` and `rsync`.
+
+Completed Step 4 of the first controlled TinyLlama Milestone 4 comparison:
+bitsandbytes NF4 `float16` on the same 256-record WikiText-2 raw validation
+resource used by the project INT4 matrix.
+
+Successful run:
+
+```text
+Runner: experiments.bitsandbytes_baseline
+Model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+Method: external_bitsandbytes_nf4_float16
+Eval source: docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt
+Eval count: 256
+Commit: 92b4f5e
+Runner elapsed: 231.4s (3.9 min)
+Command wall: 6m17s
+Peak CUDA allocated/reserved: 2273.896 MB / 2680 MB
+Artifacts: results/bitsandbytes_tinyllama_nf4_256/bitsandbytes_metadata.json,
+  results/bitsandbytes_tinyllama_nf4_256/bitsandbytes_logit_metrics.csv,
+  /workspace/pq_bnb_nf4_256.log
+```
+
+Result:
+
+| Method | Logit MSE | Logit cosine | Top-5 | Loss delta | PPL ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| bitsandbytes NF4 float16 | 0.253299 | 0.996352 | 0.857917 | +0.023453 | 1.023730 |
+
+Comparison against the best project row from Step 3: project `scale_row_g4` had
+lower logit MSE (`0.112199`), higher top-5 overlap (`0.901881`), and better
+PPL ratio (`0.986014`) on the same 256-record subset. bitsandbytes NF4 was much
+faster in this setup because it evaluated one external method, while the project
+matrix run evaluated five project rows. Treat this as a bounded TinyLlama /
+WikiText-2 subset result, not a general claim against NF4.
+
+Bookkeeping updates: research draft, project summary, README, RunPod usage
+ledger, and RunPod dashboard were updated with the completed Step 4 row.
