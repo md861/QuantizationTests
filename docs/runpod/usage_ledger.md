@@ -99,7 +99,8 @@ Copy this row for future entries:
 ## Maintenance Rules
 
 - Update this ledger whenever RunPod is started, used, left running between jobs,
-  or stopped after project work.
+  or stopped after project work. In the same handover, reconcile
+  `docs/runpod/README.md` Usage Dashboard totals against this ledger.
 - Do not count local analysis, plotting, report writing, or ordinary local tests
   as RunPod usage.
 - For actual benchmark runs, update both this ledger and the Benchmark Run

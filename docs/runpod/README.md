@@ -110,6 +110,8 @@ Interpretation:
 ## Maintenance Rule
 
 When RunPod is started, stopped, used, left idle between queued jobs, or used for
-benchmarking, update `usage_ledger.md`. When usage patterns change materially,
-refresh the dashboard above so the first screen continues to show where credits
-are going.
+benchmarking, update `usage_ledger.md` and reconcile the Usage Dashboard above in
+the same handover. Do this even when the ledger change feels small; the dashboard
+is a manual summary and will otherwise drift. At minimum update logged work time,
+compute/storage totals, bucket times/costs/shares, and interpretation bullets when
+new benchmark, debug, idle, setup, or cache rows are added.
