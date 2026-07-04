@@ -1303,11 +1303,23 @@ logit cosine, top-5 overlap, loss delta, PPL/PPL ratio, runtime, peak CUDA
 memory, and artifact size. Do not compare bitsandbytes against project
 weight/activation reconstruction tables.
 
-Next execution steps: run a small project-method smoke for the dedicated
-`tinyllama-1.1b-int4-matrix` preset using `--logit-only`, then run the project
-INT4 logit-only matrix and bitsandbytes NF4 256-text eval as separate detached
-RunPod jobs with ledger/lab-book updates after each segment.
+The project INT4 logit-only TinyLlama matrix is complete on the 256-record
+WikiText-2 resource. Next execution step: run the bitsandbytes NF4 256-text eval
+as a separate detached RunPod job, then compare both result tables on shared
+end-to-end fields.
 
+
+Project INT4 logit-only result on 256 WikiText-2 records:
+
+| Method | Logit MSE | Logit cosine | Top-5 overlap | Loss delta | PPL ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `global` | 21.9267 | 0.2739 | 0.0002 | +8.5388 | 5109.2560 |
+| `row_grouped_g4` | 0.1123 | 0.9988 | 0.9019 | -0.0127 | 0.9874 |
+| `row_grouped_g8` | 0.1747 | 0.9978 | 0.8819 | +0.0027 | 1.0027 |
+| `scale_row_g4` | 0.1122 | 0.9988 | 0.9019 | -0.0141 | 0.9860 |
+| `scale_row_g8` | 0.1745 | 0.9978 | 0.8819 | +0.0035 | 1.0035 |
+
+Runtime: `1004.4s (16.7 min)` runner elapsed, `19m20s` command wall on RTX 4000 Ada; peak CUDA allocated `2274 MB`.
 ## Appendix A. Reproducing Current Figures
 
 

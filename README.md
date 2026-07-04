@@ -114,6 +114,10 @@ Current RunPod setup notes:
   `44.2s` runner elapsed, peak CUDA allocated `2173 MB`, logit MSE `0.311986`,
   top-5 overlap `0.865`, and perplexity ratio `1.04554`. Treat this as a
   readiness smoke, not the final research comparison.
+- First TinyLlama project INT4 logit-only 256-text matrix passed at commit
+  `ceddbaf`: `1004.4s (16.7 min)` runner elapsed, `19m20s` command wall,
+  peak CUDA allocated `2274 MB`, with `scale_row_g4` giving PPL ratio `0.9860`
+  and top-5 overlap `0.9019` on the tracked WikiText-2 resource.
 
 ## Completed Milestone 3
 

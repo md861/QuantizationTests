@@ -4753,3 +4753,35 @@ Full suite: 224 passed, 2 warnings in 19.82s
 ```
 
 Next RunPod action: sync this commit, run a one-text `--logit-only` matrix smoke, then update the full 256-text runtime projection before launching the step 3 job.
+
+## Session: 2026-07-03 - TinyLlama project INT4 logit-only 256-text matrix
+
+Completed Step 3 of the Milestone 4 sequence on RunPod after replacing the too-heavy full Milestone 3 harness path with the logit-only project matrix path. The full-harness one-text attempts were intentionally stopped after about one hour each because they were dominated by CPU-side weight/activation bookkeeping; this prevented a much longer and less relevant run.
+
+Successful run:
+
+```text
+Preset: tinyllama-1.1b-int4-matrix
+Mode: --logit-only
+Eval source: docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt
+Eval count: 256
+Layers: 154 compatible linear layers
+Methods: global, row_grouped_g4, row_grouped_g8, scale_row_g4, scale_row_g8
+Commit: ceddbaf
+Runner elapsed: 1004.4s (16.7 min)
+Command wall: 19m20.2s
+Peak CUDA allocated/reserved: 2273.896 MB / 2658 MB
+Counts: weight=0 activation=0 logit=5
+```
+
+Result table:
+
+| Method | Logit MSE | Logit cosine | Top-5 | Loss delta | PPL ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| global | 21.9267 | 0.2739 | 0.0002 | +8.5388 | 5109.2560 |
+| row_grouped_g4 | 0.1123 | 0.9988 | 0.9019 | -0.0127 | 0.9874 |
+| row_grouped_g8 | 0.1747 | 0.9978 | 0.8819 | +0.0027 | 1.0027 |
+| scale_row_g4 | 0.1122 | 0.9988 | 0.9019 | -0.0141 | 0.9860 |
+| scale_row_g8 | 0.1745 | 0.9978 | 0.8819 | +0.0035 | 1.0035 |
+
+Next Milestone 4 step: run the bitsandbytes NF4 256-text eval on the same WikiText-2 resource, then compare shared metrics.

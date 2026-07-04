@@ -192,6 +192,7 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1024.9s (17.1 min) | elapsed from runner log |
 | distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1137.2s (19.0 min) | WikiText-2 validation sample, 7 texts |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 1 | INT4 | none | 228.3s (3.8 min) | RunPod RTX 4000 Ada smoke, single `q_proj` layer, 1 calibration text, peak CUDA allocated 2124 MB |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 154 | INT4 logit-only matrix | none | 1004.4s (16.7 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, 5 project methods, peak CUDA allocated 2274 MB |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -727,11 +728,22 @@ smoke checks. Compare bitsandbytes only on shared end-to-end fields: logit
 MSE/cosine, top-5 overlap, loss delta, PPL/PPL ratio, elapsed time, peak CUDA
 memory, and artifact size.
 
+
+Project INT4 logit-only 256-text TinyLlama result at commit `ceddbaf`:
+
+| Method | Logit MSE | Logit cosine | Top-5 | Loss delta | PPL ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `global` | 21.9267 | 0.2739 | 0.0002 | +8.5388 | 5109.2560 |
+| `row_grouped_g4` | 0.1123 | 0.9988 | 0.9019 | -0.0127 | 0.9874 |
+| `row_grouped_g8` | 0.1747 | 0.9978 | 0.8819 | +0.0027 | 1.0027 |
+| `scale_row_g4` | 0.1122 | 0.9988 | 0.9019 | -0.0141 | 0.9860 |
+| `scale_row_g8` | 0.1745 | 0.9978 | 0.8819 | +0.0035 | 1.0035 |
+
 Next steps after the first bnb smoke:
 
 1. Dedicated TinyLlama full-matrix preset added as `tinyllama-1.1b-int4-matrix` with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.
-2. Run the project-method small smoke with `tinyllama-1.1b-int4-matrix --logit-only --max-eval-texts 1`, then use that elapsed time to refine the full 256-text estimate.
-3. Run the project INT4 logit-only matrix and bitsandbytes NF4 256-text eval as separate RunPod jobs under detached tmux, writing logs/results under `/workspace`.
+2. Project-method `tinyllama-1.1b-int4-matrix --logit-only` 256-text run is complete at commit `ceddbaf`: runner elapsed `1004.4s (16.7 min)`, command wall `19m20s`, peak CUDA allocated `2274 MB`, counts weight=0 activation=0 logit=5.
+3. Run the bitsandbytes NF4 256-text eval on the same WikiText-2 resource as the next separate RunPod job, writing logs/results under `/workspace`.
 4. Update RunPod ledger, lab book, research draft, and project summary after each GPU segment; stop the Pod unless another GPU job is ready within about 30 minutes.
 
 Regression and artifact acceptance checks:
