@@ -13,11 +13,11 @@ Known captured RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: 46.6 min</th>
-    <th colspan="3">Telemetry uptime last observed: 5h 5m</th>
+    <th colspan="2">Logged work time: 201.5 min</th>
+    <th colspan="3">Telemetry uptime last manually reconciled: 5h 5m on 2026-07-02</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: $1.35 | Storage: $0.07 | Total: $1.42 | Budget ceiling: about GBP 200</th>
+    <th colspan="5">Compute: ~$2.02 | Storage: ~$0.07 | Total: ~$2.09 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -28,43 +28,43 @@ Known captured RunPod time so far:
   </tr>
   <tr>
     <td>Setup / install</td>
-    <td>35.0 min</td>
-    <td>$0.15</td>
-    <td>75%</td>
-    <td><code>###############-----</code></td>
+    <td>36.0 min</td>
+    <td>~$0.15</td>
+    <td>18%</td>
+    <td><code>####----------------</code></td>
   </tr>
   <tr>
     <td>Verification / readiness</td>
     <td>5.8 min</td>
-    <td>$0.03</td>
-    <td>12%</td>
-    <td><code>##------------------</code></td>
+    <td>~$0.03</td>
+    <td>3%</td>
+    <td><code>#-------------------</code></td>
   </tr>
   <tr>
-    <td>Benchmark compute</td>
-    <td>3.8 min</td>
-    <td>$0.02</td>
-    <td>8%</td>
-    <td><code>##------------------</code></td>
+    <td>Benchmark compute / smoke</td>
+    <td>154.7 min</td>
+    <td>~$0.67</td>
+    <td>77%</td>
+    <td><code>###############-----</code></td>
   </tr>
   <tr>
     <td>Download / cache</td>
-    <td>0.5 min</td>
-    <td>$0.00</td>
-    <td>1%</td>
+    <td>3.5 min</td>
+    <td>~$0.01</td>
+    <td>2%</td>
     <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>RunPod debug / command wrapper</td>
     <td>1.5 min</td>
-    <td>$0.01</td>
-    <td>3%</td>
-    <td><code>#-------------------</code></td>
+    <td>~$0.01</td>
+    <td>1%</td>
+    <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>Unlogged uptime / admin / idle</td>
     <td>264.2 min</td>
-    <td>$1.15</td>
+    <td>~$1.15</td>
     <td>n/a</td>
     <td><code>????????????????????</code></td>
   </tr>
@@ -72,11 +72,16 @@ Known captured RunPod time so far:
 
 Interpretation:
 
-- Current captured work time is still setup-heavy, but the first TinyLlama
-  single-layer GPU smoke has now completed successfully.
-- RunPod telemetry has shown higher wall-clock uptime than our logged work time. The
-  gap is tracked as unlogged uptime/admin/idle and should be reduced going
-  forward by stopping the Pod outside short queued benchmark windows.
+- The dashboard now reflects the completed TinyLlama project INT4 logit-only
+  256-text matrix and the two intentionally aborted full-harness attempts that
+  motivated the logit-only Milestone 4 path.
+- Benchmark compute is now the dominant captured RunPod work bucket. This is
+  expected after Step 3, but the two one-hour aborted harness attempts are a
+  visible cost lesson: use the logit-only path for shared bnb comparisons unless
+  weight/activation reconstruction is explicitly required.
+- RunPod telemetry has shown higher wall-clock uptime than our logged work time.
+  The gap is tracked as unlogged uptime/admin/idle and should be reduced by
+  stopping the Pod outside short queued benchmark windows.
 - The full Pod test suite took `349.22s (0:05:49)` and is categorized as
   verification, not benchmark compute.
 - Several setup/sync/admin windows were not precisely timed. They are recorded
