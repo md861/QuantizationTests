@@ -4800,8 +4800,16 @@ RunPod SSH was refusing the current endpoint during this documentation pass, so 
 
 ## Session: 2026-07-04 - End-of-day handover
 
-Prepared handover after consolidating the TinyLlama project matrix results. Stale-state check: local branch was clean and synced before handover edits; old `221 passed` / `222 passed` hits are historical lab-book entries only, while current canonical test state remains `224 passed, 2 warnings`. Current-facing next-step wording was refreshed in `project_summary.md` from the older "after first bnb smoke" phrasing to the current post-project-matrix state.
+Prepared handover after consolidating the TinyLlama project matrix results. Stale-state check: local branch was clean and synced before handover edits; outdated pass-count hits are historical lab-book entries only, while current canonical test state remains `224 passed, 2 warnings`. Current-facing next-step wording was refreshed in `project_summary.md` from the older "after first bnb smoke" phrasing to the current post-project-matrix state.
 
 Current milestone state: Step 3 is complete and documented. Step 4 remains the bitsandbytes NF4 256-text evaluation on the same WikiText-2 resource, followed by a shared-metrics comparison against the project INT4 logit-only matrix. RunPod SSH to the saved endpoint is currently refusing connections, so the next session should first restore/update RunPod access or confirm whether the Pod was stopped/migrated before launching Step 4.
 
 Clean stopping point target: commit and push these handover edits, then leave `main` clean and synced.
+
+## Session: 2026-07-04 - Final stale-state handover check
+
+Reran the handover stale-state check after the RunPod dashboard reconciliation commit. The branch was clean and synced at commit 739d2bf before this note. The targeted stale search found outdated pass-count strings only in historical lab-book entries; current-facing docs continue to use 224 passed, 2 warnings as the canonical local suite state.
+
+RunPod usage bookkeeping is reconciled for the current documented ledger: docs/runpod/README.md shows 201.5 minutes of logged work, the 5h5m telemetry reference, and the Step 3 project matrix costs. docs/runpod/usage_ledger.md includes the completed TinyLlama project INT4 logit-only 256-text run and the two aborted full-harness attempts that informed the logit-only path.
+
+The saved RunPod SSH alias is still refusing the current endpoint, so the next session should restore/update RunPod access before Step 4. Milestone 4 next work remains: run the bitsandbytes NF4 256-text evaluation on the same WikiText-2 resource, then compare only shared metrics against the project INT4 logit-only 256-text matrix.
