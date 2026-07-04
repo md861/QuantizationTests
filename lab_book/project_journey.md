@@ -4797,3 +4797,11 @@ Bookkeeping was synced in `README.md` and `project_summary.md` so future agents 
 Added an explicit metric inventory for runs completed before the Step 4 bitsandbytes 256-text evaluation. The research draft now distinguishes complete calculated metrics from the pending bnb 256-text row: bnb one-record smoke metrics are recorded as smoke-only, project one-record logit-only smoke metrics are recorded as timing/feasibility evidence, and the project 256-text logit-only result remains the first research-grade project-method row.
 
 RunPod SSH was refusing the current endpoint during this documentation pass, so no fresh remote CSV pull was possible. The docs use metrics already captured in the prior command output, ledger, and committed project-summary tables.
+
+## Session: 2026-07-04 - End-of-day handover
+
+Prepared handover after consolidating the TinyLlama project matrix results. Stale-state check: local branch was clean and synced before handover edits; old `221 passed` / `222 passed` hits are historical lab-book entries only, while current canonical test state remains `224 passed, 2 warnings`. Current-facing next-step wording was refreshed in `project_summary.md` from the older "after first bnb smoke" phrasing to the current post-project-matrix state.
+
+Current milestone state: Step 3 is complete and documented. Step 4 remains the bitsandbytes NF4 256-text evaluation on the same WikiText-2 resource, followed by a shared-metrics comparison against the project INT4 logit-only matrix. RunPod SSH to the saved endpoint is currently refusing connections, so the next session should first restore/update RunPod access or confirm whether the Pod was stopped/migrated before launching Step 4.
+
+Clean stopping point target: commit and push these handover edits, then leave `main` clean and synced.

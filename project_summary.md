@@ -751,11 +751,11 @@ Pre-Step-4 metric inventory: the one-record bitsandbytes NF4 smoke is complete
 logit-only matrix is complete as shown above. The bitsandbytes NF4 256-text row
 remains pending and is the next required run before external-baseline comparison.
 
-Next steps after the first bnb smoke:
+Next steps after the project INT4 matrix:
 
 1. Dedicated TinyLlama full-matrix preset added as `tinyllama-1.1b-int4-matrix` with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.
 2. Project-method `tinyllama-1.1b-int4-matrix --logit-only` 256-text run is complete at commit `ceddbaf`: runner elapsed `1004.4s (16.7 min)`, command wall `19m20s`, peak CUDA allocated `2274 MB`, counts weight=0 activation=0 logit=5.
-3. Run the bitsandbytes NF4 256-text eval on the same WikiText-2 resource as the next separate RunPod job, writing logs/results under `/workspace`.
+3. Restore/update RunPod SSH access if needed, then run the bitsandbytes NF4 256-text eval on the same WikiText-2 resource as the next separate RunPod job, writing logs/results under `/workspace`.
 4. Update RunPod ledger, lab book, research draft, and project summary after each GPU segment; stop the Pod unless another GPU job is ready within about 30 minutes.
 
 Regression and artifact acceptance checks:
