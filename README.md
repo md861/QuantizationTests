@@ -112,12 +112,15 @@ Current RunPod setup notes:
   `228.3s (3.8 min)`, peak CUDA allocated `2124 MB`, peak reserved `2224 MB`.
 - First TinyLlama bitsandbytes NF4 one-record smoke passed at commit `4b5d5d0`:
   `44.2s` runner elapsed, peak CUDA allocated `2173 MB`, logit MSE `0.311986`,
-  top-5 overlap `0.865`, and perplexity ratio `1.04554`. Treat this as a
-  readiness smoke, not the final research comparison.
+  top-5 overlap `0.865`, loss delta `+0.044535`, and perplexity ratio `1.04554`.
+  Treat this as a readiness smoke, not the final research comparison; the
+  256-text bitsandbytes Step 4 row is still pending.
 - First TinyLlama project INT4 logit-only 256-text matrix passed at commit
   `ceddbaf`: `1004.4s (16.7 min)` runner elapsed, `19m20s` command wall,
   peak CUDA allocated `2274 MB`, with `scale_row_g4` giving PPL ratio `0.9860`
   and top-5 overlap `0.9019` on the tracked WikiText-2 resource.
+  The result makes `global` INT4 the failure/control row and shows g4 row grouping
+  is essentially loss-neutral on this bounded TinyLlama validation subset.
 
 ## Completed Milestone 3
 

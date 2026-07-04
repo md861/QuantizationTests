@@ -4785,3 +4785,15 @@ Result table:
 | scale_row_g8 | 0.1745 | 0.9978 | 0.8819 | +0.0035 | 1.0035 |
 
 Next Milestone 4 step: run the bitsandbytes NF4 256-text eval on the same WikiText-2 resource, then compare shared metrics.
+
+## Session: 2026-07-04 - Consolidated TinyLlama project matrix result
+
+Consolidated the completed TinyLlama project INT4 logit-only matrix in the research draft as a proper Milestone 4 result subsection rather than a loose next-work note. The draft now states the exact scope (`--logit-only`, 154 compatible layers, 256 WikiText-2 records), result table, runtime, interpretation, and the remaining bitsandbytes NF4 256-text row needed to complete the first controlled TinyLlama matrix.
+
+Bookkeeping was synced in `README.md` and `project_summary.md` so future agents see the same interpretation: global INT4 is the expected failure/control row, g4 row grouping is essentially loss-neutral on this bounded TinyLlama validation subset, and comparisons with bitsandbytes should use only shared end-to-end fields.
+
+## Session: 2026-07-04 - Pre-Step-4 metric inventory
+
+Added an explicit metric inventory for runs completed before the Step 4 bitsandbytes 256-text evaluation. The research draft now distinguishes complete calculated metrics from the pending bnb 256-text row: bnb one-record smoke metrics are recorded as smoke-only, project one-record logit-only smoke metrics are recorded as timing/feasibility evidence, and the project 256-text logit-only result remains the first research-grade project-method row.
+
+RunPod SSH was refusing the current endpoint during this documentation pass, so no fresh remote CSV pull was possible. The docs use metrics already captured in the prior command output, ledger, and committed project-summary tables.

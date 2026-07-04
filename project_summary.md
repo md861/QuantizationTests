@@ -739,6 +739,18 @@ Project INT4 logit-only 256-text TinyLlama result at commit `ceddbaf`:
 | `scale_row_g4` | 0.1122 | 0.9988 | 0.9019 | -0.0141 | 0.9860 |
 | `scale_row_g8` | 0.1745 | 0.9978 | 0.8819 | +0.0035 | 1.0035 |
 
+Interpretation: `global` INT4 is the expected failure row, while row grouping makes
+TinyLlama essentially loss-neutral on this bounded 256-record validation subset.
+Group size 4 is stronger than group size 8 on logit MSE/top-5, and scaling is
+neutral-to-slightly positive at g4. This is a project logit-only result; do not
+compare it against bitsandbytes on weight/activation reconstruction fields.
+
+Pre-Step-4 metric inventory: the one-record bitsandbytes NF4 smoke is complete
+(logit MSE 0.311986, top-5 0.865285, loss delta +0.044535, PPL ratio 1.04554,
+44.2s runner elapsed, peak CUDA allocated 2173 MB), and the project 256-text
+logit-only matrix is complete as shown above. The bitsandbytes NF4 256-text row
+remains pending and is the next required run before external-baseline comparison.
+
 Next steps after the first bnb smoke:
 
 1. Dedicated TinyLlama full-matrix preset added as `tinyllama-1.1b-int4-matrix` with `bitwidths=[4]`, `top_width_pair_fractions=[]`, `single_layer_name=None`, `row_group_sizes=[4, 8]`, and fraction-derived group sizes disabled for interpretability.

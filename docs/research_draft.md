@@ -1303,13 +1303,21 @@ logit cosine, top-5 overlap, loss delta, PPL/PPL ratio, runtime, peak CUDA
 memory, and artifact size. Do not compare bitsandbytes against project
 weight/activation reconstruction tables.
 
-The project INT4 logit-only TinyLlama matrix is complete on the 256-record
-WikiText-2 resource. Next execution step: run the bitsandbytes NF4 256-text eval
-as a separate detached RunPod job, then compare both result tables on shared
-end-to-end fields.
+### 19.1 First TinyLlama Project Matrix Result
 
+The first Milestone 4 project-method run is complete on the 256-record
+WikiText-2 raw validation resource. This run used the dedicated
+`tinyllama-1.1b-int4-matrix` preset in `--logit-only` mode at commit
+`ceddbaf`. It quantized all 154 compatible TinyLlama linear layers, excluding
+`lm_head`, and evaluated the five project INT4 rows needed for the first shared
+comparison with bitsandbytes: `global`, `row_grouped_g4`, `row_grouped_g8`,
+`scale_row_g4`, and `scale_row_g8`.
 
-Project INT4 logit-only result on 256 WikiText-2 records:
+Logit-only mode is intentional here. Milestone 3 already established the
+weight/activation reconstruction diagnostics; the first Milestone 4 external
+comparison needs the shared end-to-end surface used by bitsandbytes: logit MSE,
+logit cosine, top-5 overlap, loss delta, perplexity ratio, elapsed time, peak
+CUDA memory, and artifact size.
 
 | Method | Logit MSE | Logit cosine | Top-5 overlap | Loss delta | PPL ratio |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -1319,7 +1327,40 @@ Project INT4 logit-only result on 256 WikiText-2 records:
 | `scale_row_g4` | 0.1122 | 0.9988 | 0.9019 | -0.0141 | 0.9860 |
 | `scale_row_g8` | 0.1745 | 0.9978 | 0.8819 | +0.0035 | 1.0035 |
 
-Runtime: `1004.4s (16.7 min)` runner elapsed, `19m20s` command wall on RTX 4000 Ada; peak CUDA allocated `2274 MB`.
+The key qualitative result is that TinyLlama behaves very differently from the
+smaller Milestone 3 stress cases: INT4 row grouping is essentially loss-neutral
+on this bounded validation subset. The `global` INT4 row is the expected failure
+case, with near-zero top-5 overlap and a PPL ratio above 5000x. Both row-grouped
+paths preserve the original model closely, and g4 is consistently stronger than
+g8 on logit MSE and top-5 overlap. Per-channel scaling is neutral-to-slightly
+positive at g4 (`scale_row_g4` PPL ratio 0.9860 vs `row_grouped_g4` 0.9874) and
+neutral at g8.
+
+Runtime was manageable after switching away from the full Milestone 3
+weight/activation harness: `1004.4s (16.7 min)` runner elapsed and `19m20s`
+command wall on RTX 4000 Ada, with peak CUDA allocated `2274 MB`. Two earlier
+all-layer one-text full-harness attempts were stopped after about one hour each
+because they were dominated by CPU-side reconstruction/activation bookkeeping
+rather than the shared end-to-end metrics.
+
+The remaining row in the first controlled TinyLlama matrix is bitsandbytes NF4
+`float16` on the same 256 WikiText-2 records. After that run, compare both
+result tables on the shared end-to-end fields only.
+
+Metrics already calculated before the Step 4 bitsandbytes 256-text run are:
+
+| Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime | Peak CUDA | Status |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| bitsandbytes NF4 smoke | 1 | 0.311986 | 0.865285 | +0.044535 | 1.04554 | 44.2s runner / 262.2s wall | 2173 MB allocated | Complete |
+| project INT4 logit-only smoke, `row_grouped_g4` | 1 | 0.117619 | 0.9078 | +0.0007 | 1.0007 | 264.1s runner / 7m8.5s wall | not recorded in available docs | Complete |
+| project INT4 logit-only 256-text, `scale_row_g4` | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall | 2274 MB allocated | Complete |
+| bitsandbytes NF4 256-text | 256 | pending | pending | pending | pending | pending | pending | Step 4 pending |
+
+The bnb smoke is useful only as a dependency/runtime sanity check because it used
+one record. The project 256-text row is the first research-grade project-method
+result for this matrix; the bnb 256-text row is still required before making the
+external-baseline comparison.
+
 ## Appendix A. Reproducing Current Figures
 
 
