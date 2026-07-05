@@ -48,6 +48,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | TinyLlama 1.1B smoke preset | Complete |
 | bitsandbytes NF4 external baseline runner | Initial setup |
 | AWQ external baseline runner | Initial setup |
+| GPTQ external baseline runner | Initial setup |
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
@@ -77,15 +78,16 @@ strings must not be committed.
 9. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines, while keeping run/provenance details out of the research draft.
 10. Update the research draft, README, project summary, and lab book after each completed model.
 
-The external baseline scaffolds are experiments/bitsandbytes_baseline.py and
-experiments/awq_baseline.py. They are intentionally separate from the project
-quantizer harness: these baselines load quantized Transformers runtime modules
-or pre-quantized checkpoints, so the fair shared comparison is
-logit/loss/perplexity plus runtime and memory metadata, not project weight or
-activation reconstruction tables. Keep these baselines optional; normal local
-tests do not require their optional packages or CUDA. The AWQ runner requires an
-explicit `--awq-model-name` so a reference checkpoint is not accidentally
-reported as an AWQ baseline.
+The external baseline scaffolds are experiments/bitsandbytes_baseline.py,
+experiments/awq_baseline.py, and experiments/gptq_baseline.py. They are
+intentionally separate from the project quantizer harness: these baselines load
+quantized Transformers runtime modules or pre-quantized checkpoints, so the
+fair shared comparison is logit/loss/perplexity plus runtime and memory
+metadata, not project weight or activation reconstruction tables. Keep these
+baselines optional; normal local tests do not require their optional packages or
+CUDA. The AWQ and GPTQ runners require explicit `--awq-model-name` and
+`--gptq-model-name` arguments so a reference checkpoint is not accidentally
+reported as an external quantized baseline.
 
 The first controlled TinyLlama matrix is locked: original Hugging Face
 reference, project INT4 global, project INT4 row_grouped_g4/g8, project INT4

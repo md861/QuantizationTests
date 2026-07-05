@@ -5116,3 +5116,21 @@ as an AWQ result. Local tests cover config construction, dtype validation,
 metric calculation, CSV schema, and the CUDA guard. No RunPod benchmark has been
 started from this step yet; the next GPU segment still needs a runtime/cost
 estimate, AWQ checkpoint choice, target commit, and user approval.
+
+## Session: 2026-07-05 - GPTQ external baseline runner
+
+Started Milestone 4 step 4B. Added `experiments/gptq_baseline.py`, an optional
+external-baseline runner for pre-quantized GPTQ Transformers checkpoints. The
+runner follows the same comparison surface as AWQ and bitsandbytes: original
+reference logits/loss versus the quantized checkpoint on the same evaluation
+texts, with `gptq_logit_metrics.csv` and `gptq_metadata.json` capturing quality,
+runtime, throughput, latency, CUDA peak allocated/reserved memory, model names,
+evaluation source, commit hash, and counts.
+
+The runner requires an explicit `--gptq-model-name` argument. This matches the
+AWQ guardrail and keeps benchmark records from accidentally treating the
+unquantized reference model as a GPTQ result. Local tests cover config
+construction, dtype validation, metric calculation, CSV schema, and the CUDA
+guard. No GPTQ Pod benchmark has been launched; the next GPU segment still
+needs checkpoint selection, runtime/cost estimate, target commit, and user
+approval.
