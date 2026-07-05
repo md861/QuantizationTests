@@ -5049,3 +5049,14 @@ Next recommended action after the break: decide the next Milestone 4 branch.
 The cleanest options are GPTQ, AWQ, or another bitsandbytes variant such as
 double quantization / alternate compute dtype. Estimate runtime/cost and ask for
 approval before launching any new GPU job.
+
+## Session: 2026-07-05 - RunPod GPU value directive update
+
+Updated the RunPod operating directives so future agents choose GPU class by
+cost per useful benchmark, not theoretical speed alone. The policy now requires
+checking prior benchmark timings and ledger rows, estimating wall time, method
+throughput, VRAM headroom, hourly rate, setup/model-load overhead, and cost per
+completed run before changing GPU class. The RunPod README, usage ledger, and
+project-summary guardrails now also explicitly require keeping the usage
+dashboard, ledger, and Benchmark Run Timings table reconciled as GPU work
+progresses.

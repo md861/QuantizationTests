@@ -35,6 +35,13 @@ Label rate-based values as estimates.
 
 Project budget ceiling: about GBP 200 total RunPod benchmark spend. Treat this as a hard planning limit for benchmark work. Record estimated compute and storage costs after every Pod segment, keep the dashboard current, and pause before any GPU-class change or benchmark expansion that could materially alter expected spend.
 
+GPU selection rule: pick the cheapest GPU that can answer the current research
+question within the user's time window. Before changing GPU class, estimate cost
+per useful benchmark from prior timing rows, expected wall time, method
+throughput when available, VRAM needs, hourly rate, and setup/model-load
+overhead. Record the estimate and user approval in the relevant lab-book or
+handover entry.
+
 ## Entry Categories
 
 Use one of these categories in the ledger:
@@ -117,5 +124,10 @@ Copy this row for future entries:
 - If using a rate multiplied by elapsed time, record the hourly rate and label
   the value as an estimate. Keep row-level costs compute-only; accumulate
   storage separately in the dashboard/header.
-- When possible, use `time`, runner elapsed logs, or tmux log timestamps instead
-  of memory.
+- When possible, use `time`, runner elapsed logs, or tmux log timestamps rather
+  than estimating from memory.
+- Reconcile `docs/runpod/README.md` every time ledger rows are added or changed:
+  logged work time, bucket totals, compute/storage cost, shares, and
+  interpretation bullets must stay current.
+- Benchmark rows must also update `project_summary.md` Benchmark Run Timings so
+  future agents can estimate runtime/cost and GPU choice from prior data.

@@ -14,7 +14,7 @@ Known captured RunPod time so far:
 <table>
   <tr>
     <th colspan="2">Logged work time: 238.5 min</th>
-    <th colspan="3">Telemetry uptime last manually reconciled: 5h 5m on 2026-07-02</th>
+    <th colspan="3">Observed time incl. unlogged/admin: 502.7 min; telemetry last manually reconciled: 5h 5m on 2026-07-02</th>
   </tr>
   <tr>
     <th colspan="5">Compute: ~$2.23 | Storage: ~$0.07 | Total: ~$2.30 | Budget ceiling: about GBP 200</th>
@@ -65,8 +65,8 @@ Known captured RunPod time so far:
     <td>Unlogged uptime / admin / idle</td>
     <td>264.2 min</td>
     <td>~$1.15</td>
-    <td>n/a</td>
-    <td><code>????????????????????</code></td>
+    <td>53% observed</td>
+    <td><code>###########---------</code></td>
   </tr>
 </table>
 
@@ -83,7 +83,10 @@ Interpretation:
   weight/activation reconstruction is explicitly required.
 - RunPod telemetry has shown higher wall-clock uptime than our logged work time.
   The gap is tracked as unlogged uptime/admin/idle and should be reduced by
-  stopping the Pod outside short queued benchmark windows.
+  stopping the Pod outside short queued benchmark windows. The ordinary bucket
+  shares above are relative to logged categorized work; the unlogged row is
+  shown separately as a share of observed total time because it is known spend
+  but not attributable to a specific project task.
 - The full Pod test suite took `349.22s (0:05:49)` and is categorized as
   verification, not benchmark compute.
 - Several setup/sync/admin windows were not precisely timed. They are recorded
@@ -101,6 +104,10 @@ Interpretation:
   Timings table in `project_summary.md`. Keep cumulative RunPod benchmark spend
   under the project budget ceiling of about GBP 200; pause and ask the user
   before any plan that could materially change the expected spend profile.
+- GPU selection should optimize cost per useful benchmark, not raw theoretical
+  speed. Before switching GPU class, compare expected wall time, method
+  throughput, VRAM headroom, hourly rate, and setup/model-load overhead against
+  prior ledger and benchmark-timing rows. Record the estimate and user approval.
 
 ## Files
 
@@ -116,4 +123,7 @@ benchmarking, update `usage_ledger.md` and reconcile the Usage Dashboard above i
 the same handover. Do this even when the ledger change feels small; the dashboard
 is a manual summary and will otherwise drift. At minimum update logged work time,
 compute/storage totals, bucket times/costs/shares, and interpretation bullets when
-new benchmark, debug, idle, setup, or cache rows are added.
+new benchmark, debug, idle, setup, or cache rows are added. For benchmark rows,
+also update the Benchmark Run Timings table in `project_summary.md` with GPU
+class, wall/runner time, method telemetry when available, peak memory, and any
+cost-per-run notes needed for future GPU selection.

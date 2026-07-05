@@ -79,6 +79,35 @@ should remember:
   here because we want cache, repo, venv, logs, and artifacts to survive Pod
   replacement.
 
+## GPU Choice and Value Rule
+
+Do not choose a GPU solely because it is faster on paper. Choose the cheapest
+GPU that can answer the current benchmark question within the user's time
+window, and justify any upgrade using estimated cost per useful benchmark.
+
+Before changing GPU class, compare the candidate against the timing table and
+ledger using:
+
+- expected benchmark wall time and runner elapsed
+- expected method runtime or tokens/sec when available
+- hourly Pod rate and estimated cost per completed run
+- VRAM headroom for the target model, context, batch size, and external baseline
+- whether the workload is likely GPU-bound or dominated by Python/model-load/
+  harness overhead
+
+Current project evidence: moving the TinyLlama bnb NF4 256-text run from RTX
+4000 Ada to RTX 4090 improved runner elapsed (`231.4s` to `191.5s`) and
+produced useful method telemetry (`24.577s`, `1354.168 tokens/s`), but wall time
+remained about six minutes because setup/model-load overhead was significant.
+For TinyLlama-scale runs, RTX 4090 is a strong speed/value candidate when
+available, while higher-cost GPUs such as A100/H100/L40S should be reserved for
+larger models, larger batches/contexts, memory-bound external baselines, or
+kernel work where the expected speedup justifies the rate.
+
+Report the estimate to the user before launching: GPU class, hourly rate,
+predicted wall time, predicted cost, evidence used, and whether the estimate is
+job-level or method-level.
+
 ## Storage Policy
 
 Use a network volume for `/workspace`.
@@ -124,9 +153,21 @@ hash when relevant, whether meaningful GPU compute was used, log/output path, an
 notes. If exact timing was missed, write `timing not captured` explicitly and
 improve instrumentation before the next run.
 
+When `usage_ledger.md` changes, reconcile the dashboard in
+`docs/runpod/README.md` in the same handover. Update logged work time, compute
+totals, storage totals if applicable, bucket shares, and interpretation bullets.
+Benchmark rows must also update the Benchmark Run Timings table in
+`project_summary.md`, including GPU class, method/runtime telemetry, wall time
+when available, peak memory, and cost-relevant notes.
+
 ## Credit Guardrails
 
-Project budget ceiling: keep total RunPod benchmark spend under about GBP 200. Track estimated compute and storage spend in `docs/runpod/usage_ledger.md` after every Pod segment. Pause and ask the user before changing Pod class, launching a broader benchmark matrix, or continuing after a failed run pattern that could materially increase spend.
+Project budget ceiling: keep total RunPod benchmark spend under about GBP 200.
+Track estimated compute and storage spend in `docs/runpod/usage_ledger.md`
+after every Pod segment. Pause and ask the user before changing Pod class,
+launching a broader benchmark matrix, or continuing after a failed run pattern
+that could materially increase spend. Any GPU-class upgrade must include the
+value estimate described in "GPU Choice and Value Rule."
 
 Before spending RunPod credits:
 
