@@ -1309,11 +1309,11 @@ weight/activation reconstruction tables.
 
 The first Milestone 4 project-method run is complete on the 256-record
 WikiText-2 raw validation resource. This run used the dedicated
-`tinyllama-1.1b-int4-matrix` preset in `--logit-only` mode at commit
-`ceddbaf`. It quantized all 154 compatible TinyLlama linear layers, excluding
-`lm_head`, and evaluated the five project INT4 rows needed for the first shared
-comparison with bitsandbytes: `global`, `row_grouped_g4`, `row_grouped_g8`,
-`scale_row_g4`, and `scale_row_g8`.
+`tinyllama-1.1b-int4-matrix` preset in `--logit-only` mode. It quantized all
+154 compatible TinyLlama linear layers, excluding `lm_head`, and evaluated the
+five project INT4 rows needed for the first shared comparison with bitsandbytes:
+`global`, `row_grouped_g4`, `row_grouped_g8`, `scale_row_g4`, and
+`scale_row_g8`.
 
 Logit-only mode is intentional here. Milestone 3 already established the
 weight/activation reconstruction diagnostics; the first Milestone 4 external
@@ -1323,13 +1323,13 @@ CUDA memory, and artifact size.
 
 Project-method rows:
 
-| Method | Logit MSE | Logit cosine | Top-5 overlap | Loss delta | PPL ratio |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `global` | 21.9267 | 0.2739 | 0.0002 | +8.5388 | 5109.2560 |
-| `row_grouped_g4` | 0.1123 | 0.9988 | 0.9019 | -0.0127 | 0.9874 |
-| `row_grouped_g8` | 0.1747 | 0.9978 | 0.8819 | +0.0027 | 1.0027 |
-| `scale_row_g4` | 0.1122 | 0.9988 | 0.9019 | -0.0141 | 0.9860 |
-| `scale_row_g8` | 0.1745 | 0.9978 | 0.8819 | +0.0035 | 1.0035 |
+| Method | Logit MSE | Logit cosine | Top-5 overlap | Loss delta | PPL ratio | Method runtime | Peak CUDA |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `global` | 21.926735 | 0.273941 | 0.000150 | +8.538809 | 5109.255968 | 79.527s | 2273.896 MB allocated / 2658 MB reserved |
+| `row_grouped_g4` | 0.112288 | 0.998823 | 0.901863 | -0.012698 | 0.987382 | 34.542s | 2273.896 MB allocated / 2658 MB reserved |
+| `row_grouped_g8` | 0.174663 | 0.997774 | 0.881888 | +0.002728 | 1.002732 | 30.810s | 2273.896 MB allocated / 2658 MB reserved |
+| `scale_row_g4` | 0.112199 | 0.998831 | 0.901881 | -0.014085 | 0.986014 | 38.282s | 2273.896 MB allocated / 2658 MB reserved |
+| `scale_row_g8` | 0.174467 | 0.997778 | 0.881900 | +0.003491 | 1.003497 | 34.937s | 2273.896 MB allocated / 2658 MB reserved |
 
 The key qualitative result is that TinyLlama behaves very differently from the
 smaller Milestone 3 stress cases: INT4 row grouping is essentially loss-neutral
@@ -1340,116 +1340,53 @@ g8 on logit MSE and top-5 overlap. Per-channel scaling is neutral-to-slightly
 positive at g4 (`scale_row_g4` PPL ratio 0.9860 vs `row_grouped_g4` 0.9874) and
 neutral at g8.
 
-Runtime was manageable after switching away from the full Milestone 3
-weight/activation harness: `1004.4s (16.7 min)` runner elapsed and `19m20s`
-command wall on RTX 4000 Ada, with peak CUDA allocated `2274 MB`. Two earlier
-all-layer one-text full-harness attempts were stopped after about one hour each
-because they were dominated by CPU-side reconstruction/activation bookkeeping
-rather than the shared end-to-end metrics.
-
-A follow-up per-method telemetry rerun at commit `049d42a` reproduced the same
-five project rows on the same 256-record resource and added row-level
-`method_elapsed_seconds`, `method_cuda_peak_allocated_mb`, and
-`method_cuda_peak_reserved_mb` fields. That rerun took `1208.7s` runner elapsed
-and `23m43s` command wall for the whole five-row job, but the isolated method
-times were much shorter: `global` `79.527s`, `row_grouped_g4` `34.542s`,
-`row_grouped_g8` `30.810s`, `scale_row_g4` `38.282s`, and `scale_row_g8`
-`34.937s`. The rerun used the per-method telemetry commit, not the later
-throughput/artifact-size commit, so throughput and theoretical artifact columns
-will appear only in subsequent runs from newer commits.
+Runtime and memory are reported as method-level benchmark telemetry. These
+values are useful for comparing methods inside this harness, but they should not
+be interpreted as deployed packed-INT4 inference performance.
 
 ### 19.2 bitsandbytes NF4 Baseline and Shared Comparison
 
-The final row in the first controlled TinyLlama matrix, bitsandbytes NF4
-`float16`, completed on the same 256 WikiText-2 records at commit `92b4f5e`.
-A follow-up telemetry rerun at commit `d8c7d09` used the newer bnb schema and
-added method-level runtime, token-throughput, and CUDA peak fields. Compare both
-result tables on the shared end-to-end fields only.
+The final row in the first controlled TinyLlama matrix is bitsandbytes NF4
+`float16` on the same 256 WikiText-2 records. Compare project and bnb rows only
+on shared end-to-end fields.
 
 Primary 256-record shared comparison:
 
-| Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime metric | Peak CUDA |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| project INT4 `scale_row_g4` | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 38.282s isolated project method loop | 2273.896 MB allocated / 2658 MB reserved |
-| bitsandbytes NF4 float16 telemetry rerun | 256 | 0.253722 | 0.857737 | +0.023356 | 1.023631 | 24.577s isolated bnb method loop | 962.886 MB allocated / 1322 MB reserved |
+| Run | Eval texts | Logit MSE | Logit cosine | Top-5 overlap | Loss delta | PPL ratio | Runtime metric | Peak CUDA |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| project INT4 `scale_row_g4` | 256 | 0.112199 | 0.998831 | 0.901881 | -0.014085 | 0.986014 | 38.282s isolated project method loop | 2273.896 MB allocated / 2658 MB reserved |
+| bitsandbytes NF4 float16 | 256 | 0.253722 | 0.995222 | 0.857737 | +0.023356 | 1.023631 | 24.577s isolated bnb method loop | 962.886 MB allocated / 1322 MB reserved |
 
 This table now uses method-level telemetry for both the best project row and
-the bnb NF4 rerun. On this narrow shared surface, the project row is higher
+the bnb NF4 baseline. On this narrow shared surface, the project row is higher
 quality, while bnb is faster in the measured method loop and uses less measured
 CUDA peak memory. This is still not a deployed project INT4 speedup claim,
 because the project path executes dequantized floating-point tensors rather than
 a packed INT4 runtime kernel.
 
-Project per-method telemetry rerun, 256 records:
-
-| Project method | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Method runtime | Peak CUDA |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `global` | 21.926735 | 0.000150 | +8.538809 | 5109.255968 | 79.527s | 2273.896 MB allocated / 2658 MB reserved |
-| `row_grouped_g4` | 0.112288 | 0.901863 | -0.012698 | 0.987382 | 34.542s | 2273.896 MB allocated / 2658 MB reserved |
-| `row_grouped_g8` | 0.174663 | 0.881888 | +0.002728 | 1.002732 | 30.810s | 2273.896 MB allocated / 2658 MB reserved |
-| `scale_row_g4` | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 38.282s | 2273.896 MB allocated / 2658 MB reserved |
-| `scale_row_g8` | 0.174467 | 0.881900 | +0.003491 | 1.003497 | 34.937s | 2273.896 MB allocated / 2658 MB reserved |
-
-The bnb smoke is useful only as a dependency/runtime sanity check because it used
-one record. On the 256-record comparison, bitsandbytes NF4 has weaker quality
-than the best project INT4 row on this bounded subset: `scale_row_g4` has lower
-logit MSE, higher top-5 overlap, and a slightly favorable loss/PPL delta. The
-bnb telemetry rerun is numerically close to the earlier bnb result, with small
-differences attributable to a new run on a different GPU class and updated
-telemetry code.
+On the 256-record comparison, bitsandbytes NF4 has weaker quality than the best
+project INT4 row on this bounded subset: `scale_row_g4` has lower logit MSE,
+higher top-5 overlap, and a slightly favorable loss/PPL delta.
 
 The directional comparison is:
 
 - `scale_row_g4` vs bnb NF4 logit MSE: `0.112199` vs `0.253722`, so the project row is about 2.3x lower.
+- `scale_row_g4` vs bnb NF4 logit cosine: `0.998831` vs `0.995222`, a small advantage for the project row.
 - `scale_row_g4` vs bnb NF4 top-5 overlap: `0.901881` vs `0.857737`, a +0.044 absolute advantage for the project row.
 - `scale_row_g4` vs bnb NF4 PPL ratio: `0.986014` vs `1.023631`, a +3.8 percentage-point relative gap in favor of the project row on this metric.
 - `scale_row_g4` vs bnb NF4 method-loop runtime: `38.282s` vs `24.577s`; bnb is about 1.6x faster on the measured method loop.
-- `scale_row_g4` vs bnb NF4 measured CUDA peak: `2273.896 MB` allocated vs `962.886 MB` allocated in the latest telemetry reruns. Treat this as benchmark-harness telemetry, not a complete memory profile.
+- `scale_row_g4` vs bnb NF4 measured CUDA peak: `2273.896 MB` allocated vs `962.886 MB` allocated. Treat this as benchmark-harness telemetry, not a complete memory profile.
 
-Runtime interpretation matters. The project `1004.4s` and `1208.7s` values are
-whole-job elapsed times for jobs that evaluated five project methods (`global`,
-`row_grouped_g4`, `row_grouped_g8`, `scale_row_g4`, and `scale_row_g8`). The
-per-method rerun records isolated project method-loop timings, and the bnb
-telemetry rerun now records the corresponding isolated bnb method-loop timing.
-Whole-job operational cost should still be reported separately because model
-load, reference evaluation, Python startup, and multi-method matrix structure
-dominate different parts of each job.
-
-Future runs now add method-level telemetry columns to logit CSVs:
-`method_elapsed_seconds`, `method_cuda_peak_allocated_mb`,
-`method_cuda_peak_reserved_mb`, `total_input_tokens`,
-`method_tokens_per_second`, `method_ms_per_token`, and theoretical project
-artifact-size estimates. These fields make per-row operational comparisons
-clearer, while still preserving the distinction between simulated project
-runtime and real packed low-bit runtime.
-
-The older equal-looking `2274 MB` CUDA peak should also be interpreted carefully.
-In the earlier job-level records, both jobs loaded/evaluated the same original
-TinyLlama reference model on the same GPU, and the recorded value was a job-level
-peak rather than a sustained per-method memory profile. The newer bnb telemetry
-rerun records a lower method-level peak (`962.886 MB` allocated / `1322 MB`
-reserved), which is more useful for the bnb row but still should not be
-overstated as a complete memory trace.
+Runtime and memory interpretation matters. The project harness quantizes weights
+and then executes dequantized floating-point tensors, while bitsandbytes uses
+quantized runtime modules. The method-level telemetry is therefore a practical
+benchmark comparison for these code paths, not proof of packed project-INT4
+kernel speed or deployment memory savings.
 
 This result should be framed as a narrow TinyLlama/WikiText-2 subset finding,
 not a broad claim against NF4. It does, however, justify carrying the project
 `scale_row_g4` path forward as the strongest current project baseline for the
 next Milestone 4 comparison.
-
-### 19.3 Extra Work and Job-Level Runtime Ledger
-
-The following rows are retained as operational context rather than the primary
-comparison table. They capture whole benchmark jobs, smoke checks, and extra
-work that helped shape the Milestone 4 path.
-
-| Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime | Peak CUDA | Status |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| bitsandbytes NF4 smoke | 1 | 0.311986 | 0.865285 | +0.044535 | 1.04554 | 44.2s runner / 262.2s wall | 2173 MB allocated | Complete |
-| project INT4 logit-only smoke, `row_grouped_g4` | 1 | 0.117619 | 0.9078 | +0.0007 | 1.0007 | 264.1s runner / 7m8.5s wall | not recorded in available docs | Complete |
-| project INT4 logit-only 256-text, best row `scale_row_g4` from original five-row matrix | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall for all five project rows | 2274 MB allocated | Complete |
-| project INT4 per-method telemetry rerun, whole five-row job | 256 | 0.112199 for `scale_row_g4` | 0.901881 for `scale_row_g4` | -0.014085 for `scale_row_g4` | 0.986014 for `scale_row_g4` | 1208.7s runner / 23m43s wall for all five project rows | 2274 MB allocated / 2658 MB reserved | Complete |
-| bitsandbytes NF4 256-text | 256 | 0.253299 | 0.857917 | +0.023453 | 1.023730 | 231.4s runner / 6m17s wall | 2274 MB allocated / 2680 MB reserved | Complete |
-| bitsandbytes NF4 telemetry rerun | 256 | 0.253722 | 0.857737 | +0.023356 | 1.023631 | 191.5s runner / 6m24s wall; method loop 24.577s | 962.886 MB allocated / 1322 MB reserved | Complete |
 
 ## Appendix A. Reproducing Current Figures
 

@@ -5011,3 +5011,13 @@ is faster and lower-memory in the measured method loop (`24.577s` and
 `962.886 MB` allocated, versus project `scale_row_g4` `38.282s` and
 `2273.896 MB`). Keep the existing caveat: the project harness executes
 dequantized floating-point tensors and is not yet a packed INT4 runtime.
+
+## Session: 2026-07-05 - Research draft distillation cleanup
+
+Cleaned the Milestone 4 research draft so it presents distilled research
+evidence rather than development bookkeeping. Section 19 now keeps the project
+method table, the direct `scale_row_g4` versus bitsandbytes NF4 comparison, and
+the concise runtime/memory caveat. Removed whole-job tables, wall-clock run
+details, commit provenance, and rerun narrative from the research draft. Those
+details remain in the lab book and RunPod ledger, where they belong as
+development history and operational bookkeeping.
