@@ -5113,9 +5113,13 @@ tokens/sec, ms/token, and CUDA peak allocated/reserved memory.
 The runner intentionally requires an explicit `--awq-model-name` argument. This
 keeps a plain reference checkpoint from being accidentally loaded and recorded
 as an AWQ result. Local tests cover config construction, dtype validation,
-metric calculation, CSV schema, and the CUDA guard. No RunPod benchmark has been
-started from this step yet; the next GPU segment still needs a runtime/cost
-estimate, AWQ checkpoint choice, target commit, and user approval.
+metric calculation, CSV schema, and the CUDA guard. At runner-implementation
+time, the AWQ Pod benchmark had not yet started; the next GPU segment still
+needed a runtime/cost estimate, AWQ checkpoint choice, target commit, and user
+approval.
+
+Superseded later on 2026-07-05: the AWQ 256-record Pod benchmark completed and
+is recorded in the TinyLlama AWQ/GPTQ external baseline session below.
 
 ## Session: 2026-07-05 - GPTQ external baseline runner
 
@@ -5131,9 +5135,12 @@ The runner requires an explicit `--gptq-model-name` argument. This matches the
 AWQ guardrail and keeps benchmark records from accidentally treating the
 unquantized reference model as a GPTQ result. Local tests cover config
 construction, dtype validation, metric calculation, CSV schema, and the CUDA
-guard. No GPTQ Pod benchmark has been launched; the next GPU segment still
-needs checkpoint selection, runtime/cost estimate, target commit, and user
-approval.
+guard. At runner-implementation time, the GPTQ Pod benchmark had not yet
+started; the next GPU segment still needed checkpoint selection, runtime/cost
+estimate, target commit, and user approval.
+
+Superseded later on 2026-07-05: the GPTQ 256-record Pod benchmark completed and
+is recorded in the TinyLlama AWQ/GPTQ external baseline session below.
 
 ## Session: 2026-07-05 - TinyLlama AWQ/GPTQ external baseline runs
 
@@ -5182,3 +5189,42 @@ baselines, bnb NF4 is fastest, AWQ is close to bnb on logit MSE but has a worse
 PPL ratio, and GPTQ has the best external PPL ratio but weakest external logit
 MSE/top-5 overlap. All external baselines use substantially less measured CUDA
 peak memory than the current dequantized project harness.
+
+Run timestamps captured from tmux/session output, all Europe/London:
+
+- AWQ smoke tmux start: 2026-07-05 22:13:38.
+- AWQ 256-record run tmux start: 2026-07-05 22:24:34.
+- GPTQ smoke tmux start: 2026-07-05 22:39:43.
+- GPTQ 256-record run tmux start: 2026-07-05 22:46:05.
+
+Exact package-install substep timestamps were not captured; the RunPod ledger
+therefore records the AWQ/GPTQ setup window as an estimated 90 minute
+wall-time mix of active work, dependency waits, smoke probes, and Marlin JIT
+readiness.
+
+## Session: 2026-07-06 - Stale-state audit and handover prep
+
+Audit timestamp: 2026-07-06 00:31:51 BST.
+
+Stale-state check after commit `9126f2f` found the research draft in the desired
+distilled state: Section 19 presents the TinyLlama project/bnb/AWQ/GPTQ metrics,
+the runtime/memory caveat, and the kernel limitation/future-work note without
+the extra collective-run or dependency-install narrative. The detailed run
+history is kept in the lab book, RunPod README, RunPod usage ledger, operations
+notes, implementation time log, README, and project summary.
+
+Bookkeeping reconciliation completed:
+
+- RunPod ledger now records AWQ/GPTQ smoke and benchmark tmux start timestamps
+  where available.
+- RunPod README notes that those timestamps are operational provenance from
+  tmux output rather than a billing export.
+- README and project summary already mark the TinyLlama bnb/AWQ/GPTQ baseline
+  rows as complete and identify the next Milestone 4 action.
+- Implementation time log includes the active bookkeeping time for this audit.
+
+Current handover state: TinyLlama external baselines are complete. The next
+Milestone 4 task is to choose one additional model larger than TinyLlama, then
+estimate and seek approval for a smoke/cache/readiness GPU segment. No Pod is
+needed until that estimate is accepted; if the previous Pod is still running,
+it should be stopped unless another benchmark is queued immediately.

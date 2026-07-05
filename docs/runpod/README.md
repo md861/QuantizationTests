@@ -82,6 +82,9 @@ Interpretation:
   runner times were about 4.0-4.4 min each, but dependency probing, package
   compatibility checks, and Marlin JIT compilation consumed about 90 min wall
   time on the RTX 4090 Pod.
+- AWQ/GPTQ ledger timestamps use local Europe/London tmux creation times from
+  the remote session output. Treat them as operational provenance, not a
+  RunPod billing export.
 - Unlogged/admin/idle time is now the dominant captured cost bucket because the
   RTX 4090 Pod details panel showed a substantial uptime window before the
   AWQ/GPTQ segment began. Treat this as an estimate from observed uptime, not a

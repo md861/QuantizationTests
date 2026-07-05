@@ -827,6 +827,13 @@ Current handover state after AWQ/GPTQ integration:
 6. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
 
+Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
+AWQ/GPTQ data are represented in the research draft, README, project summary,
+RunPod usage dashboard/ledger, lab book, operations notes, and implementation
+time log. The only provenance gap is exact package-install substep timing during
+AWQ/GPTQ setup; available smoke and benchmark tmux start timestamps are now in
+the RunPod ledger and lab book.
+
 Regression and artifact acceptance checks:
 
 ```bash
