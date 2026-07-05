@@ -782,22 +782,25 @@ runner elapsed was 191.5s and command wall was 6m24s on RTX 4090. The primary
 comparison is now: project `scale_row_g4` is better quality, while bnb NF4 is
 faster and lower-memory in method-level telemetry.
 
-Current handover state after bnb telemetry rerun:
+Current handover state after draft distillation:
 
-1. Stop the current RunPod Pod unless another GPU benchmark is ready to launch
-   within about 30 minutes.
-2. The bnb NF4 telemetry rerun is complete and documented. The research draft
-   primary comparison now uses method-level telemetry for both project
-   `scale_row_g4` and bnb NF4.
-3. The current RTX 4090 Pod was verified idle after the rerun: no active
-   `tmux` benchmark session, GPU utilization `0%`, GPU memory
-   `1 MiB / 24564 MiB`, and exit code `0` for the telemetry run.
-4. Decide whether the next GPU segment should move to GPTQ/AWQ/another baseline
+1. GitHub is synced through commit `529a5d5`; local tree was clean before the
+   handover note.
+2. The research draft has been distilled: section 19 keeps only the method
+   metrics, direct `scale_row_g4` versus bnb NF4 comparison, and concise
+   runtime/memory caveat. Whole-job and run-history details live in the lab book
+   and RunPod ledger.
+3. The latest TinyLlama conclusion is unchanged: project `scale_row_g4` is
+   better quality, while bnb NF4 is faster/lower-memory in method-level
+   telemetry.
+4. The last Pod endpoint refused SSH during handover, so confirm fresh Pod
+   status/details before any future GPU work.
+5. Decide whether the next GPU segment should move to GPTQ/AWQ/another baseline
    or repeat bnb variants such as double-quant/alternate compute dtype.
-5. Before the next GPU segment, estimate runtime/cost from the benchmark timing
+6. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.
-6. Continue updating RunPod ledger, lab book, research draft, README, and
+7. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
 
 Regression and artifact acceptance checks:

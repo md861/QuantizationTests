@@ -5021,3 +5021,31 @@ the concise runtime/memory caveat. Removed whole-job tables, wall-clock run
 details, commit provenance, and rerun narrative from the research draft. Those
 details remain in the lab book and RunPod ledger, where they belong as
 development history and operational bookkeeping.
+
+## Session: 2026-07-05 - Break handover after draft distillation
+
+Prepared the repo for a pause after the bnb telemetry rerun and research-draft
+cleanup. GitHub is synced through commit `529a5d5`, and the local tree was clean
+before this handover note.
+
+Current state:
+
+- The research draft now carries distilled Milestone 4 evidence only: project
+  method metrics, the direct `scale_row_g4` versus bnb NF4 table, and a concise
+  caveat about harness telemetry versus deployed packed-INT4 runtime.
+- Development details remain in the correct places: lab book for narrative,
+  RunPod ledger/dashboard for operational timing/cost, and implementation time
+  log for active-work accounting.
+- Latest TinyLlama comparison: project `scale_row_g4` has better quality
+  (`0.112199` logit MSE, `0.998831` logit cosine, `0.901881` top-5,
+  `0.986014` PPL ratio), while bnb NF4 is faster/lower-memory in method-level
+  telemetry (`24.577s`, `962.886 MB` allocated) than project `scale_row_g4`
+  (`38.282s`, `2273.896 MB` allocated).
+- A final SSH check to the most recent Pod endpoint refused connection, so the
+  Pod is not reachable from this session. Before any future GPU work, confirm
+  whether the Pod was stopped or migrated and use fresh connection details.
+
+Next recommended action after the break: decide the next Milestone 4 branch.
+The cleanest options are GPTQ, AWQ, or another bitsandbytes variant such as
+double quantization / alternate compute dtype. Estimate runtime/cost and ask for
+approval before launching any new GPU job.
