@@ -13,11 +13,11 @@ Known captured RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: 207.8 min</th>
+    <th colspan="2">Logged work time: 231.5 min</th>
     <th colspan="3">Telemetry uptime last manually reconciled: 5h 5m on 2026-07-02</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: ~$2.05 | Storage: ~$0.07 | Total: ~$2.12 | Budget ceiling: about GBP 200</th>
+    <th colspan="5">Compute: ~$2.15 | Storage: ~$0.07 | Total: ~$2.22 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -30,8 +30,8 @@ Known captured RunPod time so far:
     <td>Setup / install</td>
     <td>36.0 min</td>
     <td>~$0.15</td>
-    <td>17%</td>
-    <td><code>####----------------</code></td>
+    <td>16%</td>
+    <td><code>###-----------------</code></td>
   </tr>
   <tr>
     <td>Verification / readiness</td>
@@ -42,10 +42,10 @@ Known captured RunPod time so far:
   </tr>
   <tr>
     <td>Benchmark compute / smoke</td>
-    <td>161.0 min</td>
-    <td>~$0.70</td>
-    <td>77%</td>
-    <td><code>###############-----</code></td>
+    <td>184.7 min</td>
+    <td>~$0.80</td>
+    <td>80%</td>
+    <td><code>################----</code></td>
   </tr>
   <tr>
     <td>Download / cache</td>
@@ -74,8 +74,9 @@ Interpretation:
 
 - The dashboard now reflects the completed TinyLlama project INT4 logit-only
   256-text matrix, the completed bitsandbytes NF4 256-text external baseline,
-  and the two intentionally aborted full-harness attempts that motivated the
-  logit-only Milestone 4 path.
+  the TinyLlama project INT4 per-method telemetry rerun, and the two
+  intentionally aborted full-harness attempts that motivated the logit-only
+  Milestone 4 path.
 - Benchmark compute is now the dominant captured RunPod work bucket. This is
   expected after Step 3, but the two one-hour aborted harness attempts are a
   visible cost lesson: use the logit-only path for shared bnb comparisons unless

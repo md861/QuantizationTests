@@ -201,6 +201,7 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | distilgpt2 | 82M | 24 | INT4 | p0.0212% effective | 1137.2s (19.0 min) | WikiText-2 validation sample, 7 texts |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 1 | INT4 | none | 228.3s (3.8 min) | RunPod RTX 4000 Ada smoke, single `q_proj` layer, 1 calibration text, peak CUDA allocated 2124 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 154 | INT4 logit-only matrix | none | 1004.4s (16.7 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, 5 project methods, peak CUDA allocated 2274 MB |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 154 | INT4 logit-only matrix with per-method telemetry | none | 1208.7s (20.1 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, 5 project methods, wall 23m43s; isolated method seconds: global 79.527, row_g4 34.542, row_g8 30.810, scale_g4 38.282, scale_g8 34.937; peak CUDA allocated 2274 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | bitsandbytes NF4 float16 | none | 231.4s (3.9 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, peak CUDA allocated 2274 MB |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
@@ -753,6 +754,15 @@ TinyLlama essentially loss-neutral on this bounded 256-record validation subset.
 Group size 4 is stronger than group size 8 on logit MSE/top-5, and scaling is
 neutral-to-slightly positive at g4. This is a project logit-only result; do not
 compare it against bitsandbytes on weight/activation reconstruction fields.
+
+Per-method telemetry rerun at commit `049d42a`: the same five project rows were
+rerun on the same 256-record resource. Whole-job elapsed was 1208.7s runner /
+23m43s wall. Isolated method timings were `global` 79.527s, `row_grouped_g4`
+34.542s, `row_grouped_g8` 30.810s, `scale_row_g4` 38.282s, and `scale_row_g8`
+34.937s. All rows reported the same peak CUDA value, 2273.896 MB allocated /
+2658 MB reserved, so treat this as peak harness telemetry rather than sustained
+per-method memory. This rerun predates the later throughput/artifact-size
+columns, which are now available for future runs.
 
 Completed external-baseline comparison: bitsandbytes NF4 float16 on the same
 256-record WikiText-2 resource produced logit MSE 0.253299, top-5 0.857917,

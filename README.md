@@ -122,6 +122,11 @@ Current RunPod setup notes:
   and top-5 overlap `0.9019` on the tracked WikiText-2 resource.
   The result makes `global` INT4 the failure/control row and shows g4 row grouping
   is essentially loss-neutral on this bounded TinyLlama validation subset.
+- TinyLlama project INT4 per-method telemetry rerun passed at commit `049d42a`:
+  `1208.7s` runner elapsed, `23m43s` command wall, and peak CUDA
+  `2274 MB` allocated / `2658 MB` reserved. Isolated project method times were
+  `global` `79.527s`, `row_grouped_g4` `34.542s`, `row_grouped_g8` `30.810s`,
+  `scale_row_g4` `38.282s`, and `scale_row_g8` `34.937s`.
 - First TinyLlama bitsandbytes NF4 256-text run passed at commit `92b4f5e`:
   `231.4s` runner elapsed, `6m17s` command wall, peak CUDA allocated `2274 MB`,
   logit MSE `0.253299`, top-5 overlap `0.857917`, loss delta `+0.023453`, and

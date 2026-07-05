@@ -4888,3 +4888,46 @@ external-baseline direction: GPTQ, AWQ, another bitsandbytes variant, or a
 different project INT4 model/run. Keep raw RunPod connection details out of the
 repo and continue using `/workspace/hf_cache` for persistent Hugging Face
 artifacts.
+
+## Session: 2026-07-05 - TinyLlama per-method telemetry rerun
+
+Completed the delegated RunPod rerun of the five TinyLlama project INT4
+logit-only rows with per-method runtime and CUDA peak telemetry. The worker
+checked out commit `049d42a`, which contains the per-method timing schema but
+predates the later throughput and theoretical artifact-size fields added at
+`684e9fe`. Raw Pod connection details remain intentionally excluded from the
+repo.
+
+Run summary:
+
+- Model: `TinyLlama/TinyLlama-1.1B-Chat-v1.0`.
+- Input: tracked 256-record WikiText-2 raw validation resource.
+- Preset: `tinyllama-1.1b-int4-matrix`, `--logit-only`, all five project rows.
+- Runner elapsed: `1208.7s` (`20.1 min`).
+- Command wall: `23m43s`.
+- Exit code: `0`.
+- Peak CUDA for each row: `2273.896 MB` allocated / `2658 MB` reserved.
+
+Per-method results:
+
+| Method | Logit MSE | Top-5 | Loss delta | PPL ratio | Method runtime |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `global` | 21.926735 | 0.000150 | +8.538809 | 5109.255968 | 79.527s |
+| `row_grouped_g4` | 0.112288 | 0.901863 | -0.012698 | 0.987382 | 34.542s |
+| `row_grouped_g8` | 0.174663 | 0.881888 | +0.002728 | 1.002732 | 30.810s |
+| `scale_row_g4` | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 38.282s |
+| `scale_row_g8` | 0.174467 | 0.881900 | +0.003491 | 1.003497 | 34.937s |
+
+Interpretation: the original `1004.4s` project runtime remains the operational
+cost of the first five-row matrix job, while this rerun gives the missing
+project-internal per-method timings. The best-quality project row remains
+`scale_row_g4`. Its isolated method loop was `38.282s`, but this excludes shared
+job setup and original-reference evaluation, so it should not be compared as a
+drop-in replacement for the older bitsandbytes whole-job runtime. A fully
+matched speed table still needs a bitsandbytes rerun using the same newer
+method-level timing, token-throughput, and artifact-size fields.
+
+Bookkeeping updates: research draft section 19, README, project summary, RunPod
+usage ledger, RunPod dashboard, and implementation time log were updated with
+the new per-method timing data and comparison caveats. The local code path at
+`684e9fe` had already passed the full local test suite: `225 passed, 1 warning`.

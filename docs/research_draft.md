@@ -1347,6 +1347,17 @@ all-layer one-text full-harness attempts were stopped after about one hour each
 because they were dominated by CPU-side reconstruction/activation bookkeeping
 rather than the shared end-to-end metrics.
 
+A follow-up per-method telemetry rerun at commit `049d42a` reproduced the same
+five project rows on the same 256-record resource and added row-level
+`method_elapsed_seconds`, `method_cuda_peak_allocated_mb`, and
+`method_cuda_peak_reserved_mb` fields. That rerun took `1208.7s` runner elapsed
+and `23m43s` command wall for the whole five-row job, but the isolated method
+times were much shorter: `global` `79.527s`, `row_grouped_g4` `34.542s`,
+`row_grouped_g8` `30.810s`, `scale_row_g4` `38.282s`, and `scale_row_g8`
+`34.937s`. The rerun used the per-method telemetry commit, not the later
+throughput/artifact-size commit, so throughput and theoretical artifact columns
+will appear only in subsequent runs from newer commits.
+
 ### 19.2 bitsandbytes NF4 Baseline and Shared Comparison
 
 The final row in the first controlled TinyLlama matrix, bitsandbytes NF4
@@ -1360,7 +1371,18 @@ Full shared-metric inventory:
 | bitsandbytes NF4 smoke | 1 | 0.311986 | 0.865285 | +0.044535 | 1.04554 | 44.2s runner / 262.2s wall | 2173 MB allocated | Complete |
 | project INT4 logit-only smoke, `row_grouped_g4` | 1 | 0.117619 | 0.9078 | +0.0007 | 1.0007 | 264.1s runner / 7m8.5s wall | not recorded in available docs | Complete |
 | project INT4 logit-only 256-text, best row `scale_row_g4` from five-row matrix | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall for all five project rows | 2274 MB allocated | Complete |
+| project INT4 per-method telemetry rerun, `scale_row_g4` row | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 38.282s isolated method; 1208.7s runner / 23m43s wall for all five project rows | 2274 MB allocated / 2658 MB reserved | Complete |
 | bitsandbytes NF4 256-text | 256 | 0.253299 | 0.857917 | +0.023453 | 1.023730 | 231.4s runner / 6m17s wall | 2274 MB allocated | Complete |
+
+Project per-method telemetry rerun:
+
+| Project method | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Method runtime | Peak CUDA |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `global` | 21.926735 | 0.000150 | +8.538809 | 5109.255968 | 79.527s | 2273.896 MB allocated / 2658 MB reserved |
+| `row_grouped_g4` | 0.112288 | 0.901863 | -0.012698 | 0.987382 | 34.542s | 2273.896 MB allocated / 2658 MB reserved |
+| `row_grouped_g8` | 0.174663 | 0.881888 | +0.002728 | 1.002732 | 30.810s | 2273.896 MB allocated / 2658 MB reserved |
+| `scale_row_g4` | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 38.282s | 2273.896 MB allocated / 2658 MB reserved |
+| `scale_row_g8` | 0.174467 | 0.881900 | +0.003491 | 1.003497 | 34.937s | 2273.896 MB allocated / 2658 MB reserved |
 
 The bnb smoke is useful only as a dependency/runtime sanity check because it used
 one record. On the 256-record comparison, bitsandbytes NF4 is faster than the
@@ -1374,17 +1396,17 @@ The directional comparison is:
 - `scale_row_g4` vs bnb NF4 logit MSE: `0.112199` vs `0.253299`, so the project row is about 2.3x lower.
 - `scale_row_g4` vs bnb NF4 top-5 overlap: `0.901881` vs `0.857917`, a +0.044 absolute advantage for the project row.
 - `scale_row_g4` vs bnb NF4 PPL ratio: `0.986014` vs `1.023730`, a +3.8 percentage-point relative gap in favor of the project row on this metric.
-- bnb NF4 runtime is much shorter as a single external row: `231.4s` runner elapsed vs `1004.4s` for the five-row project matrix. This is not an apples-to-apples per-method speed claim, but it is the correct operational cost comparison for completing each benchmark job as run.
+- bnb NF4 runtime is much shorter as a complete single-external-baseline job: `231.4s` runner elapsed vs `1004.4s` for the original five-row project matrix and `1208.7s` for the telemetry rerun. That is the correct operational cost comparison for completing each benchmark job as run.
+- The project `scale_row_g4` isolated method loop in the telemetry rerun took `38.282s`. This is useful for project-internal method accounting, but it excludes shared job setup and original-reference evaluation and should not be read as a direct replacement for the bnb whole-job runtime.
 
-Runtime interpretation matters. The project `1004.4s` value is the elapsed time
-for one job that evaluated five project methods (`global`, `row_grouped_g4`,
-`row_grouped_g8`, `scale_row_g4`, and `scale_row_g8`) after the original
-reference pass. It is not the isolated runtime of `scale_row_g4`. The current
-runner metadata records only whole-job elapsed time and total logit-row count,
-not per-method timing inside the job. A fair single-row runtime comparison with
-bnb NF4 would require rerunning the project path with `--logit-only
---logit-methods scale_row_g4` on the same 256-record text file and recording
-that separate elapsed time.
+Runtime interpretation matters. The project `1004.4s` and `1208.7s` values are
+whole-job elapsed times for jobs that evaluated five project methods (`global`,
+`row_grouped_g4`, `row_grouped_g8`, `scale_row_g4`, and `scale_row_g8`). The
+per-method rerun now records isolated project method-loop timings, but the
+bitsandbytes 256-text run still predates the same method-level schema. A fully
+apples-to-apples speed table would rerun bitsandbytes with matching
+`method_elapsed_seconds`, token-throughput, and artifact-size fields, then
+report both whole-job operational cost and isolated method-loop cost separately.
 
 Future runs now add method-level telemetry columns to logit CSVs:
 `method_elapsed_seconds`, `method_cuda_peak_allocated_mb`,
