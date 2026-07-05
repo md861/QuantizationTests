@@ -5099,3 +5099,20 @@ These are planning estimates, not approval to run. Before each GPU segment,
 future agents must estimate runtime/cost from the benchmark timing table and
 RunPod ledger, state GPU class/hourly rate/output paths/target commit, and wait
 for explicit user approval.
+
+## Session: 2026-07-05 - AWQ external baseline runner
+
+Started Milestone 4 step 4A. Added `experiments/awq_baseline.py`, an optional
+external-baseline runner for pre-quantized AWQ Transformers checkpoints. The
+runner mirrors the bitsandbytes comparison surface: it loads the original
+reference model and the AWQ checkpoint on the same evaluation texts, writes
+`awq_logit_metrics.csv`, writes `awq_metadata.json`, and records logit MSE,
+logit cosine, top-5 overlap, loss/perplexity delta, isolated method runtime,
+tokens/sec, ms/token, and CUDA peak allocated/reserved memory.
+
+The runner intentionally requires an explicit `--awq-model-name` argument. This
+keeps a plain reference checkpoint from being accidentally loaded and recorded
+as an AWQ result. Local tests cover config construction, dtype validation,
+metric calculation, CSV schema, and the CUDA guard. No RunPod benchmark has been
+started from this step yet; the next GPU segment still needs a runtime/cost
+estimate, AWQ checkpoint choice, target commit, and user approval.

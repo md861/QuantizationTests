@@ -787,7 +787,7 @@ Milestone 4 roadmap from this checkpoint:
 
 | Step | Goal | Repo implementation estimate | Run estimate | Notes |
 | --- | --- | ---: | ---: | --- |
-| 4A | TinyLlama AWQ external baseline | ~0.5-1 active day | likely 10-25 min first Pod pass; later reruns 5-12 min | Add optional AWQ runner or shared external-baseline runner, dependency probe, CSV/metadata schema matching bnb, smoke test, docs. Time includes unknown dependency friction. |
+| 4A | TinyLlama AWQ external baseline | Initial local runner complete; Pod dependency/checkpoint probe still needed | likely 10-25 min first Pod pass; later reruns 5-12 min | Added optional pre-quantized AWQ checkpoint runner with bnb-compatible CSV/metadata fields, local tests, and explicit `--awq-model-name` guard. Remaining uncertainty is Pod dependency/API friction and final checkpoint choice. |
 | 4B | TinyLlama GPTQ external baseline | ~0.5-1 active day | likely 10-30 min first Pod pass; later reruns 5-15 min | Add GPTQ runner with same metrics. GPTQ may require extra care around model format, calibration, or prequantized checkpoint availability. |
 | 4C | Distill TinyLlama external-baseline comparison | ~1-2 h active | no GPU run | Update research draft with AWQ/GPTQ rows only after successful runs; keep run details in lab book and RunPod ledger. |
 | 4D | Select one larger-than-TinyLlama model | ~1-2 h active planning | no GPU run | Choose by research value, license/access, tokenizer/eval compatibility, VRAM fit, and cost per useful benchmark. |
