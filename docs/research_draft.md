@@ -1357,7 +1357,7 @@ Full shared-metric inventory:
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | bitsandbytes NF4 smoke | 1 | 0.311986 | 0.865285 | +0.044535 | 1.04554 | 44.2s runner / 262.2s wall | 2173 MB allocated | Complete |
 | project INT4 logit-only smoke, `row_grouped_g4` | 1 | 0.117619 | 0.9078 | +0.0007 | 1.0007 | 264.1s runner / 7m8.5s wall | not recorded in available docs | Complete |
-| project INT4 logit-only 256-text, `scale_row_g4` | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall | 2274 MB allocated | Complete |
+| project INT4 logit-only 256-text, best row `scale_row_g4` from five-row matrix | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall for all five project rows | 2274 MB allocated | Complete |
 | bitsandbytes NF4 256-text | 256 | 0.253299 | 0.857917 | +0.023453 | 1.023730 | 231.4s runner / 6m17s wall | 2274 MB allocated | Complete |
 
 The bnb smoke is useful only as a dependency/runtime sanity check because it used
@@ -1373,6 +1373,25 @@ The directional comparison is:
 - `scale_row_g4` vs bnb NF4 top-5 overlap: `0.901881` vs `0.857917`, a +0.044 absolute advantage for the project row.
 - `scale_row_g4` vs bnb NF4 PPL ratio: `0.986014` vs `1.023730`, a +3.8 percentage-point relative gap in favor of the project row on this metric.
 - bnb NF4 runtime is much shorter as a single external row: `231.4s` runner elapsed vs `1004.4s` for the five-row project matrix. This is not an apples-to-apples per-method speed claim, but it is the correct operational cost comparison for completing each benchmark job as run.
+
+Runtime interpretation matters. The project `1004.4s` value is the elapsed time
+for one job that evaluated five project methods (`global`, `row_grouped_g4`,
+`row_grouped_g8`, `scale_row_g4`, and `scale_row_g8`) after the original
+reference pass. It is not the isolated runtime of `scale_row_g4`. The current
+runner metadata records only whole-job elapsed time and total logit-row count,
+not per-method timing inside the job. A fair single-row runtime comparison with
+bnb NF4 would require rerunning the project path with `--logit-only
+--logit-methods scale_row_g4` on the same 256-record text file and recording
+that separate elapsed time.
+
+The equal-looking `2274 MB` CUDA peak should also be interpreted carefully. Both
+jobs hit roughly the same peak allocated memory because each loads/evaluates the
+same original TinyLlama reference model on the same GPU, and the recorded value
+is a job-level peak rather than a sustained per-method memory profile.
+bitsandbytes reserved slightly more CUDA memory (`2680 MB` vs `2658 MB` in the
+project run metadata), but the allocated peaks rounded to the same value. This
+does not mean the two implementations have identical memory behavior throughout
+the run.
 
 This result should be framed as a narrow TinyLlama/WikiText-2 subset finding,
 not a broad claim against NF4. It does, however, justify carrying the project
