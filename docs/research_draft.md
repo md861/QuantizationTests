@@ -1364,17 +1364,19 @@ The final row in the first controlled TinyLlama matrix, bitsandbytes NF4
 `float16`, completed on the same 256 WikiText-2 records at commit `92b4f5e`.
 Compare both result tables on the shared end-to-end fields only.
 
-Full shared-metric inventory:
+Primary 256-record shared comparison:
 
-| Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime | Peak CUDA | Status |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| bitsandbytes NF4 smoke | 1 | 0.311986 | 0.865285 | +0.044535 | 1.04554 | 44.2s runner / 262.2s wall | 2173 MB allocated | Complete |
-| project INT4 logit-only smoke, `row_grouped_g4` | 1 | 0.117619 | 0.9078 | +0.0007 | 1.0007 | 264.1s runner / 7m8.5s wall | not recorded in available docs | Complete |
-| project INT4 logit-only 256-text, best row `scale_row_g4` from five-row matrix | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall for all five project rows | 2274 MB allocated | Complete |
-| project INT4 per-method telemetry rerun, `scale_row_g4` row | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 38.282s isolated method; 1208.7s runner / 23m43s wall for all five project rows | 2274 MB allocated / 2658 MB reserved | Complete |
-| bitsandbytes NF4 256-text | 256 | 0.253299 | 0.857917 | +0.023453 | 1.023730 | 231.4s runner / 6m17s wall | 2274 MB allocated | Complete |
+| Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime metric | Peak CUDA |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| project INT4 `scale_row_g4` | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 38.282s isolated project method loop | 2273.896 MB allocated / 2658 MB reserved |
+| bitsandbytes NF4 float16 | 256 | 0.253299 | 0.857917 | +0.023453 | 1.023730 | 231.4s whole benchmark job | 2273.896 MB allocated / 2680 MB reserved |
 
-Project per-method telemetry rerun:
+This table now separates method-level project telemetry from whole-job bnb
+telemetry. The project method-loop runtime is useful for comparing project rows
+against each other, while the bnb runtime remains a whole-job measurement until
+the bnb path is rerun with the same method-level schema.
+
+Project per-method telemetry rerun, 256 records:
 
 | Project method | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Method runtime | Peak CUDA |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -1385,18 +1387,16 @@ Project per-method telemetry rerun:
 | `scale_row_g8` | 0.174467 | 0.881900 | +0.003491 | 1.003497 | 34.937s | 2273.896 MB allocated / 2658 MB reserved |
 
 The bnb smoke is useful only as a dependency/runtime sanity check because it used
-one record. On the 256-record comparison, bitsandbytes NF4 is faster than the
-project logit-only matrix run because it evaluates one external method rather
-than five project methods, but its quality is weaker than the best project INT4
-row on this bounded subset: `scale_row_g4` has lower logit MSE, higher top-5
-overlap, and a slightly favorable loss/PPL delta.
+one record. On the 256-record comparison, bitsandbytes NF4 has weaker quality
+than the best project INT4 row on this bounded subset: `scale_row_g4` has lower
+logit MSE, higher top-5 overlap, and a slightly favorable loss/PPL delta.
 
 The directional comparison is:
 
 - `scale_row_g4` vs bnb NF4 logit MSE: `0.112199` vs `0.253299`, so the project row is about 2.3x lower.
 - `scale_row_g4` vs bnb NF4 top-5 overlap: `0.901881` vs `0.857917`, a +0.044 absolute advantage for the project row.
 - `scale_row_g4` vs bnb NF4 PPL ratio: `0.986014` vs `1.023730`, a +3.8 percentage-point relative gap in favor of the project row on this metric.
-- bnb NF4 runtime is much shorter as a complete single-external-baseline job: `231.4s` runner elapsed vs `1004.4s` for the original five-row project matrix and `1208.7s` for the telemetry rerun. That is the correct operational cost comparison for completing each benchmark job as run.
+- bnb NF4 runtime is shorter as a complete single-external-baseline job: `231.4s` runner elapsed vs `1004.4s` for the original five-row project matrix and `1208.7s` for the telemetry rerun. That whole-job comparison belongs in the extra-work/job-cost appendix rather than the primary per-method table.
 - The project `scale_row_g4` isolated method loop in the telemetry rerun took `38.282s`. This is useful for project-internal method accounting, but it excludes shared job setup and original-reference evaluation and should not be read as a direct replacement for the bnb whole-job runtime.
 
 Runtime interpretation matters. The project `1004.4s` and `1208.7s` values are
@@ -1429,6 +1429,20 @@ This result should be framed as a narrow TinyLlama/WikiText-2 subset finding,
 not a broad claim against NF4. It does, however, justify carrying the project
 `scale_row_g4` path forward as the strongest current project baseline for the
 next Milestone 4 comparison.
+
+### 19.3 Extra Work and Job-Level Runtime Ledger
+
+The following rows are retained as operational context rather than the primary
+comparison table. They capture whole benchmark jobs, smoke checks, and extra
+work that helped shape the Milestone 4 path.
+
+| Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime | Peak CUDA | Status |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| bitsandbytes NF4 smoke | 1 | 0.311986 | 0.865285 | +0.044535 | 1.04554 | 44.2s runner / 262.2s wall | 2173 MB allocated | Complete |
+| project INT4 logit-only smoke, `row_grouped_g4` | 1 | 0.117619 | 0.9078 | +0.0007 | 1.0007 | 264.1s runner / 7m8.5s wall | not recorded in available docs | Complete |
+| project INT4 logit-only 256-text, best row `scale_row_g4` from original five-row matrix | 256 | 0.112199 | 0.901881 | -0.014085 | 0.986014 | 1004.4s runner / 19m20s wall for all five project rows | 2274 MB allocated | Complete |
+| project INT4 per-method telemetry rerun, whole five-row job | 256 | 0.112199 for `scale_row_g4` | 0.901881 for `scale_row_g4` | -0.014085 for `scale_row_g4` | 0.986014 for `scale_row_g4` | 1208.7s runner / 23m43s wall for all five project rows | 2274 MB allocated / 2658 MB reserved | Complete |
+| bitsandbytes NF4 256-text | 256 | 0.253299 | 0.857917 | +0.023453 | 1.023730 | 231.4s runner / 6m17s wall | 2274 MB allocated / 2680 MB reserved | Complete |
 
 ## Appendix A. Reproducing Current Figures
 
