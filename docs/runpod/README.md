@@ -23,49 +23,49 @@ Known captured RunPod time so far:
     <th>Bucket</th>
     <th>Time</th>
     <th>Compute Cost</th>
-    <th>Share</th>
+    <th>Share of Observed Time</th>
     <th>Visual</th>
   </tr>
   <tr>
     <td>Setup / install</td>
     <td>36.6 min</td>
     <td>~$0.16</td>
-    <td>15%</td>
-    <td><code>###-----------------</code></td>
+    <td>7%</td>
+    <td><code>#-------------------</code></td>
   </tr>
   <tr>
     <td>Verification / readiness</td>
     <td>5.8 min</td>
     <td>~$0.03</td>
-    <td>2%</td>
-    <td><code>#-------------------</code></td>
+    <td>1%</td>
+    <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>Benchmark compute / smoke</td>
     <td>191.1 min</td>
     <td>~$0.87</td>
-    <td>80%</td>
-    <td><code>################----</code></td>
+    <td>38%</td>
+    <td><code>########------------</code></td>
   </tr>
   <tr>
     <td>Download / cache</td>
     <td>3.5 min</td>
     <td>~$0.01</td>
-    <td>1%</td>
+    <td>&lt;1%</td>
     <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>RunPod debug / command wrapper</td>
     <td>1.5 min</td>
     <td>~$0.01</td>
-    <td>1%</td>
+    <td>&lt;1%</td>
     <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>Unlogged uptime / admin / idle</td>
     <td>264.2 min</td>
     <td>~$1.15</td>
-    <td>53% observed</td>
+    <td>53%</td>
     <td><code>###########---------</code></td>
   </tr>
 </table>
@@ -83,10 +83,9 @@ Interpretation:
   weight/activation reconstruction is explicitly required.
 - RunPod telemetry has shown higher wall-clock uptime than our logged work time.
   The gap is tracked as unlogged uptime/admin/idle and should be reduced by
-  stopping the Pod outside short queued benchmark windows. The ordinary bucket
-  shares above are relative to logged categorized work; the unlogged row is
-  shown separately as a share of observed total time because it is known spend
-  but not attributable to a specific project task.
+  stopping the Pod outside short queued benchmark windows. The share column now
+  uses observed total time for every row, so the buckets are comparable even
+  though the unlogged row is not attributable to a specific project task.
 - The full Pod test suite took `349.22s (0:05:49)` and is categorized as
   verification, not benchmark compute.
 - Several setup/sync/admin windows were not precisely timed. They are recorded
