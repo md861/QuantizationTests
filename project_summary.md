@@ -773,12 +773,22 @@ TinyLlama subset, the best project row (`scale_row_g4`) is higher quality
 because it evaluates one external method rather than the five-row project
 matrix.
 
-Next steps after the first TinyLlama comparison:
+Current handover state after per-method timing cleanup:
 
 1. Stop the current RunPod Pod unless another GPU benchmark is ready to launch within about 30 minutes.
-2. Decide the next external-baseline direction: GPTQ, AWQ, another bnb variant, or a different project INT4 model/run.
-3. Before the next GPU segment, estimate runtime/cost from the benchmark timing table, run `tools/runpod_bootstrap.sh` on any new or migrated Pod, and launch long jobs inside detached `tmux`.
-4. Continue updating RunPod ledger, lab book, research draft, README, and project summary after each GPU segment.
+2. GitHub is synced through commit `074fcfa`, which makes the research draft
+   primary comparison per-method first and moves whole-job/smoke rows into
+   `19.3 Extra Work and Job-Level Runtime Ledger`.
+3. The current Pod was verified idle before handover: no active `tmux`
+   sessions, GPU utilization `0%`, GPU memory `2 MiB / 20475 MiB`, and no
+   benchmark Python process.
+4. Decide whether the next GPU segment should rerun bitsandbytes with the
+   latest method-level telemetry schema or move to GPTQ/AWQ/another baseline.
+5. Before the next GPU segment, estimate runtime/cost from the benchmark timing
+   table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
+   migrated Pod, and launch long jobs inside detached `tmux`.
+6. Continue updating RunPod ledger, lab book, research draft, README, and
+   project summary after each GPU segment.
 
 Regression and artifact acceptance checks:
 

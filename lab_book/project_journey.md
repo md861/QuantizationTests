@@ -4931,3 +4931,33 @@ Bookkeeping updates: research draft section 19, README, project summary, RunPod
 usage ledger, RunPod dashboard, and implementation time log were updated with
 the new per-method timing data and comparison caveats. The local code path at
 `684e9fe` had already passed the full local test suite: `225 passed, 1 warning`.
+
+## Session: 2026-07-05 - Break handover after per-method timing cleanup
+
+Prepared the repo for a pause after prioritizing per-method TinyLlama metrics in
+the research draft. GitHub is synced through commit `074fcfa`, which moves the
+old all-method/whole-job comparison table into `19.3 Extra Work and Job-Level
+Runtime Ledger` and keeps the primary `19.2` comparison focused on row-level
+project telemetry versus the current bnb whole-job baseline.
+
+Current state:
+
+- Local branch was clean after the push.
+- RunPod was checked before handover: no `tmux` sessions were active, GPU
+  utilization was `0%`, GPU memory was `2 MiB / 20475 MiB`, and no benchmark
+  Python process was running. It is safe to stop the current Pod.
+- Best current project row remains `scale_row_g4`: logit MSE `0.112199`,
+  top-5 overlap `0.901881`, PPL ratio `0.986014`, isolated method loop
+  `38.282s`.
+- bitsandbytes NF4 256-text remains the first external baseline: logit MSE
+  `0.253299`, top-5 overlap `0.857917`, PPL ratio `1.023730`, whole benchmark
+  runtime `231.4s`.
+- The fair-speed caveat is now explicit: project rows have per-method telemetry,
+  while bnb still needs a matching rerun with method-level timing,
+  token-throughput, and artifact-size-style fields before claiming a fully
+  apples-to-apples method-level runtime comparison.
+
+Next recommended action after the break: stop the Pod, then decide whether the
+next GPU segment should rerun bitsandbytes with the latest telemetry schema or
+move to the next external baseline direction such as GPTQ/AWQ. Before any new
+GPU run, estimate runtime/cost from the timing table and ask for approval.
