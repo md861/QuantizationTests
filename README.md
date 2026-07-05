@@ -133,6 +133,11 @@ Current RunPod setup notes:
   perplexity ratio `1.023730`. On this bounded comparison, project
   `scale_row_g4` has better quality, while bnb is faster because it evaluates a
   single external method rather than the five project rows.
+- TinyLlama bitsandbytes NF4 256-text telemetry rerun passed at commit
+  `d8c7d09`: `191.5s` runner elapsed, `6m24s` command wall, isolated bnb method
+  loop `24.577s`, `1354.168 tokens/s`, `0.738 ms/token`, peak CUDA
+  `962.886 MB` allocated / `1322 MB` reserved, logit MSE `0.253722`,
+  top-5 overlap `0.857737`, loss delta `+0.023356`, and PPL ratio `1.023631`.
 
 ## Completed Milestone 3
 

@@ -203,6 +203,7 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 154 | INT4 logit-only matrix | none | 1004.4s (16.7 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, 5 project methods, peak CUDA allocated 2274 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 154 | INT4 logit-only matrix with per-method telemetry | none | 1208.7s (20.1 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, 5 project methods, wall 23m43s; isolated method seconds: global 79.527, row_g4 34.542, row_g8 30.810, scale_g4 38.282, scale_g8 34.937; peak CUDA allocated 2274 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | bitsandbytes NF4 float16 | none | 231.4s (3.9 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, peak CUDA allocated 2274 MB |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | bitsandbytes NF4 float16 telemetry rerun | none | 191.5s (3.2 min) | RunPod RTX 4090, 256 WikiText-2 records, wall 6m24s; isolated method loop 24.577s, 1354.168 tokens/s, 0.738 ms/token, peak CUDA allocated 963 MB |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -773,17 +774,26 @@ TinyLlama subset, the best project row (`scale_row_g4`) is higher quality
 because it evaluates one external method rather than the five-row project
 matrix.
 
-Current handover state after per-method timing cleanup:
+bnb telemetry rerun at commit `d8c7d09`: the same 256-record NF4 float16 row
+produced logit MSE 0.253722, top-5 0.857737, loss delta +0.023356, PPL ratio
+1.023631, isolated method runtime 24.577s, throughput 1354.168 tokens/s,
+0.738 ms/token, and peak CUDA 962.886 MB allocated / 1322 MB reserved. Whole
+runner elapsed was 191.5s and command wall was 6m24s on RTX 4090. The primary
+comparison is now: project `scale_row_g4` is better quality, while bnb NF4 is
+faster and lower-memory in method-level telemetry.
 
-1. Stop the current RunPod Pod unless another GPU benchmark is ready to launch within about 30 minutes.
-2. GitHub is synced through commit `074fcfa`, which makes the research draft
-   primary comparison per-method first and moves whole-job/smoke rows into
-   `19.3 Extra Work and Job-Level Runtime Ledger`.
-3. The current Pod was verified idle before handover: no active `tmux`
-   sessions, GPU utilization `0%`, GPU memory `2 MiB / 20475 MiB`, and no
-   benchmark Python process.
-4. Decide whether the next GPU segment should rerun bitsandbytes with the
-   latest method-level telemetry schema or move to GPTQ/AWQ/another baseline.
+Current handover state after bnb telemetry rerun:
+
+1. Stop the current RunPod Pod unless another GPU benchmark is ready to launch
+   within about 30 minutes.
+2. The bnb NF4 telemetry rerun is complete and documented. The research draft
+   primary comparison now uses method-level telemetry for both project
+   `scale_row_g4` and bnb NF4.
+3. The current RTX 4090 Pod was verified idle after the rerun: no active
+   `tmux` benchmark session, GPU utilization `0%`, GPU memory
+   `1 MiB / 24564 MiB`, and exit code `0` for the telemetry run.
+4. Decide whether the next GPU segment should move to GPTQ/AWQ/another baseline
+   or repeat bnb variants such as double-quant/alternate compute dtype.
 5. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.

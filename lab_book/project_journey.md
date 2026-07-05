@@ -4935,10 +4935,10 @@ the new per-method timing data and comparison caveats. The local code path at
 ## Session: 2026-07-05 - Break handover after per-method timing cleanup
 
 Prepared the repo for a pause after prioritizing per-method TinyLlama metrics in
-the research draft. GitHub is synced through commit `074fcfa`, which moves the
+the research draft. GitHub was synced through commit `074fcfa`, which moved the
 old all-method/whole-job comparison table into `19.3 Extra Work and Job-Level
-Runtime Ledger` and keeps the primary `19.2` comparison focused on row-level
-project telemetry versus the current bnb whole-job baseline.
+Runtime Ledger` and kept the primary `19.2` comparison focused on row-level
+project telemetry versus the then-current bnb whole-job baseline.
 
 Current state:
 
@@ -4952,12 +4952,62 @@ Current state:
 - bitsandbytes NF4 256-text remains the first external baseline: logit MSE
   `0.253299`, top-5 overlap `0.857917`, PPL ratio `1.023730`, whole benchmark
   runtime `231.4s`.
-- The fair-speed caveat is now explicit: project rows have per-method telemetry,
-  while bnb still needs a matching rerun with method-level timing,
+- The fair-speed caveat at this point was: project rows had per-method
+  telemetry, while bnb still needed a matching rerun with method-level timing,
   token-throughput, and artifact-size-style fields before claiming a fully
   apples-to-apples method-level runtime comparison.
 
-Next recommended action after the break: stop the Pod, then decide whether the
+Next recommended action at that point: stop the Pod, then decide whether the
 next GPU segment should rerun bitsandbytes with the latest telemetry schema or
-move to the next external baseline direction such as GPTQ/AWQ. Before any new
-GPU run, estimate runtime/cost from the timing table and ask for approval.
+move to the next external baseline direction such as GPTQ/AWQ. This was
+superseded later on 2026-07-05 by the completed bnb telemetry rerun below.
+
+## Session: 2026-07-05 - bitsandbytes NF4 telemetry rerun
+
+Launched the approved bnb NF4 256-record telemetry rerun on a fresh RTX 4090
+RunPod worker after the user provided the new Pod details and pricing
+(`$0.69/hr`). The checkout on the network volume was initially at `049d42a`;
+it was fast-forwarded to `d8c7d09`. `tools/runpod_bootstrap.sh` verified the
+persistent HF cache and installed ephemeral container tools `tmux` and `rsync`.
+Raw connection details remain intentionally excluded from the repo.
+
+Estimate given before launch: likely 6-12 minutes, conservative ceiling 15
+minutes, expected cost about `$0.07-$0.14` at `$0.69/hr`, conservative about
+`$0.17`. Actual command wall was `384s` (`6m24s`), within the estimate.
+
+Run summary:
+
+- Model: `TinyLlama/TinyLlama-1.1B-Chat-v1.0`.
+- Baseline: bitsandbytes NF4 `float16`, no double quant.
+- Input: tracked 256-record WikiText-2 raw validation resource.
+- Commit: `d8c7d09`.
+- GPU: RTX 4090.
+- Runner elapsed: `191.477s`.
+- Command wall: `384s`.
+- Exit code: `0`.
+- Results directory: `results/bitsandbytes_tinyllama_nf4_256_telemetry/` on the
+  Pod.
+
+Telemetry result:
+
+| Metric | Value |
+| --- | ---: |
+| Logit MSE | 0.253722 |
+| Logit cosine | 0.995222 |
+| Top-5 overlap | 0.857737 |
+| Loss delta | +0.023356 |
+| PPL ratio | 1.023631 |
+| Method loop runtime | 24.577s |
+| Total input tokens | 33,282 |
+| Throughput | 1354.168 tokens/s |
+| Latency | 0.738 ms/token |
+| Peak CUDA allocated | 962.886 MB |
+| Peak CUDA reserved | 1322 MB |
+
+Interpretation: the current primary TinyLlama comparison now has method-level
+runtime for both sides. Project `scale_row_g4` remains better quality
+(`0.112199` logit MSE, `0.901881` top-5, `0.986014` PPL ratio), while bnb NF4
+is faster and lower-memory in the measured method loop (`24.577s` and
+`962.886 MB` allocated, versus project `scale_row_g4` `38.282s` and
+`2273.896 MB`). Keep the existing caveat: the project harness executes
+dequantized floating-point tensors and is not yet a packed INT4 runtime.
