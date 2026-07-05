@@ -1383,6 +1383,21 @@ quantized runtime modules. The method-level telemetry is therefore a practical
 benchmark comparison for these code paths, not proof of packed project-INT4
 kernel speed or deployment memory savings.
 
+The main memory/speed limitation is that the project does not yet have a
+ParoQuant runtime dequantization kernel or a true low-bit arithmetic kernel.
+External baselines such as bitsandbytes obtain their speed and memory profile by
+keeping weights in compressed low-bit form and using specialized kernels to
+unpack/dequantize blocks during matrix multiplication, or to accumulate low-bit
+products into wider types such as `int32`, `fp16`, or `fp32`. These kernels are
+important because they avoid materializing a full floating-point weight matrix,
+but they also introduce another accuracy/speed tradeoff: lower-bit arithmetic
+and approximate block scaling can reduce fidelity while improving bandwidth,
+VRAM use, and sometimes latency. A future repo direction is therefore to add a
+packed ParoQuant artifact format, then a runtime dequantization kernel for the
+strongest row-grouped paths, and only later a true low-bit kernel. Given the
+current project scope, this remains future work rather than a prerequisite for
+the present quality comparison.
+
 This result should be framed as a narrow TinyLlama/WikiText-2 subset finding,
 not a broad claim against NF4. It does, however, justify carrying the project
 `scale_row_g4` path forward as the strongest current project baseline for the
