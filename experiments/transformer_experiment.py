@@ -146,6 +146,13 @@ class LogitRecord:
     method_elapsed_seconds: Optional[float] = None
     method_cuda_peak_allocated_mb: Optional[float] = None
     method_cuda_peak_reserved_mb: Optional[float] = None
+    total_input_tokens: Optional[int] = None
+    method_tokens_per_second: Optional[float] = None
+    method_ms_per_token: Optional[float] = None
+    reference_weight_bytes: Optional[int] = None
+    estimated_packed_weight_bytes: Optional[int] = None
+    estimated_scale_metadata_bytes: Optional[int] = None
+    estimated_total_artifact_bytes: Optional[int] = None
 
 
 def run_transformer_experiment(
@@ -499,6 +506,7 @@ def _run_logit_experiment(
     """Run full-model passes while regenerating one method's weights at a time."""
     orig_logits, orig_loss = _forward_pass(model, token_inputs)
     orig_perplexity = math.exp(orig_loss)
+    total_input_tokens = _count_input_tokens(token_inputs)
 
     method_keys = _common_method_keys(method_keys_by_layer)
     n_methods = len(method_keys)
@@ -537,6 +545,10 @@ def _run_logit_experiment(
             method_peak_reserved_mb = _cuda_memory_mb(
                 torch.cuda.max_memory_reserved(device_index)
             )
+        storage_estimate = _estimate_method_storage(original_weights, method, bitwidth)
+        tokens_per_second, ms_per_token = _throughput_metrics(
+            total_input_tokens, method_elapsed
+        )
 
         o_flat = np.concatenate([l.flatten() for l in orig_logits])
         q_flat = np.concatenate([l.flatten() for l in q_logits])
@@ -566,6 +578,17 @@ def _run_logit_experiment(
             method_elapsed_seconds=round(method_elapsed, 3),
             method_cuda_peak_allocated_mb=method_peak_allocated_mb,
             method_cuda_peak_reserved_mb=method_peak_reserved_mb,
+            total_input_tokens=total_input_tokens,
+            method_tokens_per_second=tokens_per_second,
+            method_ms_per_token=ms_per_token,
+            reference_weight_bytes=storage_estimate["reference_weight_bytes"],
+            estimated_packed_weight_bytes=storage_estimate["estimated_packed_weight_bytes"],
+            estimated_scale_metadata_bytes=storage_estimate[
+                "estimated_scale_metadata_bytes"
+            ],
+            estimated_total_artifact_bytes=storage_estimate[
+                "estimated_total_artifact_bytes"
+            ],
         )
         records.append(record)
         if incremental_logit_path is not None:
@@ -767,6 +790,70 @@ def _forward_pass(
     return logits_list, avg_loss
 
 
+def _count_input_tokens(token_inputs: list) -> int:
+    return int(sum(int(ids.numel()) for ids in token_inputs))
+
+
+def _throughput_metrics(
+    total_input_tokens: int, elapsed_seconds: float
+) -> tuple[Optional[float], Optional[float]]:
+    if total_input_tokens <= 0 or elapsed_seconds <= 0.0:
+        return None, None
+    tokens_per_second = total_input_tokens / elapsed_seconds
+    ms_per_token = (elapsed_seconds * 1000.0) / total_input_tokens
+    return round(tokens_per_second, 3), round(ms_per_token, 3)
+
+
+def _estimate_method_storage(
+    original_weights: dict[str, np.ndarray],
+    method: str,
+    bitwidth: int,
+) -> dict[str, int]:
+    reference_weight_bytes = int(sum(weight.nbytes for weight in original_weights.values()))
+    packed_weight_bytes = int(
+        sum(_packed_quantized_bytes(weight.size, bitwidth) for weight in original_weights.values())
+    )
+    scale_metadata_bytes = int(
+        sum(_scale_metadata_bytes(weight, method) for weight in original_weights.values())
+    )
+    return {
+        "reference_weight_bytes": reference_weight_bytes,
+        "estimated_packed_weight_bytes": packed_weight_bytes,
+        "estimated_scale_metadata_bytes": scale_metadata_bytes,
+        "estimated_total_artifact_bytes": packed_weight_bytes + scale_metadata_bytes,
+    }
+
+
+def _packed_quantized_bytes(n_values: int, bitwidth: int) -> int:
+    return int(math.ceil(n_values * bitwidth / 8))
+
+
+def _scale_metadata_bytes(weight: np.ndarray, method: str) -> int:
+    # The storage estimate assumes packed integer weights plus float32 metadata.
+    scale_bytes = 4
+    index_bytes = 4
+    n_rows, n_cols = weight.shape
+    if method == "global":
+        return scale_bytes
+    if method.startswith("row_grouped_g"):
+        group_size = _parse_group_size(method, prefix="row_grouped_g")
+        return n_cols * math.ceil(n_rows / group_size) * scale_bytes
+    if method.startswith("scale_row_g"):
+        group_size = _parse_group_size(method, prefix="scale_row_g")
+        row_group_scales = n_cols * math.ceil(n_rows / group_size) * scale_bytes
+        channel_scaling = n_cols * scale_bytes
+        return row_group_scales + channel_scaling
+    if method.startswith("top_width_rotate_") and "_scale_row_g" in method:
+        _, group_size = _parse_top_width_method(method)
+        row_group_scales = n_cols * math.ceil(n_rows / group_size) * scale_bytes
+        channel_scaling = n_cols * scale_bytes
+        # Rotation counts vary by layer and candidate fraction at runtime. This
+        # conservative schema reserves one angle plus two channel indices.
+        one_rotation = scale_bytes + 2 * index_bytes
+        return row_group_scales + channel_scaling + one_rotation
+    return 0
+
+
 def _top5_overlap(
     orig_list: list[np.ndarray],
     q_list: list[np.ndarray],
@@ -927,6 +1014,13 @@ _LOGIT_CSV_FIELDS = [
     "method_elapsed_seconds",
     "method_cuda_peak_allocated_mb",
     "method_cuda_peak_reserved_mb",
+    "total_input_tokens",
+    "method_tokens_per_second",
+    "method_ms_per_token",
+    "reference_weight_bytes",
+    "estimated_packed_weight_bytes",
+    "estimated_scale_metadata_bytes",
+    "estimated_total_artifact_bytes",
 ]
 
 

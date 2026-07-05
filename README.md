@@ -54,6 +54,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Row-grouped quantization vectorized implementation | Complete |
 | TinyLlama project logit-only matrix path | Complete |
 | Per-method logit runtime and CUDA peak telemetry | Complete |
+| Logit throughput and theoretical artifact-size telemetry | Complete |
 
 ## Next Milestone 4
 
@@ -271,7 +272,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current expected test state:
 
 ```text
-224 passed, 2 warnings
+225 passed, 1 warning
 ```
 
 ## Reproduce Artifacts

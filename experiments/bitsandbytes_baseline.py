@@ -30,8 +30,10 @@ from experiments.transformer_experiment import (
     CALIBRATION_TEXTS,
     DEFAULT_TEXT_SOURCE,
     LogitRecord,
+    _count_input_tokens,
     _forward_pass,
     _resolve_torch_device,
+    _throughput_metrics,
     _top5_overlap,
     load_text_batch,
 )
@@ -56,6 +58,13 @@ _LOGIT_CSV_FIELDS = [
     "method_elapsed_seconds",
     "method_cuda_peak_allocated_mb",
     "method_cuda_peak_reserved_mb",
+    "total_input_tokens",
+    "method_tokens_per_second",
+    "method_ms_per_token",
+    "reference_weight_bytes",
+    "estimated_packed_weight_bytes",
+    "estimated_scale_metadata_bytes",
+    "estimated_total_artifact_bytes",
 ]
 
 
@@ -93,6 +102,7 @@ def run_bitsandbytes_baseline(config: BitsAndBytesBaselineConfig) -> LogitRecord
         tokenizer(text, return_tensors="pt")["input_ids"].to(device)
         for text in config.evaluation_texts
     ]
+    total_input_tokens = _count_input_tokens(token_inputs)
 
     original_model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
@@ -129,6 +139,9 @@ def run_bitsandbytes_baseline(config: BitsAndBytesBaselineConfig) -> LogitRecord
         method_peak_reserved_mb = _cuda_memory_mb(
             torch.cuda.max_memory_reserved(device_index)
         )
+    tokens_per_second, ms_per_token = _throughput_metrics(
+        total_input_tokens, method_elapsed
+    )
 
     record = _make_logit_record(
         config=config,
@@ -139,6 +152,9 @@ def run_bitsandbytes_baseline(config: BitsAndBytesBaselineConfig) -> LogitRecord
         method_elapsed_seconds=round(method_elapsed, 3),
         method_cuda_peak_allocated_mb=method_peak_allocated_mb,
         method_cuda_peak_reserved_mb=method_peak_reserved_mb,
+        total_input_tokens=total_input_tokens,
+        method_tokens_per_second=tokens_per_second,
+        method_ms_per_token=ms_per_token,
     )
     config.results_dir.mkdir(parents=True, exist_ok=True)
     _write_logit_csv(config.results_dir / "bitsandbytes_logit_metrics.csv", [record])
@@ -192,6 +208,9 @@ def _make_logit_record(
     method_elapsed_seconds: Optional[float] = None,
     method_cuda_peak_allocated_mb: Optional[float] = None,
     method_cuda_peak_reserved_mb: Optional[float] = None,
+    total_input_tokens: Optional[int] = None,
+    method_tokens_per_second: Optional[float] = None,
+    method_ms_per_token: Optional[float] = None,
 ) -> LogitRecord:
     original_flat = np.concatenate([logits.flatten() for logits in original_logits])
     quantized_flat = np.concatenate([logits.flatten() for logits in quantized_logits])
@@ -223,6 +242,9 @@ def _make_logit_record(
         method_elapsed_seconds=method_elapsed_seconds,
         method_cuda_peak_allocated_mb=method_cuda_peak_allocated_mb,
         method_cuda_peak_reserved_mb=method_cuda_peak_reserved_mb,
+        total_input_tokens=total_input_tokens,
+        method_tokens_per_second=method_tokens_per_second,
+        method_ms_per_token=method_ms_per_token,
     )
 
 

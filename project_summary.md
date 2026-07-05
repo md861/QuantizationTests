@@ -99,6 +99,12 @@ Implemented so far:
   and incremental CSV writes; run all heavy benchmarks from this runner in a
   detached tmux session, not from the VSCode integrated terminal
 - optional bitsandbytes NF4 external baseline runner at experiments/bitsandbytes_baseline.py; reports logit/loss/perplexity plus runtime and memory metadata only, keeping bitsandbytes separate from project weight/activation reconstruction metrics and optional for local tests
+- logit metrics CSVs now include per-method operational telemetry when measured:
+  method elapsed seconds, CUDA peak allocated/reserved MB, total input tokens,
+  tokens/sec, ms/token, and theoretical project artifact-size estimates
+  (reference weight bytes, packed weight bytes, scale/scaling metadata bytes,
+  and total estimated artifact bytes). Treat project runtime/memory as harness
+  metrics until a real packed low-bit runtime exists.
 - top-width rotation fractions are capped model-wide for transformer runs:
   requested p5/p10/p20 paths are lowered when needed so the widest selected layer
   stays within `max_rotation_pairs=1000`; for TinyStories this produced one
@@ -157,10 +163,11 @@ If another coding agent resumes this project, the safest order is:
 12. **Always record wall-clock timing for every benchmark run.** When launching a run, state the estimated duration upfront based on the timings table below and, when available, `tools/estimate_benchmark_runtime.py` over prior result CSVs. When the run completes, copy the `elapsed: Xs (Ymin)` line from the runner log into both the lab book session entry and the Benchmark Run Timings table. Future logit metrics CSVs must include per-row method timing and CUDA peak fields when the runner can measure them. If timing was not captured, write "timing not captured" explicitly — never leave the table entry blank.
 13. **Prompt before GPU benchmark runs.** Before launching any nontrivial RunPod benchmark, report the predicted duration/cost, the evidence used for the prediction, the exact command/preset, target commit, output paths, and whether the estimate is job-level or per-method. Wait for explicit user approval before starting the run.
 14. **RunPod credit guardrails.** Treat RunPod as a benchmark worker only, not as the default development environment. Follow `docs/runpod/operations.md` for Pod setup, storage, stop-window, security policy, and `docs/runpod/usage_ledger.md` for RunPod time accounting. Keep code generation, ordinary tests, data analysis, plotting, README/research-draft/lab-book updates, and report writing local unless debugging a GPU-only failure. Before any RunPod run: make the smallest local dry run pass, estimate cost and duration, run a single-layer or small-subset smoke benchmark first, launch long jobs only in detached tmux, write logs and results under persistent /workspace, record commit hash, GPU, VRAM, peak memory, and elapsed time, update both the RunPod ledger and dashboard before handover, and pull back only artifacts needed for analysis. Keep Hugging Face cache under `/workspace/hf_cache` via `HF_HOME` and `HUGGINGFACE_HUB_CACHE`; rerun online cache prep after Pod replacement before using `--local-files-only`. Stop the Pod after each benchmark unless another GPU benchmark is already queued to start within about 30 minutes.
+15. **Track implementation time for substantial work.** For multi-step coding/research sessions, update `docs/implementation_time_log.md` with active implementation time separately from user-wait and hardware/tool-wait time. This log is for future prediction calibration, not research evidence.
 
-15. **Shell and editing discipline.** Prefer WSL-native commands for repo work and use local helpers when present: make status, make test, make collect-tests, or scripts/codex.cmd status. Avoid complex PowerShell-mediated one-liner edits against WSL files because PowerShell, wsl.exe, Bash, Perl, and sed can each interpret dollar signs, pipes, backticks, quotes, and escapes differently. Keep pipelines inside bash -lc when a pipeline is needed. Prefer apply_patch for manual edits when it can access the file; otherwise use small, inspectable WSL line-based edits. Avoid Perl/Python one-liners with shell-sensitive variables or heredocs from PowerShell. Temporary helper scripts for complex edits must live under WSL /tmp, not in the repo root, unless the helper itself is intended to be tracked. Remove any helper before status/commit. If a WSL command fails with Access is denied in the managed environment, treat it as a sandbox/launch-context boundary and rerun the same necessary command through the approved/escalated path rather than debugging it as a project failure.
+16. **Shell and editing discipline.** Prefer WSL-native commands for repo work and use local helpers when present: make status, make test, make collect-tests, or scripts/codex.cmd status. Avoid complex PowerShell-mediated one-liner edits against WSL files because PowerShell, wsl.exe, Bash, Perl, and sed can each interpret dollar signs, pipes, backticks, quotes, and escapes differently. Keep pipelines inside bash -lc when a pipeline is needed. Prefer apply_patch for manual edits when it can access the file; otherwise use small, inspectable WSL line-based edits. Avoid Perl/Python one-liners with shell-sensitive variables or heredocs from PowerShell. Temporary helper scripts for complex edits must live under WSL /tmp, not in the repo root, unless the helper itself is intended to be tracked. Remove any helper before status/commit. If a WSL command fails with Access is denied in the managed environment, treat it as a sandbox/launch-context boundary and rerun the same necessary command through the approved/escalated path rather than debugging it as a project failure.
 
-16. **Single source of truth for tests.** Keep the canonical test command, scope, and latest passing count only in the Tests section below. Do not duplicate the passing count elsewhere. When tests are added/removed or the count changes, update that section and run a stale-doc search before commit:
+17. **Single source of truth for tests.** Keep the canonical test command, scope, and latest passing count only in the Tests section below. Do not duplicate the passing count elsewhere. When tests are added/removed or the count changes, update that section and run a stale-doc search before commit:
 
 ```bash
 rg "passed, [0-9]+ warnings|tests/test_" project_summary.md README.md docs/research_draft.md
@@ -628,7 +635,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m pytest
 Current known passing test state:
 
 ```text
-224 passed, 2 warnings
+225 passed, 1 warning
 ```
 
 ## Design Conventions

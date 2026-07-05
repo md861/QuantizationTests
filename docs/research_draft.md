@@ -1273,6 +1273,8 @@ The current results are intentionally preliminary.
 - Scaling balances full-column max-absolute values, not groups or learned activation-aware statistics.
 - The first transformer benchmark uses `sshleifer/tiny-gpt2`, whose linear layers are extremely small; the near-lossless `g1` row-grouped results are therefore harness-validation evidence, not a realistic compression result.
 - The first transformer runs used the same three-sentence calibration batch: "The quick brown fox jumps over the lazy dog.", "Quantization reduces the precision of neural network weights to lower bitwidths.", and "Language models learn statistical patterns from large text corpora." A tracked 256-record WikiText-2 validation resource now provides the primary held-out text for Milestone 4 comparisons. It is still a bounded validation subset, so full benchmark claims should remain tied to the stated source, count, and extraction recipe.
+- Project-method runtime and CUDA-memory measurements are harness metrics, not deployed low-bit inference metrics. The current project path quantizes weights and then dequantizes them back to floating-point tensors for model execution, so it can measure reconstruction quality and operational benchmark cost but not real packed-INT4 speedups or VRAM savings. External baselines such as bitsandbytes NF4 use real quantized runtime modules, so their runtime/memory numbers answer a different question unless the project path is rerun through a genuine packed low-bit artifact or kernel.
+- Project artifact-size columns are theoretical estimates: packed integer weight bytes plus scale/scaling metadata bytes under the current row-grouped schema. They are useful for comparing storage formulas across project methods, but they are not measured serialized checkpoint sizes and should not be equated with runtime VRAM usage.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
@@ -1383,6 +1385,14 @@ not per-method timing inside the job. A fair single-row runtime comparison with
 bnb NF4 would require rerunning the project path with `--logit-only
 --logit-methods scale_row_g4` on the same 256-record text file and recording
 that separate elapsed time.
+
+Future runs now add method-level telemetry columns to logit CSVs:
+`method_elapsed_seconds`, `method_cuda_peak_allocated_mb`,
+`method_cuda_peak_reserved_mb`, `total_input_tokens`,
+`method_tokens_per_second`, `method_ms_per_token`, and theoretical project
+artifact-size estimates. These fields make per-row operational comparisons
+clearer, while still preserving the distinction between simulated project
+runtime and real packed low-bit runtime.
 
 The equal-looking `2274 MB` CUDA peak should also be interpreted carefully. Both
 jobs hit roughly the same peak allocated memory because each loads/evaluates the

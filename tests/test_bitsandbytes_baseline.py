@@ -100,6 +100,9 @@ def test_make_logit_record_computes_shared_metrics():
         method_elapsed_seconds=12.5,
         method_cuda_peak_allocated_mb=123.0,
         method_cuda_peak_reserved_mb=234.0,
+        total_input_tokens=42,
+        method_tokens_per_second=3.36,
+        method_ms_per_token=297.619,
     )
 
     assert record.model_name == "test-model"
@@ -115,6 +118,9 @@ def test_make_logit_record_computes_shared_metrics():
     assert record.method_elapsed_seconds == pytest.approx(12.5)
     assert record.method_cuda_peak_allocated_mb == pytest.approx(123.0)
     assert record.method_cuda_peak_reserved_mb == pytest.approx(234.0)
+    assert record.total_input_tokens == 42
+    assert record.method_tokens_per_second == pytest.approx(3.36)
+    assert record.method_ms_per_token == pytest.approx(297.619)
 
 
 def test_write_logit_csv_writes_expected_fields(tmp_path):
@@ -137,6 +143,11 @@ def test_write_logit_csv_writes_expected_fields(tmp_path):
     assert "method_elapsed_seconds" in rows[0]
     assert "method_cuda_peak_allocated_mb" in rows[0]
     assert "method_cuda_peak_reserved_mb" in rows[0]
+    assert "total_input_tokens" in rows[0]
+    assert "method_tokens_per_second" in rows[0]
+    assert "method_ms_per_token" in rows[0]
+    assert "reference_weight_bytes" in rows[0]
+    assert "estimated_total_artifact_bytes" in rows[0]
 
 
 def test_baseline_requires_cuda_before_loading_models(monkeypatch):

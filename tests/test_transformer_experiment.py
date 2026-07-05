@@ -16,6 +16,7 @@ from experiments.transformer_experiment import (
     WeightRecord,
     _common_method_keys,
     _dequantize_method,
+    _estimate_method_storage,
     _effective_top_width_pair_fractions,
     _configured_method_keys,
     _extract_weight,
@@ -417,6 +418,21 @@ def test_logit_records_fields_valid(experiment_results):
         assert r.method_elapsed_seconds >= 0.0
         assert r.method_cuda_peak_allocated_mb is None or r.method_cuda_peak_allocated_mb >= 0.0
         assert r.method_cuda_peak_reserved_mb is None or r.method_cuda_peak_reserved_mb >= 0.0
+        assert r.total_input_tokens is not None
+        assert r.total_input_tokens > 0
+        assert r.method_tokens_per_second is not None
+        assert r.method_tokens_per_second > 0.0
+        assert r.method_ms_per_token is not None
+        assert r.method_ms_per_token > 0.0
+        assert r.reference_weight_bytes is not None
+        assert r.reference_weight_bytes > 0
+        assert r.estimated_packed_weight_bytes is not None
+        assert r.estimated_packed_weight_bytes > 0
+        assert r.estimated_scale_metadata_bytes is not None
+        assert r.estimated_scale_metadata_bytes >= 0
+        assert r.estimated_total_artifact_bytes == (
+            r.estimated_packed_weight_bytes + r.estimated_scale_metadata_bytes
+        )
 
 
 def test_method_names_consistent_across_all_records(experiment_results):
@@ -451,6 +467,27 @@ def test_logit_csv_includes_perplexity_columns(tiny_config, experiment_results):
         assert "method_elapsed_seconds" in reader.fieldnames
         assert "method_cuda_peak_allocated_mb" in reader.fieldnames
         assert "method_cuda_peak_reserved_mb" in reader.fieldnames
+        assert "total_input_tokens" in reader.fieldnames
+        assert "method_tokens_per_second" in reader.fieldnames
+        assert "method_ms_per_token" in reader.fieldnames
+        assert "reference_weight_bytes" in reader.fieldnames
+        assert "estimated_packed_weight_bytes" in reader.fieldnames
+        assert "estimated_scale_metadata_bytes" in reader.fieldnames
+        assert "estimated_total_artifact_bytes" in reader.fieldnames
+
+
+def test_method_storage_estimate_accounts_for_scales():
+    weights = {"layer": np.zeros((8, 4), dtype=np.float32)}
+
+    global_estimate = _estimate_method_storage(weights, "global", 4)
+    row_estimate = _estimate_method_storage(weights, "row_grouped_g4", 4)
+    scale_estimate = _estimate_method_storage(weights, "scale_row_g4", 4)
+
+    assert global_estimate["reference_weight_bytes"] == 8 * 4 * 4
+    assert global_estimate["estimated_packed_weight_bytes"] == 16
+    assert global_estimate["estimated_scale_metadata_bytes"] == 4
+    assert row_estimate["estimated_scale_metadata_bytes"] == 4 * 2 * 4
+    assert scale_estimate["estimated_scale_metadata_bytes"] == (4 * 2 * 4) + (4 * 4)
 
 
 def test_int8_activation_drift_le_int4(experiment_results):
