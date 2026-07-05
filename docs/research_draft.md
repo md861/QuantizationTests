@@ -1276,17 +1276,17 @@ The current results are intentionally preliminary.
 
 These limitations are useful: they define the next experiments rather than weakening the value of the sandbox.
 
-## 19. Milestone 4 TinyLlama Benchmarking
+## 19. Milestone 4: TinyLlama Benchmarking and External Baseline
 
 Milestone 3 is closed: the planned small-transformer baselines, INT4 rotation presets, larger held-out text reruns, and rotation synthesis are complete. Milestone 4 is now the active larger-model benchmarking phase.
 
-Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardware/cache audit is complete, RunPod is configured as the GPU benchmark worker, and the first TinyLlama 1.1B single-layer INT4 smoke has passed. That smoke is a readiness check only, not yet a research-grade benchmark.
+Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardware/cache audit is complete, RunPod is configured as the GPU benchmark worker, the first TinyLlama 1.1B single-layer INT4 smoke has passed, and the first controlled 256-record TinyLlama comparison against bitsandbytes NF4 is complete.
 
 The first controlled TinyLlama matrix is now fixed around one clean question:
 how do project INT4 g4/g8 row-grouping paths compare with bitsandbytes NF4 on
 the same 256 WikiText-2 validation records?
 
-Planned rows:
+Completed matrix rows:
 
 1. Original HuggingFace TinyLlama reference logits/loss.
 2. Project INT4 `global` on all compatible linear layers, excluding `lm_head`, as a negative/control row.
@@ -1303,7 +1303,7 @@ logit cosine, top-5 overlap, loss delta, PPL/PPL ratio, runtime, peak CUDA
 memory, and artifact size. Do not compare bitsandbytes against project
 weight/activation reconstruction tables.
 
-### 19.1 First TinyLlama Project Matrix Result
+### 19.1 Project INT4 Matrix Result
 
 The first Milestone 4 project-method run is complete on the 256-record
 WikiText-2 raw validation resource. This run used the dedicated
@@ -1318,6 +1318,8 @@ weight/activation reconstruction diagnostics; the first Milestone 4 external
 comparison needs the shared end-to-end surface used by bitsandbytes: logit MSE,
 logit cosine, top-5 overlap, loss delta, perplexity ratio, elapsed time, peak
 CUDA memory, and artifact size.
+
+Project-method rows:
 
 | Method | Logit MSE | Logit cosine | Top-5 overlap | Loss delta | PPL ratio |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -1343,11 +1345,13 @@ all-layer one-text full-harness attempts were stopped after about one hour each
 because they were dominated by CPU-side reconstruction/activation bookkeeping
 rather than the shared end-to-end metrics.
 
+### 19.2 bitsandbytes NF4 Baseline and Shared Comparison
+
 The final row in the first controlled TinyLlama matrix, bitsandbytes NF4
 `float16`, completed on the same 256 WikiText-2 records at commit `92b4f5e`.
 Compare both result tables on the shared end-to-end fields only.
 
-Completed shared-metric inventory:
+Full shared-metric inventory:
 
 | Run | Eval texts | Logit MSE | Top-5 overlap | Loss delta | PPL ratio | Runtime | Peak CUDA | Status |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -1361,8 +1365,19 @@ one record. On the 256-record comparison, bitsandbytes NF4 is faster than the
 project logit-only matrix run because it evaluates one external method rather
 than five project methods, but its quality is weaker than the best project INT4
 row on this bounded subset: `scale_row_g4` has lower logit MSE, higher top-5
-overlap, and a slightly favorable loss/PPL delta. This result should be framed
-as a narrow TinyLlama/WikiText-2 subset finding, not a broad claim against NF4.
+overlap, and a slightly favorable loss/PPL delta.
+
+The directional comparison is:
+
+- `scale_row_g4` vs bnb NF4 logit MSE: `0.112199` vs `0.253299`, so the project row is about 2.3x lower.
+- `scale_row_g4` vs bnb NF4 top-5 overlap: `0.901881` vs `0.857917`, a +0.044 absolute advantage for the project row.
+- `scale_row_g4` vs bnb NF4 PPL ratio: `0.986014` vs `1.023730`, a +3.8 percentage-point relative gap in favor of the project row on this metric.
+- bnb NF4 runtime is much shorter as a single external row: `231.4s` runner elapsed vs `1004.4s` for the five-row project matrix. This is not an apples-to-apples per-method speed claim, but it is the correct operational cost comparison for completing each benchmark job as run.
+
+This result should be framed as a narrow TinyLlama/WikiText-2 subset finding,
+not a broad claim against NF4. It does, however, justify carrying the project
+`scale_row_g4` path forward as the strongest current project baseline for the
+next Milestone 4 comparison.
 
 ## Appendix A. Reproducing Current Figures
 
