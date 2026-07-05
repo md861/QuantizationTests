@@ -13,11 +13,11 @@ Known captured/reconciled RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: 238.5 min</th>
-    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 502.7 min (8.4 h)</th>
+    <th colspan="2">Logged work time: 336.8 min</th>
+    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 971.9 min (16.2 h)</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: ~$2.23 | Storage: ~$0.07 | Total: ~$2.30 | Budget ceiling: about GBP 200</th>
+    <th colspan="5">Compute: ~$7.64 | Storage: ~$0.15 | Total: ~$7.79 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -28,10 +28,10 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Setup / install</td>
-    <td>36.6 min</td>
-    <td>~$0.16</td>
-    <td>7%</td>
-    <td><code>#-------------------</code></td>
+    <td>126.6 min</td>
+    <td>~$1.20</td>
+    <td>13%</td>
+    <td><code>###-----------------</code></td>
   </tr>
   <tr>
     <td>Verification / readiness</td>
@@ -42,10 +42,10 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Benchmark compute / smoke</td>
-    <td>191.1 min</td>
-    <td>~$0.87</td>
-    <td>38%</td>
-    <td><code>########------------</code></td>
+    <td>199.4 min</td>
+    <td>~$0.97</td>
+    <td>21%</td>
+    <td><code>####----------------</code></td>
   </tr>
   <tr>
     <td>Download / cache</td>
@@ -63,24 +63,29 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Unlogged uptime / admin / idle</td>
-    <td>264.2 min</td>
-    <td>~$1.15</td>
-    <td>53%</td>
-    <td><code>###########---------</code></td>
+    <td>635.2 min</td>
+    <td>~$5.42</td>
+    <td>65%</td>
+    <td><code>#############-------</code></td>
   </tr>
 </table>
 
 Interpretation:
 
 - The dashboard now reflects the completed TinyLlama project INT4 logit-only
-  256-text matrix, the completed bitsandbytes NF4 256-text external baseline,
-  the TinyLlama project INT4 per-method telemetry rerun, the RTX 4090
-  bitsandbytes NF4 telemetry rerun, and the two intentionally aborted
-  full-harness attempts that motivated the logit-only Milestone 4 path.
-- Benchmark compute is now the dominant captured RunPod work bucket. This is
-  expected after Step 3, but the two one-hour aborted harness attempts are a
-  visible cost lesson: use the logit-only path for shared bnb comparisons unless
-  weight/activation reconstruction is explicitly required.
+  256-text matrix, the completed bitsandbytes NF4/AWQ/GPTQ 256-text external
+  baselines, the TinyLlama project INT4 per-method telemetry rerun, and the two
+  intentionally aborted full-harness attempts that motivated the logit-only
+  Milestone 4 path.
+- The AWQ/GPTQ segment added a useful cost lesson: first-time external baseline
+  setup can dominate the actual benchmark. The successful AWQ/GPTQ 256-record
+  runner times were about 4.0-4.4 min each, but dependency probing, package
+  compatibility checks, and Marlin JIT compilation consumed about 90 min wall
+  time on the RTX 4090 Pod.
+- Unlogged/admin/idle time is now the dominant captured cost bucket because the
+  RTX 4090 Pod details panel showed a substantial uptime window before the
+  AWQ/GPTQ segment began. Treat this as an estimate from observed uptime, not a
+  billing export; stop Pods aggressively outside short queued benchmark windows.
 - RunPod telemetry has shown higher wall-clock uptime than our logged work time.
   The gap is tracked as unlogged uptime/admin/idle and should be reduced by
   stopping the Pod outside short queued benchmark windows. The share column now

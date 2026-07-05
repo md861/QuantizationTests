@@ -233,3 +233,13 @@ Do not create the project virtualenv with `--system-site-packages` on this Pod.
 The first mixed venv reused image packages but produced unstable
 Transformers/GPT-2 imports. Use the clean self-contained
 `/workspace/PQ_project/.venv`.
+
+For AWQ/GPTQ external baselines under the current Transformers 5.12.1 / torch
+2.6.0+cu124 Pod stack, do not let `pip install gptqmodel` freely upgrade torch.
+The working constrained setup used `gptqmodel==7.1.0` with torch left at
+2.6.0+cu124, plus the missing helper packages discovered during smoke testing:
+`pypcre`, `tokenicer`, `device-smi`, `defuser`, `thefuzz`, `rapidfuzz`,
+`torchvision==0.21.0`, `optimum`, `logbar==0.4.3`, and `ninja`. Put
+`/workspace/PQ_project/.venv/bin` on `PATH` before AWQ/GPTQ runs so PyTorch can
+find `ninja` for Marlin JIT compilation. Set `TORCH_CUDA_ARCH_LIST=8.9` on RTX
+4090 to avoid compiling for unnecessary architectures.

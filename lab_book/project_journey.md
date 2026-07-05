@@ -5134,3 +5134,51 @@ construction, dtype validation, metric calculation, CSV schema, and the CUDA
 guard. No GPTQ Pod benchmark has been launched; the next GPU segment still
 needs checkpoint selection, runtime/cost estimate, target commit, and user
 approval.
+
+## Session: 2026-07-05 - TinyLlama AWQ/GPTQ external baseline runs
+
+Completed the TinyLlama 1.1B AWQ and GPTQ external-baseline runs on the tracked
+256-record WikiText-2 raw validation resource at commit `97bc484`.
+
+RunPod setup notes:
+
+- The fresh RTX 4090 Pod was reachable and had `/workspace/PQ_project` attached.
+- The pod checkout was advanced from `d8c7d09` to `97bc484`.
+- `tools/runpod_bootstrap.sh` installed ephemeral `tmux` and `rsync`.
+- The first AWQ smoke exposed the required Transformers 5.12.1 AWQ/GPTQ loader
+  stack. The working stack used `gptqmodel==7.1.0` without upgrading torch,
+  plus helper packages including `pypcre`, `tokenicer`, `device-smi`, `defuser`,
+  `thefuzz`, `rapidfuzz`, `torchvision==0.21.0`, `optimum`, `logbar==0.4.3`,
+  and `ninja`.
+- The latest `gptqmodel` dependency metadata requests torch >=2.8, but torch was
+  intentionally kept at `2.6.0+cu124` for compatibility with the existing pod
+  stack. The AWQ/GPTQ smoke and 256-record runs completed under this constrained
+  stack.
+- AWQ required one-time Marlin fp16 JIT compilation; with `.venv/bin` on `PATH`
+  so `ninja` could be found, the extension compiled in about 172s. Future runs
+  on the same pod/cache should be faster.
+
+AWQ 4-bit result:
+
+- Checkpoint: `TheBloke/TinyLlama-1.1B-Chat-v1.0-AWQ`.
+- Runner elapsed: `238.158s`.
+- Method loop: `39.409s`, `844.535 tokens/s`, `1.184 ms/token`.
+- Peak CUDA: `904.183 MB` allocated / `1240 MB` reserved.
+- Quality: logit MSE `0.252777`, logit cosine `0.995119`, top-5 overlap
+  `0.854252`, loss delta `+0.040232`, PPL ratio `1.041052`.
+
+GPTQ 4-bit result:
+
+- Checkpoint: `TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ`.
+- Runner elapsed: `262.154s`.
+- Method loop: `58.086s`, `572.980 tokens/s`, `1.745 ms/token`.
+- Peak CUDA: `903.581 MB` allocated / `1242 MB` reserved.
+- Quality: logit MSE `0.349270`, logit cosine `0.993084`, top-5 overlap
+  `0.837882`, loss delta `+0.021532`, PPL ratio `1.021766`.
+
+Distilled interpretation added to the research draft: project `scale_row_g4`
+remains the highest-quality TinyLlama row on this bounded subset. Among external
+baselines, bnb NF4 is fastest, AWQ is close to bnb on logit MSE but has a worse
+PPL ratio, and GPTQ has the best external PPL ratio but weakest external logit
+MSE/top-5 overlap. All external baselines use substantially less measured CUDA
+peak memory than the current dequantized project harness.

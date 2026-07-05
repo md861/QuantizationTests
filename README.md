@@ -46,9 +46,9 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Transformer harness (weight + activation + logit metrics) | Complete |
 | Milestone 4 GPU-aware runner metadata | Complete |
 | TinyLlama 1.1B smoke preset | Complete |
-| bitsandbytes NF4 external baseline runner | Initial setup |
-| AWQ external baseline runner | Initial setup |
-| GPTQ external baseline runner | Initial setup |
+| bitsandbytes NF4 external baseline runner and 256-text baseline | Complete |
+| AWQ external baseline runner and 256-text baseline | Complete |
+| GPTQ external baseline runner and 256-text baseline | Complete |
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
@@ -67,8 +67,8 @@ the local machine unless a GPU-only failure must be debugged remotely. Raw
 RunPod SSH details, keys, account identifiers, and Pod-specific connection
 strings must not be committed.
 
-1. Complete the TinyLlama external-baseline set with AWQ and GPTQ, using the same tracked 256-record WikiText-2 raw validation resource and shared logit/loss/runtime/memory fields.
-2. After TinyLlama AWQ/GPTQ are documented, choose one additional model larger than TinyLlama to test whether the `scale_row_g4` finding generalizes.
+1. TinyLlama external-baseline set is complete for bitsandbytes NF4, AWQ, and GPTQ on the same tracked 256-record WikiText-2 raw validation resource and shared logit/loss/runtime/memory fields.
+2. Choose one additional model larger than TinyLlama to test whether the `scale_row_g4` finding generalizes.
 3. For the larger model, begin with a smoke/cache/readiness pass, then run a focused comparison: original reference, project `scale_row_g4`, and one external baseline before expanding any full matrix.
 4. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
 5. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
@@ -144,6 +144,16 @@ Current RunPod setup notes:
   loop `24.577s`, `1354.168 tokens/s`, `0.738 ms/token`, peak CUDA
   `962.886 MB` allocated / `1322 MB` reserved, logit MSE `0.253722`,
   top-5 overlap `0.857737`, loss delta `+0.023356`, and PPL ratio `1.023631`.
+- TinyLlama AWQ 4-bit 256-text external baseline passed at commit `97bc484`:
+  `238.2s` runner elapsed, isolated AWQ method loop `39.409s`,
+  `844.535 tokens/s`, `1.184 ms/token`, peak CUDA `904.183 MB` allocated /
+  `1240 MB` reserved, logit MSE `0.252777`, top-5 overlap `0.854252`, loss
+  delta `+0.040232`, and PPL ratio `1.041052`.
+- TinyLlama GPTQ 4-bit 256-text external baseline passed at commit `97bc484`:
+  `262.2s` runner elapsed, isolated GPTQ method loop `58.086s`,
+  `572.980 tokens/s`, `1.745 ms/token`, peak CUDA `903.581 MB` allocated /
+  `1242 MB` reserved, logit MSE `0.349270`, top-5 overlap `0.837882`, loss
+  delta `+0.021532`, and PPL ratio `1.021766`.
 
 ## Completed Milestone 3
 
@@ -197,8 +207,8 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: complete the TinyLlama AWQ/GPTQ external baselines, then test one
-larger-than-TinyLlama model with a focused `scale_row_g4` comparison.
+Next: choose and smoke-test one larger-than-TinyLlama model with a focused
+`scale_row_g4` comparison.
 
 ## Completed Milestone 2
 

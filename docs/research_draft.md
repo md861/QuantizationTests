@@ -1282,11 +1282,11 @@ These limitations are useful: they define the next experiments rather than weake
 
 Milestone 3 is closed: the planned small-transformer baselines, INT4 rotation presets, larger held-out text reruns, and rotation synthesis are complete. Milestone 4 is now the active larger-model benchmarking phase.
 
-Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardware/cache audit is complete, RunPod is configured as the GPU benchmark worker, the first TinyLlama 1.1B single-layer INT4 smoke has passed, and the first controlled 256-record TinyLlama comparison against bitsandbytes NF4 is complete.
+Milestone 4 has begun with a deliberately narrow TinyLlama path. The local hardware/cache audit is complete, RunPod is configured as the GPU benchmark worker, the first TinyLlama 1.1B single-layer INT4 smoke has passed, and the first controlled 256-record TinyLlama comparison against bitsandbytes NF4, AWQ, and GPTQ is complete.
 
 The first controlled TinyLlama matrix is now fixed around one clean question:
-how do project INT4 g4/g8 row-grouping paths compare with bitsandbytes NF4 on
-the same 256 WikiText-2 validation records?
+how do project INT4 g4/g8 row-grouping paths compare with external 4-bit
+runtime baselines on the same 256 WikiText-2 validation records?
 
 Completed matrix rows:
 
@@ -1297,13 +1297,15 @@ Completed matrix rows:
 5. Project INT4 `scale_row_g4` on all compatible linear layers.
 6. Project INT4 `scale_row_g8` on all compatible linear layers.
 7. bitsandbytes NF4 `float16` as the first external runtime baseline.
+8. AWQ 4-bit via a pre-quantized TinyLlama checkpoint.
+9. GPTQ 4-bit via a pre-quantized TinyLlama checkpoint.
 
 Rotations are intentionally excluded from this first TinyLlama matrix because
 Milestone 3 found the current sparse uncalibrated rotation path weak or
-negative. Compare bitsandbytes only on shared end-to-end fields: logit MSE,
-logit cosine, top-5 overlap, loss delta, PPL/PPL ratio, runtime, peak CUDA
-memory, and artifact size. Do not compare bitsandbytes against project
-weight/activation reconstruction tables.
+negative. Compare external baselines only on shared end-to-end fields: logit
+MSE, logit cosine, top-5 overlap, loss delta, PPL/PPL ratio, runtime, peak CUDA
+memory, and artifact size. Do not compare external runtime baselines against
+project weight/activation reconstruction tables.
 
 ### 19.1 Project INT4 Matrix Result
 
@@ -1344,11 +1346,11 @@ Runtime and memory are reported as method-level benchmark telemetry. These
 values are useful for comparing methods inside this harness, but they should not
 be interpreted as deployed packed-INT4 inference performance.
 
-### 19.2 bitsandbytes NF4 Baseline and Shared Comparison
+### 19.2 External Runtime Baselines and Shared Comparison
 
-The final row in the first controlled TinyLlama matrix is bitsandbytes NF4
-`float16` on the same 256 WikiText-2 records. Compare project and bnb rows only
-on shared end-to-end fields.
+The external rows in the first controlled TinyLlama matrix are bitsandbytes NF4
+`float16`, AWQ 4-bit, and GPTQ 4-bit on the same 256 WikiText-2 records. Compare
+project and external rows only on shared end-to-end fields.
 
 Primary 256-record shared comparison:
 
@@ -1356,52 +1358,45 @@ Primary 256-record shared comparison:
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | project INT4 `scale_row_g4` | 256 | 0.112199 | 0.998831 | 0.901881 | -0.014085 | 0.986014 | 38.282s isolated project method loop | 2273.896 MB allocated / 2658 MB reserved |
 | bitsandbytes NF4 float16 | 256 | 0.253722 | 0.995222 | 0.857737 | +0.023356 | 1.023631 | 24.577s isolated bnb method loop | 962.886 MB allocated / 1322 MB reserved |
+| AWQ 4-bit | 256 | 0.252777 | 0.995119 | 0.854252 | +0.040232 | 1.041052 | 39.409s isolated AWQ method loop | 904.183 MB allocated / 1240 MB reserved |
+| GPTQ 4-bit | 256 | 0.349270 | 0.993084 | 0.837882 | +0.021532 | 1.021766 | 58.086s isolated GPTQ method loop | 903.581 MB allocated / 1242 MB reserved |
 
-This table now uses method-level telemetry for both the best project row and
-the bnb NF4 baseline. On this narrow shared surface, the project row is higher
-quality, while bnb is faster in the measured method loop and uses less measured
-CUDA peak memory. This is still not a deployed project INT4 speedup claim,
-because the project path executes dequantized floating-point tensors rather than
-a packed INT4 runtime kernel.
-
-On the 256-record comparison, bitsandbytes NF4 has weaker quality than the best
-project INT4 row on this bounded subset: `scale_row_g4` has lower logit MSE,
-higher top-5 overlap, and a slightly favorable loss/PPL delta.
-
-The directional comparison is:
-
-- `scale_row_g4` vs bnb NF4 logit MSE: `0.112199` vs `0.253722`, so the project row is about 2.3x lower.
-- `scale_row_g4` vs bnb NF4 logit cosine: `0.998831` vs `0.995222`, a small advantage for the project row.
-- `scale_row_g4` vs bnb NF4 top-5 overlap: `0.901881` vs `0.857737`, a +0.044 absolute advantage for the project row.
-- `scale_row_g4` vs bnb NF4 PPL ratio: `0.986014` vs `1.023631`, a +3.8 percentage-point relative gap in favor of the project row on this metric.
-- `scale_row_g4` vs bnb NF4 method-loop runtime: `38.282s` vs `24.577s`; bnb is about 1.6x faster on the measured method loop.
-- `scale_row_g4` vs bnb NF4 measured CUDA peak: `2273.896 MB` allocated vs `962.886 MB` allocated. Treat this as benchmark-harness telemetry, not a complete memory profile.
+On this narrow shared surface, the project `scale_row_g4` row remains the
+highest-quality row: it has the lowest logit MSE, highest logit cosine, highest
+top-5 overlap, and best PPL ratio. Among the external baselines, bitsandbytes
+NF4 and AWQ have similar logit MSE, while GPTQ has the weakest logit MSE but the
+best external PPL ratio. The runtime picture is different: bitsandbytes is the
+fastest measured external method loop, AWQ is close to the project
+`scale_row_g4` method loop, and GPTQ is slower on this harness. All three
+external baselines use substantially less measured CUDA peak memory than the
+current project harness.
 
 Runtime and memory interpretation matters. The project harness quantizes weights
-and then executes dequantized floating-point tensors, while bitsandbytes uses
-quantized runtime modules. The method-level telemetry is therefore a practical
-benchmark comparison for these code paths, not proof of packed project-INT4
-kernel speed or deployment memory savings.
+and then executes dequantized floating-point tensors, while bitsandbytes, AWQ,
+and GPTQ use quantized runtime modules or packed checkpoint kernels. The
+method-level telemetry is therefore a practical benchmark comparison for these
+code paths, not proof of packed project-INT4 kernel speed or deployment memory
+savings.
 
 The main memory/speed limitation is that the project does not yet have a
 ParoQuant runtime dequantization kernel or a true low-bit arithmetic kernel.
-External baselines such as bitsandbytes obtain their speed and memory profile by
-keeping weights in compressed low-bit form and using specialized kernels to
-unpack/dequantize blocks during matrix multiplication, or to accumulate low-bit
-products into wider types such as `int32`, `fp16`, or `fp32`. These kernels are
-important because they avoid materializing a full floating-point weight matrix,
-but they also introduce another accuracy/speed tradeoff: lower-bit arithmetic
-and approximate block scaling can reduce fidelity while improving bandwidth,
-VRAM use, and sometimes latency. A future repo direction is therefore to add a
+External baselines obtain their speed and memory profile by keeping weights in
+compressed low-bit form and using specialized kernels to unpack/dequantize
+blocks during matrix multiplication, or to accumulate low-bit products into
+wider types such as `int32`, `fp16`, or `fp32`. These kernels are important
+because they avoid materializing a full floating-point weight matrix, but they
+also introduce another accuracy/speed tradeoff: lower-bit arithmetic and
+approximate block scaling can reduce fidelity while improving bandwidth, VRAM
+use, and sometimes latency. A future repo direction is therefore to add a
 packed ParoQuant artifact format, then a runtime dequantization kernel for the
 strongest row-grouped paths, and only later a true low-bit kernel. Given the
 current project scope, this remains future work rather than a prerequisite for
 the present quality comparison.
 
 This result should be framed as a narrow TinyLlama/WikiText-2 subset finding,
-not a broad claim against NF4. It does, however, justify carrying the project
-`scale_row_g4` path forward as the strongest current project baseline for the
-next Milestone 4 comparison.
+not a broad claim against NF4, AWQ, or GPTQ. It does, however, justify carrying
+the project `scale_row_g4` path forward as the strongest current project
+baseline for the next Milestone 4 comparison.
 
 ## Appendix A. Reproducing Current Figures
 

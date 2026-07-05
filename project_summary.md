@@ -205,6 +205,8 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | 154 | INT4 logit-only matrix with per-method telemetry | none | 1208.7s (20.1 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, 5 project methods, wall 23m43s; isolated method seconds: global 79.527, row_g4 34.542, row_g8 30.810, scale_g4 38.282, scale_g8 34.937; peak CUDA allocated 2274 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | bitsandbytes NF4 float16 | none | 231.4s (3.9 min) | RunPod RTX 4000 Ada, 256 WikiText-2 records, peak CUDA allocated 2274 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | bitsandbytes NF4 float16 telemetry rerun | none | 191.5s (3.2 min) | RunPod RTX 4090, 256 WikiText-2 records, wall 6m24s; isolated method loop 24.577s, 1354.168 tokens/s, 0.738 ms/token, peak CUDA allocated 963 MB |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | AWQ 4-bit | none | 238.2s (4.0 min) | RunPod RTX 4090, 256 WikiText-2 records; isolated method loop 39.409s, 844.535 tokens/s, 1.184 ms/token, peak CUDA allocated 904 MB; first Pod pass required gptqmodel/ninja dependency setup and Marlin JIT compile |
+| TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | GPTQ 4-bit | none | 262.2s (4.4 min) | RunPod RTX 4090, 256 WikiText-2 records; isolated method loop 58.086s, 572.980 tokens/s, 1.745 ms/token, peak CUDA allocated 904 MB; dependency setup shared with AWQ |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -787,9 +789,9 @@ Milestone 4 roadmap from this checkpoint:
 
 | Step | Goal | Repo implementation estimate | Run estimate | Notes |
 | --- | --- | ---: | ---: | --- |
-| 4A | TinyLlama AWQ external baseline | Initial local runner complete; Pod dependency/checkpoint probe still needed | likely 10-25 min first Pod pass; later reruns 5-12 min | Added optional pre-quantized AWQ checkpoint runner with bnb-compatible CSV/metadata fields, local tests, and explicit `--awq-model-name` guard. Remaining uncertainty is Pod dependency/API friction and final checkpoint choice. |
-| 4B | TinyLlama GPTQ external baseline | Initial local runner complete; Pod dependency/checkpoint probe still needed | likely 10-30 min first Pod pass; later reruns 5-15 min | Added optional pre-quantized GPTQ checkpoint runner with bnb-compatible CSV/metadata fields, local tests, and explicit `--gptq-model-name` guard. Remaining uncertainty is Pod dependency/API friction and final checkpoint choice. |
-| 4C | Distill TinyLlama external-baseline comparison | ~1-2 h active | no GPU run | Update research draft with AWQ/GPTQ rows only after successful runs; keep run details in lab book and RunPod ledger. |
+| 4A | TinyLlama AWQ external baseline | Complete | 238.2s runner after setup | Added optional pre-quantized AWQ checkpoint runner and completed the 256-record RTX 4090 run. First Pod pass required gptqmodel/ninja/helper dependency setup and Marlin JIT compilation. |
+| 4B | TinyLlama GPTQ external baseline | Complete | 262.2s runner after setup | Added optional pre-quantized GPTQ checkpoint runner and completed the 256-record RTX 4090 run. Shared the dependency stack established for AWQ. |
+| 4C | Distill TinyLlama external-baseline comparison | Complete | no GPU run | Research draft now contains the distilled project/bnb/AWQ/GPTQ comparison; run-history details live in lab book and RunPod ledger. |
 | 4D | Select one larger-than-TinyLlama model | ~1-2 h active planning | no GPU run | Choose by research value, license/access, tokenizer/eval compatibility, VRAM fit, and cost per useful benchmark. |
 | 4E | Larger-model smoke/cache/readiness | ~1-2 h active plus Pod wait | likely 15-45 min | Run cache prep and one-record or small-subset smoke for original/project/external path before any full 256-record run. |
 | 4F | Larger-model focused comparison | ~0.5-1 active day if new preset only; more if runner changes needed | likely 30-120+ min depending model/GPU | Start with original reference, project `scale_row_g4`, and one external baseline. Expand to full project matrix only if the first result is informative. |
@@ -798,30 +800,31 @@ Run estimates are intentionally ranges. They use the current timing table:
 TinyLlama bnb NF4 needed 191.5s runner / 6m24s wall on RTX 4090, while the
 project five-row TinyLlama telemetry run needed 1208.7s runner / 23m43s wall on
 RTX 4000 Ada. AWQ/GPTQ first runs should budget extra setup time for optional
-dependencies and model-format surprises. Before each GPU segment, follow the
+dependencies, model-format surprises, and one-time Marlin JIT compilation.
+After the dependency stack is warm on the same Pod, AWQ/GPTQ 256-record runner
+times were about 4.0-4.4 minutes. Before each GPU segment, follow the
 RunPod GPU value rule: estimate wall time, cost, VRAM headroom, output paths,
 target commit, and whether the estimate is job-level or method-level, then wait
 for user approval.
 
-Current handover state after draft distillation:
+Current handover state after AWQ/GPTQ integration:
 
-1. GitHub is synced through commit `529a5d5`; local tree was clean before the
-   handover note.
-2. The research draft has been distilled: section 19 keeps only the method
-   metrics, direct `scale_row_g4` versus bnb NF4 comparison, and concise
-   runtime/memory caveat. Whole-job and run-history details live in the lab book
-   and RunPod ledger.
-3. The latest TinyLlama conclusion is unchanged: project `scale_row_g4` is
-   better quality, while bnb NF4 is faster/lower-memory in method-level
-   telemetry.
-4. The last Pod endpoint refused SSH during handover, so confirm fresh Pod
-   status/details before any future GPU work.
-5. Decide whether the next GPU segment should move to GPTQ/AWQ/another baseline
-   or repeat bnb variants such as double-quant/alternate compute dtype.
-6. Before the next GPU segment, estimate runtime/cost from the benchmark timing
+1. TinyLlama external baselines are complete for bitsandbytes NF4, AWQ, and
+   GPTQ on the tracked 256-record WikiText-2 raw validation resource.
+2. The research draft has been distilled: section 19 keeps the method metrics,
+   the project/bnb/AWQ/GPTQ comparison, and the concise runtime/memory caveat.
+   Whole-job and dependency-resolution details live in the lab book and RunPod
+   ledger.
+3. The latest TinyLlama conclusion is: project `scale_row_g4` remains the
+   strongest quality row; bnb NF4 is the fastest external method loop; AWQ is
+   close to bnb on logit MSE; GPTQ has the best external PPL ratio but weaker
+   logit MSE/top-5 overlap.
+4. Next Milestone 4 step: choose one additional model larger than TinyLlama,
+   then run a smoke/cache/readiness pass before a focused comparison.
+5. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.
-7. Continue updating RunPod ledger, lab book, research draft, README, and
+6. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
 
 Regression and artifact acceptance checks:
