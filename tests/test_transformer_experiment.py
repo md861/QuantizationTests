@@ -413,6 +413,10 @@ def test_logit_records_fields_valid(experiment_results):
         assert r.bitwidth in (4, 8)
         assert r.calibration_text_source == "built-in calibration texts"
         assert r.calibration_text_count == 1
+        assert r.method_elapsed_seconds is not None
+        assert r.method_elapsed_seconds >= 0.0
+        assert r.method_cuda_peak_allocated_mb is None or r.method_cuda_peak_allocated_mb >= 0.0
+        assert r.method_cuda_peak_reserved_mb is None or r.method_cuda_peak_reserved_mb >= 0.0
 
 
 def test_method_names_consistent_across_all_records(experiment_results):
@@ -444,6 +448,9 @@ def test_logit_csv_includes_perplexity_columns(tiny_config, experiment_results):
         assert "perplexity_ratio" in reader.fieldnames
         assert "calibration_text_source" in reader.fieldnames
         assert "calibration_text_count" in reader.fieldnames
+        assert "method_elapsed_seconds" in reader.fieldnames
+        assert "method_cuda_peak_allocated_mb" in reader.fieldnames
+        assert "method_cuda_peak_reserved_mb" in reader.fieldnames
 
 
 def test_int8_activation_drift_le_int4(experiment_results):

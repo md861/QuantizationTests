@@ -97,6 +97,9 @@ def test_make_logit_record_computes_shared_metrics():
         original_loss=2.0,
         quantized_logits=quantized_logits,
         quantized_loss=2.5,
+        method_elapsed_seconds=12.5,
+        method_cuda_peak_allocated_mb=123.0,
+        method_cuda_peak_reserved_mb=234.0,
     )
 
     assert record.model_name == "test-model"
@@ -109,6 +112,9 @@ def test_make_logit_record_computes_shared_metrics():
     assert record.loss_delta == pytest.approx(0.5)
     assert record.perplexity_ratio == pytest.approx(np.exp(0.5))
     assert 0.0 <= record.top5_token_overlap <= 1.0
+    assert record.method_elapsed_seconds == pytest.approx(12.5)
+    assert record.method_cuda_peak_allocated_mb == pytest.approx(123.0)
+    assert record.method_cuda_peak_reserved_mb == pytest.approx(234.0)
 
 
 def test_write_logit_csv_writes_expected_fields(tmp_path):
@@ -128,6 +134,9 @@ def test_write_logit_csv_writes_expected_fields(tmp_path):
     assert len(rows) == 1
     assert rows[0]["method"] == "external_bitsandbytes_nf4_float16"
     assert rows[0]["bitwidth"] == "4"
+    assert "method_elapsed_seconds" in rows[0]
+    assert "method_cuda_peak_allocated_mb" in rows[0]
+    assert "method_cuda_peak_reserved_mb" in rows[0]
 
 
 def test_baseline_requires_cuda_before_loading_models(monkeypatch):

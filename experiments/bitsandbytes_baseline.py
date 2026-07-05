@@ -53,6 +53,9 @@ _LOGIT_CSV_FIELDS = [
     "perplexity",
     "original_perplexity",
     "perplexity_ratio",
+    "method_elapsed_seconds",
+    "method_cuda_peak_allocated_mb",
+    "method_cuda_peak_reserved_mb",
 ]
 
 
@@ -101,6 +104,9 @@ def run_bitsandbytes_baseline(config: BitsAndBytesBaselineConfig) -> LogitRecord
     del original_model
     torch.cuda.empty_cache()
 
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+    method_t0 = time.time()
     quantization_config = _make_bitsandbytes_config(config)
     quantized_model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
@@ -112,6 +118,17 @@ def run_bitsandbytes_baseline(config: BitsAndBytesBaselineConfig) -> LogitRecord
     quantized_device = _first_parameter_device(quantized_model) or device
     quantized_inputs = [ids.to(quantized_device) for ids in token_inputs]
     quantized_logits, quantized_loss = _forward_pass(quantized_model, quantized_inputs)
+    method_elapsed = time.time() - method_t0
+    method_peak_allocated_mb = None
+    method_peak_reserved_mb = None
+    if torch.cuda.is_available():
+        device_index = torch.cuda.current_device()
+        method_peak_allocated_mb = _cuda_memory_mb(
+            torch.cuda.max_memory_allocated(device_index)
+        )
+        method_peak_reserved_mb = _cuda_memory_mb(
+            torch.cuda.max_memory_reserved(device_index)
+        )
 
     record = _make_logit_record(
         config=config,
@@ -119,6 +136,9 @@ def run_bitsandbytes_baseline(config: BitsAndBytesBaselineConfig) -> LogitRecord
         original_loss=original_loss,
         quantized_logits=quantized_logits,
         quantized_loss=quantized_loss,
+        method_elapsed_seconds=round(method_elapsed, 3),
+        method_cuda_peak_allocated_mb=method_peak_allocated_mb,
+        method_cuda_peak_reserved_mb=method_peak_reserved_mb,
     )
     config.results_dir.mkdir(parents=True, exist_ok=True)
     _write_logit_csv(config.results_dir / "bitsandbytes_logit_metrics.csv", [record])
@@ -169,6 +189,9 @@ def _make_logit_record(
     original_loss: float,
     quantized_logits: list[np.ndarray],
     quantized_loss: float,
+    method_elapsed_seconds: Optional[float] = None,
+    method_cuda_peak_allocated_mb: Optional[float] = None,
+    method_cuda_peak_reserved_mb: Optional[float] = None,
 ) -> LogitRecord:
     original_flat = np.concatenate([logits.flatten() for logits in original_logits])
     quantized_flat = np.concatenate([logits.flatten() for logits in quantized_logits])
@@ -197,6 +220,9 @@ def _make_logit_record(
         perplexity=quantized_perplexity,
         original_perplexity=original_perplexity,
         perplexity_ratio=quantized_perplexity / original_perplexity,
+        method_elapsed_seconds=method_elapsed_seconds,
+        method_cuda_peak_allocated_mb=method_cuda_peak_allocated_mb,
+        method_cuda_peak_reserved_mb=method_cuda_peak_reserved_mb,
     )
 
 

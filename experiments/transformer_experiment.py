@@ -27,6 +27,7 @@ import csv
 import math
 import shutil
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -142,6 +143,9 @@ class LogitRecord:
     perplexity: float
     original_perplexity: float
     perplexity_ratio: float
+    method_elapsed_seconds: Optional[float] = None
+    method_cuda_peak_allocated_mb: Optional[float] = None
+    method_cuda_peak_reserved_mb: Optional[float] = None
 
 
 def run_transformer_experiment(
@@ -504,6 +508,9 @@ def _run_logit_experiment(
     records: list[LogitRecord] = []
 
     for method_idx, (method, bitwidth) in enumerate(method_keys):
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+        method_t0 = time.time()
         try:
             for lname, module in layers.items():
                 deq = _dequantize_method(
@@ -519,6 +526,17 @@ def _run_logit_experiment(
         finally:
             for lname, module in layers.items():
                 _set_weight(module, original_weights[lname])
+        method_elapsed = time.time() - method_t0
+        method_peak_allocated_mb = None
+        method_peak_reserved_mb = None
+        if torch.cuda.is_available():
+            device_index = torch.cuda.current_device()
+            method_peak_allocated_mb = _cuda_memory_mb(
+                torch.cuda.max_memory_allocated(device_index)
+            )
+            method_peak_reserved_mb = _cuda_memory_mb(
+                torch.cuda.max_memory_reserved(device_index)
+            )
 
         o_flat = np.concatenate([l.flatten() for l in orig_logits])
         q_flat = np.concatenate([l.flatten() for l in q_logits])
@@ -545,6 +563,9 @@ def _run_logit_experiment(
             perplexity=q_perplexity,
             original_perplexity=orig_perplexity,
             perplexity_ratio=q_perplexity / orig_perplexity,
+            method_elapsed_seconds=round(method_elapsed, 3),
+            method_cuda_peak_allocated_mb=method_peak_allocated_mb,
+            method_cuda_peak_reserved_mb=method_peak_reserved_mb,
         )
         records.append(record)
         if incremental_logit_path is not None:
@@ -775,6 +796,12 @@ def _resolve_torch_device(device: str) -> torch.device:
     raise ValueError("device must be one of: auto, cpu, cuda")
 
 
+def _cuda_memory_mb(value: Optional[int]) -> Optional[float]:
+    if value is None:
+        return None
+    return round(value / (1024 * 1024), 3)
+
+
 def _get_module(model, name: str):
     obj = model
     for part in name.split("."):
@@ -897,6 +924,9 @@ _LOGIT_CSV_FIELDS = [
     "logit_mse", "logit_cosine_similarity", "top5_token_overlap",
     "loss", "original_loss", "loss_delta",
     "perplexity", "original_perplexity", "perplexity_ratio",
+    "method_elapsed_seconds",
+    "method_cuda_peak_allocated_mb",
+    "method_cuda_peak_reserved_mb",
 ]
 
 

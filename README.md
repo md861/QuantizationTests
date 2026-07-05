@@ -53,6 +53,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | TinyLlama INT4 full-matrix preset | Complete |
 | Row-grouped quantization vectorized implementation | Complete |
 | TinyLlama project logit-only matrix path | Complete |
+| Per-method logit runtime and CUDA peak telemetry | Complete |
 
 ## Next Milestone 4
 

@@ -134,7 +134,9 @@ Before spending RunPod credits:
 2. On a new or migrated Pod, run `tools/runpod_bootstrap.sh` from
    `/workspace/PQ_project` to verify the repo, GPU, venv, Hugging Face cache,
    and required system tools. Use `--no-install` for a read-only check.
-3. State the expected duration and cost risk to the user.
+3. State the expected duration and cost risk to the user, citing the benchmark
+   timing table and any matching result CSV rows found with
+   `tools/estimate_benchmark_runtime.py`.
 4. Confirm the target commit hash.
 5. Run a single-layer or small-subset smoke benchmark first.
 6. Launch long jobs only inside detached `tmux`.
@@ -142,6 +144,9 @@ Before spending RunPod credits:
 8. Record GPU type, VRAM, peak memory, commit hash, elapsed time, and output
    paths in the bookkeeping docs.
 9. Pull back only artifacts needed for local analysis and reporting.
+
+Do not launch a nontrivial GPU benchmark until the user has explicitly approved
+the command after seeing the duration/cost estimate and output paths.
 
 ## Stop-Window Policy
 
