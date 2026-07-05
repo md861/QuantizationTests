@@ -9,12 +9,12 @@ strings.
 
 ## Usage Dashboard
 
-Known captured RunPod time so far:
+Known captured/reconciled RunPod time so far:
 
 <table>
   <tr>
     <th colspan="2">Logged work time: 238.5 min</th>
-    <th colspan="3">Observed time incl. unlogged/admin: 502.7 min; telemetry last manually reconciled: 5h 5m on 2026-07-02</th>
+    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 502.7 min (8.4 h)</th>
   </tr>
   <tr>
     <th colspan="5">Compute: ~$2.23 | Storage: ~$0.07 | Total: ~$2.30 | Budget ceiling: about GBP 200</th>
@@ -86,6 +86,10 @@ Interpretation:
   stopping the Pod outside short queued benchmark windows. The share column now
   uses observed total time for every row, so the buckets are comparable even
   though the unlogged row is not attributable to a specific project task.
+- The captured/reconciled runtime total combines itemized ledger rows with one
+  historical unlogged/admin residual from an earlier telemetry reconciliation.
+  It excludes ledger rows explicitly marked `timing not captured`, so it is a
+  best current accounting total rather than a complete billing export.
 - The full Pod test suite took `349.22s (0:05:49)` and is categorized as
   verification, not benchmark compute.
 - Several setup/sync/admin windows were not precisely timed. They are recorded
