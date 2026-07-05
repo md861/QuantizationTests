@@ -5060,3 +5060,42 @@ completed run before changing GPU class. The RunPod README, usage ledger, and
 project-summary guardrails now also explicitly require keeping the usage
 dashboard, ledger, and Benchmark Run Timings table reconciled as GPU work
 progresses.
+
+## Session: 2026-07-05 - Milestone 4 roadmap planning
+
+Defined the next Milestone 4 roadmap requested by the user:
+
+1. Complete TinyLlama external baselines with AWQ and GPTQ.
+2. Try one additional model larger than TinyLlama after TinyLlama baselines are
+   complete.
+
+Implementation estimates, based on the current repo and prior implementation
+logs:
+
+- AWQ runner: about 0.5-1 active day. Work includes optional dependency probe,
+  runner/scaffold, bnb-compatible CSV/metadata fields, smoke path, tests, and
+  docs. The main uncertainty is dependency/API friction on the Pod.
+- GPTQ runner: about 0.5-1 active day. Similar scaffold, but with extra risk
+  around prequantized model availability, calibration requirements, or model
+  format differences.
+- TinyLlama comparison write-up after runs: about 1-2 active hours.
+- Larger-model planning/preset: about 1-2 active hours if the model is
+  straightforward.
+- Larger-model focused comparison: about 0.5-1 active day if only a new preset
+  is needed; longer if an external-baseline runner needs model-specific changes.
+
+Run estimates:
+
+- TinyLlama AWQ first pass: likely 10-25 minutes including first-run setup;
+  later reruns likely 5-12 minutes if dependencies/cache are already ready.
+- TinyLlama GPTQ first pass: likely 10-30 minutes including first-run setup;
+  later reruns likely 5-15 minutes.
+- Larger-than-TinyLlama smoke/cache/readiness: likely 15-45 minutes.
+- Larger-model focused 256-record comparison: likely 30-120+ minutes depending
+  on model size, GPU choice, and whether the path is project harness or external
+  runtime baseline.
+
+These are planning estimates, not approval to run. Before each GPU segment,
+future agents must estimate runtime/cost from the benchmark timing table and
+RunPod ledger, state GPU class/hourly rate/output paths/target commit, and wait
+for explicit user approval.

@@ -783,6 +783,26 @@ runner elapsed was 191.5s and command wall was 6m24s on RTX 4090. The primary
 comparison is now: project `scale_row_g4` is better quality, while bnb NF4 is
 faster and lower-memory in method-level telemetry.
 
+Milestone 4 roadmap from this checkpoint:
+
+| Step | Goal | Repo implementation estimate | Run estimate | Notes |
+| --- | --- | ---: | ---: | --- |
+| 4A | TinyLlama AWQ external baseline | ~0.5-1 active day | likely 10-25 min first Pod pass; later reruns 5-12 min | Add optional AWQ runner or shared external-baseline runner, dependency probe, CSV/metadata schema matching bnb, smoke test, docs. Time includes unknown dependency friction. |
+| 4B | TinyLlama GPTQ external baseline | ~0.5-1 active day | likely 10-30 min first Pod pass; later reruns 5-15 min | Add GPTQ runner with same metrics. GPTQ may require extra care around model format, calibration, or prequantized checkpoint availability. |
+| 4C | Distill TinyLlama external-baseline comparison | ~1-2 h active | no GPU run | Update research draft with AWQ/GPTQ rows only after successful runs; keep run details in lab book and RunPod ledger. |
+| 4D | Select one larger-than-TinyLlama model | ~1-2 h active planning | no GPU run | Choose by research value, license/access, tokenizer/eval compatibility, VRAM fit, and cost per useful benchmark. |
+| 4E | Larger-model smoke/cache/readiness | ~1-2 h active plus Pod wait | likely 15-45 min | Run cache prep and one-record or small-subset smoke for original/project/external path before any full 256-record run. |
+| 4F | Larger-model focused comparison | ~0.5-1 active day if new preset only; more if runner changes needed | likely 30-120+ min depending model/GPU | Start with original reference, project `scale_row_g4`, and one external baseline. Expand to full project matrix only if the first result is informative. |
+
+Run estimates are intentionally ranges. They use the current timing table:
+TinyLlama bnb NF4 needed 191.5s runner / 6m24s wall on RTX 4090, while the
+project five-row TinyLlama telemetry run needed 1208.7s runner / 23m43s wall on
+RTX 4000 Ada. AWQ/GPTQ first runs should budget extra setup time for optional
+dependencies and model-format surprises. Before each GPU segment, follow the
+RunPod GPU value rule: estimate wall time, cost, VRAM headroom, output paths,
+target commit, and whether the estimate is job-level or method-level, then wait
+for user approval.
+
 Current handover state after draft distillation:
 
 1. GitHub is synced through commit `529a5d5`; local tree was clean before the

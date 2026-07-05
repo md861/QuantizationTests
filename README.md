@@ -65,15 +65,15 @@ the local machine unless a GPU-only failure must be debugged remotely. Raw
 RunPod SSH details, keys, account identifiers, and Pod-specific connection
 strings must not be committed.
 
-1. Treat the completed TinyLlama single-layer INT4 RunPod smoke as a readiness check only, not a research-grade benchmark.
-2. Define the controlled TinyLlama benchmark matrix before launching a full run: original model, project row-grouped INT4 g4/g8-style paths where feasible, and the lightest feasible external baseline from GPTQ, AWQ, or bitsandbytes.
-3. Use the tracked 256-record WikiText-2 raw validation resource for research-grade TinyLlama comparisons, and keep any smaller text batch clearly labeled as a smoke-only input.
-4. Estimate expected RunPod runtime and cost before each GPU run, using the smoke metadata as a rough lower-bound clue rather than a linear full-model estimate.
-5. Run another single-layer or small-subset smoke before a full benchmark whenever the comparison matrix, evaluation text, dependencies, or GPU class changes.
-6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, commit hash, and estimated spend in the bookkeeping docs.
+1. Complete the TinyLlama external-baseline set with AWQ and GPTQ, using the same tracked 256-record WikiText-2 raw validation resource and shared logit/loss/runtime/memory fields.
+2. After TinyLlama AWQ/GPTQ are documented, choose one additional model larger than TinyLlama to test whether the `scale_row_g4` finding generalizes.
+3. For the larger model, begin with a smoke/cache/readiness pass, then run a focused comparison: original reference, project `scale_row_g4`, and one external baseline before expanding any full matrix.
+4. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
+5. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
+6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
 7. Stop the RunPod Pod as soon as benchmark execution finishes unless another GPU benchmark is already queued to start within about 30 minutes; otherwise pull CSVs/logs/results back locally for analysis and documentation.
-8. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger after every Pod segment.
-9. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines.
+8. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger, usage dashboard, and Benchmark Run Timings table after every Pod segment.
+9. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines, while keeping run/provenance details out of the research draft.
 10. Update the research draft, README, project summary, and lab book after each completed model.
 
 The first external baseline scaffold is experiments/bitsandbytes_baseline.py.
@@ -191,7 +191,8 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: begin Milestone 4 larger-model GPTQ/AWQ/bitsandbytes comparisons.
+Next: complete the TinyLlama AWQ/GPTQ external baselines, then test one
+larger-than-TinyLlama model with a focused `scale_row_g4` comparison.
 
 ## Completed Milestone 2
 
