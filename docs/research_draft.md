@@ -1398,6 +1398,30 @@ not a broad claim against NF4, AWQ, or GPTQ. It does, however, justify carrying
 the project `scale_row_g4` path forward as the strongest current project
 baseline for the next Milestone 4 comparison.
 
+### 19.3 Mistral-7B Successor Comparison
+
+The next full Milestone 4 comparison uses
+`mistralai/Mistral-7B-Instruct-v0.2` on the same 256-record WikiText-2 raw
+validation resource. The comparison keeps the matrix deliberately narrow:
+project `scale_row_g4`, bitsandbytes NF4 `float16`, GPTQ 4-bit, and AWQ 4-bit.
+
+| Run | Eval texts | Logit MSE | Logit cosine | Top-5 overlap | Loss delta | PPL ratio | Runtime metric | Peak CUDA |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| project INT4 `scale_row_g4` | 256 | 0.042644 | 0.998793 | 0.927161 | +0.003475 | 1.003481 | 816.141s isolated project method loop | 14057.727 MB allocated / 14164 MB reserved |
+| bitsandbytes NF4 float16 | 256 | 0.102315 | 0.997064 | 0.893112 | +0.022921 | 1.023186 | 22.772s isolated bnb method loop | 4630.234 MB allocated / 4724 MB reserved |
+| GPTQ 4-bit | 256 | 0.129736 | 0.995998 | 0.881939 | +0.016181 | 1.016313 | 29.500s isolated GPTQ method loop | 4187.336 MB allocated / 4256 MB reserved |
+| AWQ 4-bit | 256 | 0.107433 | 0.996846 | 0.891707 | +0.021802 | 1.022042 | 30.876s isolated AWQ method loop | 4203.726 MB allocated / 4234 MB reserved |
+
+The Mistral result preserves the TinyLlama pattern at a larger scale. The
+project `scale_row_g4` row is again the strongest quality row on logit MSE,
+top-5 overlap, and perplexity ratio, but it is far slower and uses far more
+CUDA memory in the current harness. Among the external baselines, bnb NF4 is
+fastest, AWQ is close to bnb on quality, and GPTQ has the best external PPL
+ratio but weaker logit-level agreement than bnb or AWQ. The same runtime caveat
+applies as above: this is a comparison of the current project dequantized
+harness against external packed-runtime implementations, not a claim that the
+project path has already achieved packed-kernel speed or memory behavior.
+
 ## Appendix A. Reproducing Current Figures
 
 

@@ -13,7 +13,7 @@ the following paths pass smoke on the same evaluation resource:
 - Original/reference logits and loss from `mistralai/Mistral-7B-Instruct-v0.2`
 - Project `scale_row_g4`
 - bitsandbytes NF4 `float16`
-- AWQ via `TheBloke/Mistral-7B-Instruct-v0.2-AWQ`
+- AWQ via `MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ`
 - GPTQ via `TheBloke/Mistral-7B-Instruct-v0.2-GPTQ`
 
 If any path fails, record the failure as a partial probe/backend note in the lab
@@ -26,8 +26,11 @@ book and RunPod ledger. Do not present it as a completed research comparison.
 - Architecture family: Mistral/LLaMA-style decoder-only model with standard
   attention projection modules expected to be compatible with the project
   layer-targeting pattern.
-- External baseline availability: public AWQ and GPTQ checkpoints exist under
-  TheBloke with matching base model metadata.
+- External baseline availability: public AWQ and GPTQ checkpoints exist. The
+  successful Mistral AWQ path uses
+  `MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ`; the initial TheBloke AWQ smoke
+  failed in the current AutoAWQ/Triton stack and is kept as an operational
+  backend note rather than a research result.
 - Main risk: 7B is a larger jump than the earlier 3B probes, so RTX 4090 VRAM
   and wall-time must be checked with smoke/readiness before any 256-record run.
 
@@ -56,7 +59,42 @@ Local prep is complete:
 Do not launch GPU work until the user approves the refreshed runtime/cost
 estimate.
 
-## Current Smoke Estimate
+## Completed Smoke/Full-Run Outcome
+
+Mistral-7B passed the successor gate on 2026-07-06 on an RTX 4090 Pod at commit
+`41a5945` after local half-precision reference loading and a scratch local venv
+for the external-baseline stack.
+
+Smoke/readiness results:
+
+- Base/reference cache prep passed: runner `39.1s`.
+- Project one-layer `scale_row_g4` smoke passed: runner `40.6s`.
+- bitsandbytes NF4 smoke passed: runner `27.4s`.
+- GPTQ smoke passed with `TheBloke/Mistral-7B-Instruct-v0.2-GPTQ`: runner
+  `125.7s`.
+- AWQ smoke passed with `MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ`: runner
+  `97.4s`. The initial TheBloke AWQ checkpoint failed in this stack with an
+  AutoAWQ/Triton GEMM issue.
+
+Full 256-record results:
+
+- Project `scale_row_g4`: runner `1183.713s`, isolated method loop `816.141s`,
+  logit MSE `0.042644`, top-5 overlap `0.927161`, PPL ratio `1.003481`, peak
+  CUDA `14057.727 MB` allocated / `14164 MB` reserved.
+- bitsandbytes NF4: runner `137.108s`, isolated method loop `22.772s`, logit
+  MSE `0.102315`, top-5 overlap `0.893112`, PPL ratio `1.023186`, peak CUDA
+  `4630.234 MB` allocated / `4724 MB` reserved.
+- GPTQ: runner `141.423s`, isolated method loop `29.500s`, logit MSE
+  `0.129736`, top-5 overlap `0.881939`, PPL ratio `1.016313`, peak CUDA
+  `4187.336 MB` allocated / `4256 MB` reserved.
+- AWQ: runner `153.382s`, isolated method loop `30.876s`, logit MSE
+  `0.107433`, top-5 overlap `0.891707`, PPL ratio `1.022042`, peak CUDA
+  `4203.726 MB` allocated / `4234 MB` reserved.
+
+The current Mistral row is complete. Keep the commands below as reproducibility
+templates, but do not treat them as the next active step.
+
+## Historical Smoke Estimate
 
 For an RTX 4090-class Pod, budget about 45-120 minutes wall time for the first
 Mistral-7B smoke/readiness segment:
@@ -96,10 +134,11 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.bitsandbytes_bas
 
 AWQ one-record smoke. On the first Mistral run, omit `--local-files-only` so
 the AWQ checkpoint can populate `/workspace/hf_cache`; add it only for repeat
-runs after the checkpoint is confirmed cached.
+runs after the checkpoint is confirmed cached. Prefer the MaziyarPanahi
+checkpoint below for this repo state.
 
 ```bash
-MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name TheBloke/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/awq_mistral_7b_v0_2_smoke --device cuda --torch-dtype float16
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/awq_mistral_7b_v0_2_smoke --device cuda --torch-dtype float16
 ```
 
 GPTQ one-record smoke. On the first Mistral run, omit `--local-files-only` so
@@ -130,7 +169,7 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.bitsandbytes_bas
 AWQ:
 
 ```bash
-MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name TheBloke/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 256 --results-dir results/awq_mistral_7b_v0_2_256 --local-files-only --device cuda --torch-dtype float16
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 256 --results-dir results/awq_mistral_7b_v0_2_256 --local-files-only --device cuda --torch-dtype float16
 ```
 
 GPTQ:

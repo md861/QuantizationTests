@@ -56,6 +56,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | OPT-2.7B project smoke/focused presets | Complete |
 | OPT-2.7B RunPod command plan | Complete |
 | OPT-2.7B smoke/cache readiness | Complete |
+| Mistral-7B full project/bnb/AWQ/GPTQ comparison | Complete |
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
@@ -78,32 +79,26 @@ strings must not be committed.
 2. The next larger-than-TinyLlama research model must be a full-comparison successor: project `scale_row_g4`, bitsandbytes NF4, AWQ, and GPTQ must all have a viable checkpoint/runtime plan and pass smoke before the model is promoted to the main Milestone 4 comparison.
 3. Qwen2.5-3B was tried as the first modern scale-up target. The project `scale_row_g4` smoke passed, but Qwen AWQ/GPTQ external smokes failed with exit `132` after selecting Marlin-family kernels. Treat this as a backend-compatibility detour, not a research result.
 4. OPT-2.7B reference cache prep, project `scale_row_g4` one-layer smoke, and bitsandbytes NF4 one-record smoke passed. Under the full-comparison rule, OPT remains a partial probe unless AWQ and GPTQ checkpoints/backends are separately validated.
-5. The recommended next full-comparison candidate is `mistralai/Mistral-7B-Instruct-v0.2`, gated by smoke tests for project `scale_row_g4`, bitsandbytes NF4, `TheBloke/Mistral-7B-Instruct-v0.2-AWQ`, and `TheBloke/Mistral-7B-Instruct-v0.2-GPTQ`.
-6. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
-7. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
-8. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
-9. Stop the RunPod Pod as soon as benchmark execution finishes unless another GPU benchmark is already queued to start within about 30 minutes; otherwise pull CSVs/logs/results back locally for analysis and documentation.
-10. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger, usage dashboard, and Benchmark Run Timings table after every Pod segment.
-11. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines, while keeping run/provenance details out of the research draft.
-12. Update the research draft, README, project summary, and lab book after each completed model.
+5. Mistral-7B has now passed the full successor rule: project `scale_row_g4`, bitsandbytes NF4, AWQ, and GPTQ all produced 256-record rows on the same tracked validation resource.
+6. The distilled Mistral result matches the TinyLlama direction: project `scale_row_g4` is best on quality metrics, while packed external runtime baselines are much faster and lower-memory in this harness.
+7. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
+8. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
+9. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
+10. Stop the RunPod Pod as soon as benchmark execution finishes unless another GPU benchmark is already queued to start within about 30 minutes; otherwise pull CSVs/logs/results back locally for analysis and documentation.
+11. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger, usage dashboard, and Benchmark Run Timings table after every Pod segment.
+12. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines, while keeping run/provenance details out of the research draft.
+13. Update the research draft, README, project summary, and lab book after each completed model.
 
 Fresh resume roadmap:
 
-1. Local prep: complete. Mistral-7B project presets, tests, and smoke commands
-   are in place.
-2. Smoke estimate: use TinyLlama/Qwen/OPT timing history plus the Mistral
-   7B size increase to estimate RTX 4090 wall time, VRAM risk, and cost.
-3. Approval gate: ask the user before any Pod command, reporting target
-   commit, GPU class, hourly rate, expected runtime/cost, and output paths.
-4. RunPod smoke: cache/reference prep, project `scale_row_g4` smoke,
-   bitsandbytes NF4 smoke, AWQ smoke, and GPTQ smoke.
-5. Promotion gate: promote Mistral-7B to the main post-TinyLlama comparison
-   only if all four comparison paths pass smoke.
-6. Full run: if smoke passes, refresh estimates and run the 256-record
-   original/project/bnb/AWQ/GPTQ comparison on the tracked WikiText-2 resource.
-7. Distillation: update the research draft only with distilled method
-   comparison knowledge; keep command history, setup, failures, and cost
-   details in the lab book and RunPod ledger.
+1. Finish any post-run checks on the Mistral artifacts and docs.
+2. Stop the active Pod unless another GPU benchmark is queued to start within
+   about 30 minutes.
+3. Decide the next Milestone 4 question: repeat another larger model under the
+   full successor rule, or invest in packed project-runtime kernels to close
+   the speed/memory gap revealed by TinyLlama and Mistral.
+4. Before any new GPU segment, refresh runtime/cost estimates from the timing
+   table and RunPod ledger and run a smoke/readiness pass first.
 
 The external baseline scaffolds are experiments/bitsandbytes_baseline.py,
 experiments/awq_baseline.py, and experiments/gptq_baseline.py. They are
@@ -114,7 +109,8 @@ metadata, not project weight or activation reconstruction tables. Qwen2.5-3B
 and OPT-2.7B project presets now live in
 `experiments/run_transformer_benchmark.py`, but both are classified as
 partial scale-up probes until all planned external baselines are smoke-stable.
-The Mistral-7B candidate smoke plan is `docs/runpod/mistral_7b_plan.md`.
+The completed Mistral-7B reproducibility plan is
+`docs/runpod/mistral_7b_plan.md`.
 Keep these baselines optional; normal local tests do not require their optional
 packages or CUDA. The AWQ and GPTQ runners require explicit `--awq-model-name`
 and `--gptq-model-name` arguments so a reference checkpoint is not
@@ -238,10 +234,10 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: prepare the Mistral-7B full-comparison smoke plan. The next promoted
-larger-model comparison must include original/reference, project
-`scale_row_g4`, bitsandbytes NF4, AWQ, and GPTQ; OPT-2.7B remains a partial
-probe unless AWQ/GPTQ support is added and smoke-stable.
+Next: synthesize the completed TinyLlama and Mistral results, then choose
+whether the next Milestone 4 push should be another full-successor model or
+implementation work on packed project runtime kernels. OPT-2.7B remains a
+partial probe unless AWQ/GPTQ support is added and smoke-stable.
 
 ## Completed Milestone 2
 

@@ -214,6 +214,10 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | facebook/opt-2.7b | 2.7B | download/cache | reference cache prep | none | 75.7s runner; 288s wall | RunPod RTX 4090, model/tokenizer cache prep, peak CUDA 0 MB, HF cache grew to about 23 GB |
 | facebook/opt-2.7b | 2.7B | 1 layer | INT4 `scale_row_g4` logit-only smoke | none | 37.4s runner; 214s wall | RunPod RTX 4090, single `model.decoder.layers.0.self_attn.q_proj`, 1 text, logit MSE 0.000161, PPL ratio 1.0012, peak CUDA allocated 5079 MB |
 | facebook/opt-2.7b | 2.7B | external | bitsandbytes NF4 float16 smoke | none | 54.3s runner; 244s wall | RunPod RTX 4090, 1 WikiText-2 record, logit MSE 0.167516, PPL ratio 1.0598, peak CUDA allocated 1984 MB |
+| mistralai/Mistral-7B-Instruct-v0.2 | 7B | 224 | INT4 `scale_row_g4` logit-only | none | 1183.7s runner; 19m49s wall | RunPod RTX 4090, 256 WikiText-2 records, isolated method loop 816.141s, 39.938 tokens/s, 25.039 ms/token, peak CUDA allocated 14058 MB |
+| mistralai/Mistral-7B-Instruct-v0.2 | 7B | external | bitsandbytes NF4 float16 | none | 137.1s runner; 2m23s wall | RunPod RTX 4090, 256 WikiText-2 records, isolated method loop 22.772s, 1431.369 tokens/s, 0.699 ms/token, peak CUDA allocated 4630 MB |
+| mistralai/Mistral-7B-Instruct-v0.2 | 7B | external | GPTQ 4-bit | none | 141.4s runner; 2m27s wall | RunPod RTX 4090, 256 WikiText-2 records, isolated method loop 29.500s, 1104.924 tokens/s, 0.905 ms/token, peak CUDA allocated 4187 MB |
+| mistralai/Mistral-7B-Instruct-v0.2 | 7B | external | AWQ 4-bit | none | 153.4s runner; 2m38s wall | RunPod RTX 4090, 256 WikiText-2 records, `MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ`, isolated method loop 30.876s, 1055.681 tokens/s, 0.947 ms/token, peak CUDA allocated 4204 MB |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -808,68 +812,72 @@ the research draft.
 | 4C | Distill TinyLlama external-baseline comparison | Complete | no GPU run | Research draft now contains the distilled project/bnb/AWQ/GPTQ comparison; run-history details live in lab book and RunPod ledger. |
 | 4D | Try Qwen2.5-3B as first scale-up target | Complete/blocked for external comparison | no further Qwen run approved | Qwen reference cache and project one-layer `scale_row_g4` smoke passed, but AWQ/GPTQ smokes failed with exit 132 after selecting Marlin-family kernels. Keep this as bookkeeping/backend-compatibility evidence, not a research-draft result. |
 | 4E | Probe OPT-2.7B as a partial scale-up target | Complete/partial | 75.7s cache runner, 37.4s project smoke runner, 54.3s bnb smoke runner | Project `scale_row_g4` one-layer smoke and bitsandbytes NF4 one-record smoke passed on RTX 4090. OPT is not the main full-comparison successor unless AWQ/GPTQ support is validated. |
-| 4F | Select full-comparison larger-model candidate | Complete | no GPU run | Recommend `mistralai/Mistral-7B-Instruct-v0.2` because it is Apache-2.0, widely used, LLaMA/Mistral-family, public Transformers-compatible, and has established AWQ/GPTQ checkpoints via TheBloke. |
+| 4F | Select full-comparison larger-model candidate | Complete | no GPU run | Selected `mistralai/Mistral-7B-Instruct-v0.2` because it is Apache-2.0, widely used, LLaMA/Mistral-family, public Transformers-compatible, and has public AWQ/GPTQ checkpoints. |
 | 4G | Mistral-7B local prep and four-path smoke plan | Complete | no GPU run | Added Mistral project smoke/focused presets, tests, and command-safe cache/project/bnb/AWQ/GPTQ smoke commands. Local runner tests and preset listing passed. |
-| 4H | Mistral-7B smoke/readiness segment | Pending approval | likely 45-120 min wall for cache plus project/bnb/AWQ/GPTQ smokes | Promote to full benchmark only if project `scale_row_g4`, bnb NF4, AWQ, and GPTQ all pass smoke. |
-| 4I | Mistral-7B full 256-record comparison | Pending smoke success | likely several hours wall; refresh estimate from smoke telemetry | Run original/reference, project `scale_row_g4`, bnb NF4, AWQ, and GPTQ on the same 256-record resource, then distill only the comparison knowledge into the research draft. |
+| 4H | Mistral-7B smoke/readiness segment | Complete | smoke runners: base cache 39.1s, project 40.6s, bnb 27.4s, AWQ 97.4s, GPTQ 125.7s after stack fixes | Project, bnb, GPTQ, and AWQ all passed smoke. TheBloke AWQ failed in this stack; the successful AWQ row uses `MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ`. |
+| 4I | Mistral-7B full 256-record comparison | Complete | full wall about 27.5 min after warmed cache/stack | Completed project `scale_row_g4`, bnb NF4, GPTQ, and AWQ on the same 256-record resource; research draft now contains only the distilled comparison. |
 
 Fresh resume roadmap:
 
-1. Start from `docs/runpod/mistral_7b_plan.md`.
-2. Confirm the Mistral local prep commit is present and the repo is clean.
-3. Estimate or refresh RTX 4090 wall time, cost, and VRAM risk, then ask the user for
-   explicit approval before any Pod command.
-4. Run only the smoke/readiness segment first. Promote to full 256-record
-   benchmarking only if all planned paths pass.
-5. After any GPU segment, update the RunPod ledger/dashboard, lab book,
-   project summary, README, and, only where scientifically distilled,
-   `docs/research_draft.md`.
+1. Verify the Mistral artifact/doc commit is present and the repo is clean.
+2. Stop the active RunPod Pod unless a new GPU benchmark is queued within about
+   30 minutes.
+3. Use the completed TinyLlama and Mistral rows to decide the next Milestone 4
+   question: another full-successor model, or implementation work on packed
+   project runtime kernels to study the speed/memory gap.
+4. Before any new GPU segment, refresh wall-time/cost/VRAM estimates from the
+   timing table and `docs/runpod/usage_ledger.md`, run a smoke/readiness pass,
+   and keep detailed command history in bookkeeping docs rather than the
+   research draft.
 
 Run estimates are intentionally ranges. They use the current timing table:
 TinyLlama bnb NF4 needed 191.5s runner / 6m24s wall on RTX 4090, while the
 project five-row TinyLlama telemetry run needed 1208.7s runner / 23m43s wall on
-RTX 4000 Ada. AWQ/GPTQ first runs should budget extra setup time for optional
-dependencies, model-format surprises, and one-time Marlin JIT compilation.
-After the dependency stack is warm on the same Pod, AWQ/GPTQ 256-record runner
-times were about 4.0-4.4 minutes. Before each GPU segment, follow the
-RunPod GPU value rule: estimate wall time, cost, VRAM headroom, output paths,
+RTX 4000 Ada. Mistral-7B with a warmed RTX 4090 stack needed about 19.7 min
+runner for the project `scale_row_g4` row and about 2.3-2.6 min runner for each
+external 256-record row. AWQ/GPTQ first runs should still budget extra setup
+time for optional dependencies, model-format surprises, and Marlin-family
+backend compatibility. Before each GPU segment, follow the RunPod GPU value rule:
+estimate wall time, cost, VRAM headroom, output paths,
 target commit, and whether the estimate is job-level or method-level, then wait
 for user approval.
 
-Current handover state after AWQ/GPTQ integration:
+Current handover state after Mistral-7B integration:
 
 1. TinyLlama external baselines are complete for bitsandbytes NF4, AWQ, and
    GPTQ on the tracked 256-record WikiText-2 raw validation resource.
-2. The research draft has been distilled: section 19 keeps the method metrics,
-   the project/bnb/AWQ/GPTQ comparison, and the concise runtime/memory caveat.
-   Whole-job and dependency-resolution details live in the lab book and RunPod
-   ledger.
-3. The latest TinyLlama conclusion is: project `scale_row_g4` remains the
-   strongest quality row; bnb NF4 is the fastest external method loop; AWQ is
-   close to bnb on logit MSE; GPTQ has the best external PPL ratio but weaker
-   logit MSE/top-5 overlap.
-4. Qwen smoke/readiness result: reference cache prep and project one-layer
+2. Mistral-7B is now the completed larger-than-TinyLlama successor comparison:
+   project `scale_row_g4`, bitsandbytes NF4, GPTQ, and AWQ all produced
+   256-record rows on the same tracked WikiText-2 resource.
+3. The research draft has been distilled: section 19 keeps the TinyLlama and
+   Mistral method metrics plus the concise runtime/memory caveat. Whole-job,
+   dependency-resolution, failed-checkpoint, and wrapper details live in the
+   lab book and RunPod ledger.
+4. The current cross-model conclusion is stable across TinyLlama and Mistral:
+   project `scale_row_g4` is the strongest quality row, while bnb/GPTQ/AWQ are
+   much faster and lower-memory in the current packed external runtime paths.
+5. Qwen smoke/readiness result: reference cache prep and project one-layer
    `scale_row_g4` smoke passed, but AWQ/GPTQ external smokes failed at
    Marlin-family backend selection with exit 132. Keep this out of the research
    draft except as a very brief backend limitation if needed.
-5. Next Milestone 4 step: prepare the Mistral-7B full-comparison smoke plan.
-   OPT is useful partial evidence, but it is not the main successor until
-   AWQ/GPTQ are included.
 6. OPT smoke/readiness result: reference cache prep, project one-layer
    `scale_row_g4` smoke, and bitsandbytes NF4 one-record smoke all passed on
    RTX 4090.
-7. Before the next GPU segment, estimate runtime/cost from the benchmark timing
+7. Next Milestone 4 decision: either repeat the full-successor comparison on
+   another compatible larger model, or implement packed project runtime kernels
+   to close the speed/memory measurement gap.
+8. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.
-8. Continue updating RunPod ledger, lab book, research draft, README, and
+9. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
-9. The Qwen 3B RunPod command plan remains in `docs/runpod/qwen2_5_3b_plan.md`
+10. The Qwen 3B RunPod command plan remains in `docs/runpod/qwen2_5_3b_plan.md`
    as historical/backend-debug context.
-10. The OPT RunPod command plan remains in `docs/runpod/opt_2_7b_plan.md` as
+11. The OPT RunPod command plan remains in `docs/runpod/opt_2_7b_plan.md` as
     partial-probe context.
-11. Resume from the Mistral-7B smoke approval gate. RunPod is not needed until
-    the user approves the 45-120 minute RTX 4090 smoke/readiness estimate and
-    provides fresh Pod details.
+12. The Mistral plan remains in `docs/runpod/mistral_7b_plan.md` as completed
+    reproducibility context. The active Pod can be stopped unless another GPU
+    benchmark is queued within about 30 minutes.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,

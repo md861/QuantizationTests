@@ -5475,3 +5475,53 @@ Added local OPT-2.7B project benchmark prep without touching RunPod:
 
 RunPod remains unneeded until the user provides fresh Pod details and approves
 the smoke/cache/readiness segment estimate.
+
+## Session: 2026-07-06 - Mistral-7B full successor comparison
+
+Ran the Mistral-7B successor segment on an RTX 4090 RunPod at commit `41a5945`.
+Raw connection details remain local-only. The comparison target was
+`mistralai/Mistral-7B-Instruct-v0.2` on the tracked 256-record WikiText-2 raw
+validation resource, with project `scale_row_g4`, bitsandbytes NF4, GPTQ, and
+AWQ.
+
+Operational notes:
+
+- A scratch venv on local container disk was needed because the network-volume
+  venv imports were too slow for iterative GPU work.
+- Mistral reference loading required half precision to avoid reference-model
+  OOM in the project and external baseline runners.
+- GPTQ used `TheBloke/Mistral-7B-Instruct-v0.2-GPTQ` and required the
+  Transformers 5 / GPTQModel stack plus the pytree compatibility wrapper.
+- The first TheBloke AWQ checkpoint failed in the current AutoAWQ/Triton stack.
+  The successful AWQ checkpoint was
+  `MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ`.
+- The first full-script AWQ command exited before metrics because it missed the
+  pytree wrapper after the stack switch. A wrapper-only AWQ rerun completed
+  cleanly, so only the successful wrapper result is used as the AWQ row.
+
+Full 256-record results:
+
+- Project `scale_row_g4`: runner `1183.713s`, isolated method loop `816.141s`,
+  logit MSE `0.042644`, top-5 overlap `0.927161`, loss delta `+0.003475`,
+  PPL ratio `1.003481`, throughput `39.938 tokens/s`, peak CUDA
+  `14057.727 MB` allocated / `14164 MB` reserved.
+- bitsandbytes NF4: runner `137.108s`, isolated method loop `22.772s`, logit
+  MSE `0.102315`, top-5 overlap `0.893112`, loss delta `+0.022921`, PPL ratio
+  `1.023186`, throughput `1431.369 tokens/s`, peak CUDA `4630.234 MB`
+  allocated / `4724 MB` reserved.
+- GPTQ: runner `141.423s`, isolated method loop `29.500s`, logit MSE
+  `0.129736`, top-5 overlap `0.881939`, loss delta `+0.016181`, PPL ratio
+  `1.016313`, throughput `1104.924 tokens/s`, peak CUDA `4187.336 MB`
+  allocated / `4256 MB` reserved.
+- AWQ: runner `153.382s`, isolated method loop `30.876s`, logit MSE
+  `0.107433`, top-5 overlap `0.891707`, loss delta `+0.021802`, PPL ratio
+  `1.022042`, throughput `1055.681 tokens/s`, peak CUDA `4203.726 MB`
+  allocated / `4234 MB` reserved.
+
+Interpretation: Mistral preserves the TinyLlama direction. The project
+`scale_row_g4` path gives the best quality row on this bounded validation
+resource, while bnb/GPTQ/AWQ are much faster and lower-memory because they use
+packed runtime implementations. This strengthens the case that future research
+work should either repeat the full-successor comparison on another compatible
+model or implement packed project runtime kernels to study the quality/speed/
+memory tradeoff more directly.

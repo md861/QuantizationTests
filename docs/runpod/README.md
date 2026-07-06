@@ -13,11 +13,11 @@ Known captured/reconciled RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: 400.5 min</th>
-    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 1035.6 min (17.3 h)</th>
+    <th colspan="2">Logged work time: 518.0 min</th>
+    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 1153.1 min (19.2 h)</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: ~$8.37 | Storage: ~$0.15 | Total: ~$8.52 | Budget ceiling: about GBP 200</th>
+    <th colspan="5">Compute: ~$9.72 | Storage: ~$0.16 | Total: ~$9.88 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -28,9 +28,9 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Setup / install</td>
-    <td>135.3 min</td>
-    <td>~$1.30</td>
-    <td>13%</td>
+    <td>200.3 min</td>
+    <td>~$2.05</td>
+    <td>17%</td>
     <td><code>###-----------------</code></td>
   </tr>
   <tr>
@@ -42,10 +42,10 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Benchmark compute / smoke</td>
-    <td>224.2 min</td>
-    <td>~$1.26</td>
-    <td>22%</td>
-    <td><code>####----------------</code></td>
+    <td>276.7 min</td>
+    <td>~$1.86</td>
+    <td>24%</td>
+    <td><code>#####---------------</code></td>
   </tr>
   <tr>
     <td>Download / cache</td>
@@ -65,8 +65,8 @@ Known captured/reconciled RunPod time so far:
     <td>Unlogged uptime / admin / idle</td>
     <td>635.2 min</td>
     <td>~$5.42</td>
-    <td>61%</td>
-    <td><code>#############-------</code></td>
+    <td>55%</td>
+    <td><code>###########---------</code></td>
   </tr>
 </table>
 
@@ -81,7 +81,13 @@ Interpretation:
   Qwen AWQ/GPTQ external smokes failed at Marlin-family backend selection. The
   dashboard now also includes the OPT-2.7B smoke/readiness segment: reference
   cache prep, project one-layer `scale_row_g4` smoke, and bitsandbytes NF4
-  one-record smoke all passed.
+  one-record smoke all passed. It now includes the Mistral-7B successor segment:
+  project `scale_row_g4`, bitsandbytes NF4, GPTQ, and AWQ all completed on the
+  tracked 256-record resource after smoke/readiness and stack fixes.
+- The Mistral-7B segment added the clearest speed/memory lesson so far: the
+  project row remained strongest on quality but required a much heavier
+  dequantized project harness path, while bnb/GPTQ/AWQ used packed runtime
+  implementations with far lower method-loop time and CUDA peak memory.
 - The AWQ/GPTQ segment added a useful cost lesson: first-time external baseline
   setup can dominate the actual benchmark. The successful AWQ/GPTQ 256-record
   runner times were about 4.0-4.4 min each, but dependency probing, package
@@ -112,10 +118,11 @@ Interpretation:
   RunPod account. Prefer per-Pod billing line items when the console provides
   them. Otherwise estimate project Pod cost as `elapsed_hours * recorded hourly
   Pod rate`, and label it as an estimate.
-- Current observed rates from the RunPod details panel: compute `$0.26/hr`,
-  container storage `$0.003/hr`, and network volume estimated from 100 GB at
-  `$0.07/GB-month`. The dashboard keeps row-level costs compute-only and shows
-  accumulated storage once in the header.
+- Observed compute rates have varied by Pod class: older RTX 4000 Ada rows use
+  `$0.26/hr`, while the current RTX 4090 benchmark rows use `$0.69/hr`.
+  Container storage is `$0.003/hr`, and network volume storage is estimated
+  from 100 GB at `$0.07/GB-month`. The dashboard keeps row-level costs
+  compute-only and shows accumulated storage once in the header.
 - Actual benchmark runs must update both the usage ledger and the Benchmark Run
   Timings table in `project_summary.md`. Keep cumulative RunPod benchmark spend
   under the project budget ceiling of about GBP 200; pause and ask the user
