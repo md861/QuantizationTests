@@ -5525,3 +5525,18 @@ packed runtime implementations. This strengthens the case that future research
 work should either repeat the full-successor comparison on another compatible
 model or implement packed project runtime kernels to study the quality/speed/
 memory tradeoff more directly.
+
+## Session: 2026-07-06 - Matched bits-per-weight follow-up decision
+
+Reviewed the effective bits-per-weight caveat from `side_research.md` and
+folded the auditable arithmetic into the research draft. The important
+correction is that Mistral `scale_row_g4` is not a matched-compression
+comparison against AWQ/GPTQ: the project row uses about `12.006` effective
+bits/weight as coded because the g4 scale metadata is large, while the AWQ and
+GPTQ checkpoints are near `4.1-4.2` bits/weight with group size 128.
+
+Next Milestone 4 step is therefore a matched-budget Mistral project rerun,
+before claiming a stronger win over AWQ/GPTQ: prepare `scale_row_g128` and/or
+`row_grouped_g128` on the same 256-record WikiText-2 resource, estimate the
+RunPod cost from the completed g4 Mistral row, and update the comparison tables
+with effective bits/weight or artifact-size columns.

@@ -91,12 +91,15 @@ strings must not be committed.
 
 Fresh resume roadmap:
 
-1. Finish any post-run checks on the Mistral artifacts and docs.
-2. Stop the active Pod unless another GPU benchmark is queued to start within
-   about 30 minutes.
-3. Decide the next Milestone 4 question: repeat another larger model under the
-   full successor rule, or invest in packed project-runtime kernels to close
-   the speed/memory gap revealed by TinyLlama and Mistral.
+1. Confirm the repo is clean and synced, and request fresh Pod details before
+   any new GPU work.
+2. Run a matched effective-bits Mistral project comparison using
+   `scale_row_g128` and/or `row_grouped_g128`, then compare against AWQ/GPTQ
+   with explicit bits/weight or artifact-size columns.
+3. After that matched-budget result, decide whether Milestone 4 should repeat
+   another larger model under the full successor rule or invest in packed
+   project-runtime kernels to close the speed/memory gap revealed by TinyLlama
+   and Mistral.
 4. Before any new GPU segment, refresh runtime/cost estimates from the timing
    table and RunPod ledger and run a smoke/readiness pass first.
 

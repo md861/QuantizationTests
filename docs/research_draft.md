@@ -1434,6 +1434,17 @@ scale-metadata bytes, for a total estimated artifact size of
 with `float32` metadata, or about **8 bits per weight** under an optimistic
 `float16` scale-repacking assumption.
 
+The arithmetic is directly checkable from the telemetry row. The INT4 payload
+contains `3,489,660,928 / 0.5 = 6,979,321,856` quantized weight elements. The
+reference weight estimate gives the same count:
+`27,917,287,424 / 4 = 6,979,321,856` float32 weight elements. Dividing the
+total estimated artifact size by this count gives
+`10,474,487,808 / 6,979,321,856 = 1.5008` bytes per weight, or **12.006 bits
+per weight**. The metadata term is dominated by row-group scales: one
+`float32` scale for each `(column, group-of-4-rows)` pair. The additional
+per-channel scaling factors are much smaller because they are one value per
+column, not one value per four weights.
+
 The external AWQ and GPTQ checkpoints use much coarser groups. The successful
 Mistral AWQ checkpoint uses 4-bit quantization with group size 128 and zero
 points; the GPTQ checkpoint uses 4-bit symmetric quantization with group size

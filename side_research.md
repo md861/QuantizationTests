@@ -153,6 +153,43 @@ Hugging Face:
 | AWQ (real checkpoint, group_size=128) | ~4.16 |
 | GPTQ (real checkpoint, group_size=128) | ~4.13 |
 
+## Worked arithmetic (total weight count and bits/weight derivation)
+
+Total quantized weight count, cross-checked two independent ways from the same
+CSV row (both agree exactly, which sanity-checks the artifact-size
+accounting itself):
+
+- From the INT4 payload: INT4 packs at 0.5 bytes/weight, so
+  `3,489,660,928 bytes / 0.5 bytes/weight = 6,979,321,856 weights`.
+- From the reference: the harness loads original weights as `float32`
+  (4 bytes/weight) for this measurement, so
+  `27,917,287,424 bytes / 4 bytes/weight = 6,979,321,856 weights`.
+
+So Mistral-7B's 154 quantized linear layers (excluding the embedding table and
+`lm_head`) contain **≈6.98 billion weight elements**, out of the model's
+~7.24B total parameters.
+
+Payload check: `6,979,321,856 weights × 4 bits ÷ 8 bits/byte = 3,489,660,928
+bytes` — matches `estimated_packed_weight_bytes` exactly. This is the raw
+4-bit payload alone, with no scale metadata attached yet.
+
+Effective bits/weight, directly from total bytes ÷ total weights:
+
+`10,474,487,808 bytes / 6,979,321,856 weights = 1.5008 bytes/weight × 8 =
+12.006 bits/weight`
+
+`estimated_scale_metadata_bytes` (6,984,826,880 bytes) is the sum, over all
+154 quantized linear layers, of:
+
+1. **Row-group scales**: one `float32` scale per (column, group-of-4-rows)
+   pair — `n_cols × ceil(n_rows / 4)` scales per layer, 4 bytes each. This
+   term dominates: with a group size of 4, that's roughly one 4-byte scale
+   for every 4 weights, i.e. ~1 byte (8 bits) of overhead per weight.
+2. **Channel-scaling factors**: one `float32` factor per column (the
+   per-output-neuron factor from `balance_channel_max_abs`) — `n_cols` values
+   per layer, 4 bytes each. Negligible next to (1), since it's one value per
+   column rather than per 4-row group per column.
+
 ## Reasoning
 
 - Grouping/scaling granularity is a direct storage/quality trade: a smaller

@@ -816,16 +816,24 @@ the research draft.
 | 4G | Mistral-7B local prep and four-path smoke plan | Complete | no GPU run | Added Mistral project smoke/focused presets, tests, and command-safe cache/project/bnb/AWQ/GPTQ smoke commands. Local runner tests and preset listing passed. |
 | 4H | Mistral-7B smoke/readiness segment | Complete | smoke runners: base cache 39.1s, project 40.6s, bnb 27.4s, AWQ 97.4s, GPTQ 125.7s after stack fixes | Project, bnb, GPTQ, and AWQ all passed smoke. TheBloke AWQ failed in this stack; the successful AWQ row uses `MaziyarPanahi/Mistral-7B-Instruct-v0.2-AWQ`. |
 | 4I | Mistral-7B full 256-record comparison | Complete | full wall about 27.5 min after warmed cache/stack | Completed project `scale_row_g4`, bnb NF4, GPTQ, and AWQ on the same 256-record resource; research draft now contains only the distilled comparison. |
+| 4J | Mistral matched effective-bits project rerun | Next | estimate before Pod launch; likely near or below the g4 project row after cache/stack warmup | Add or use a `scale_row_g128`/`row_grouped_g128` project path on the same 256-record resource, report effective bits/weight or artifact size, and compare against AWQ/GPTQ at roughly matched 4.1-4.3 bits/weight. |
 
 Fresh resume roadmap:
 
 1. Verify the Mistral artifact/doc commit is present and the repo is clean.
 2. Stop the active RunPod Pod unless a new GPU benchmark is queued within about
    30 minutes.
-3. Use the completed TinyLlama and Mistral rows to decide the next Milestone 4
-   question: another full-successor model, or implementation work on packed
-   project runtime kernels to study the speed/memory gap.
-4. Before any new GPU segment, refresh wall-time/cost/VRAM estimates from the
+3. Next scientific step: run a matched effective-bits Mistral project rerun,
+   preferably `scale_row_g128` and/or `row_grouped_g128`, so the project row is
+   compared against AWQ/GPTQ near the same bits-per-weight budget.
+4. Before that GPU segment, confirm whether an existing preset can express g128
+   cleanly or add a focused preset, then refresh wall-time/cost/VRAM estimates
+   from the timing table and `docs/runpod/usage_ledger.md`.
+5. After the matched-budget run, update section 19 with effective
+   bits/weight/artifact-size columns and revise the claim language accordingly.
+6. Later Milestone 4 choices remain: repeat another full-successor model, or
+   implement packed project runtime kernels to study the speed/memory gap.
+7. Before any new GPU segment, refresh wall-time/cost/VRAM estimates from the
    timing table and `docs/runpod/usage_ledger.md`, run a smoke/readiness pass,
    and keep detailed command history in bookkeeping docs rather than the
    research draft.
@@ -853,9 +861,11 @@ Current handover state after Mistral-7B integration:
    Mistral method metrics plus the concise runtime/memory caveat. Whole-job,
    dependency-resolution, failed-checkpoint, and wrapper details live in the
    lab book and RunPod ledger.
-4. The current cross-model conclusion is stable across TinyLlama and Mistral:
+4. The current cross-model conclusion needs a storage-budget caveat:
    project `scale_row_g4` is the strongest quality row, while bnb/GPTQ/AWQ are
-   much faster and lower-memory in the current packed external runtime paths.
+   much faster and lower-memory in the current packed external runtime paths;
+   however, Mistral `scale_row_g4` spends about 12 effective bits/weight as
+   coded, versus about 4.1-4.2 bits/weight for AWQ/GPTQ.
 5. Qwen smoke/readiness result: reference cache prep and project one-layer
    `scale_row_g4` smoke passed, but AWQ/GPTQ external smokes failed at
    Marlin-family backend selection with exit 132. Keep this out of the research
@@ -863,9 +873,9 @@ Current handover state after Mistral-7B integration:
 6. OPT smoke/readiness result: reference cache prep, project one-layer
    `scale_row_g4` smoke, and bitsandbytes NF4 one-record smoke all passed on
    RTX 4090.
-7. Next Milestone 4 decision: either repeat the full-successor comparison on
-   another compatible larger model, or implement packed project runtime kernels
-   to close the speed/memory measurement gap.
+7. Next Milestone 4 step: prepare and estimate a matched effective-bits Mistral
+   project rerun using `scale_row_g128` and/or `row_grouped_g128`, then compare
+   against AWQ/GPTQ with an explicit bits/weight or artifact-size column.
 8. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.

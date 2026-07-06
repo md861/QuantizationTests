@@ -181,8 +181,15 @@ MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.gptq_baseline --
 ## Resume Checklist
 
 1. Confirm the repo is clean and current with `main`.
-2. Confirm Mistral local prep commit is present.
-3. Produce or refresh the RunPod estimate for cache plus five smoke commands:
-   reference/cache, project, bitsandbytes NF4, AWQ, and GPTQ.
-4. Wait for user approval and fresh Pod details.
-5. Run smoke in detached `tmux`, pull artifacts, and update bookkeeping.
+2. Treat the g4 full-comparison commands above as completed reproducibility
+   context, not the active next step.
+3. Prepare the matched effective-bits project rerun: add or verify a focused
+   Mistral preset/command for `scale_row_g128` and/or `row_grouped_g128` on the
+   same 256-record WikiText-2 resource.
+4. Estimate runtime/cost from the g4 Mistral row before launch. The g4 project
+   row took `1183.713s` runner elapsed with an `816.141s` isolated method loop
+   on RTX 4090; g128 should be estimated from that baseline until measured.
+5. Wait for user approval and fresh Pod details.
+6. Run the matched-budget project row in detached `tmux`, pull artifacts, and
+   update the research draft, project summary, RunPod ledger/dashboard, and lab
+   book with effective bits/weight or artifact-size columns.
