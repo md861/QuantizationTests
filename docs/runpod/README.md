@@ -129,8 +129,11 @@ Interpretation:
 
 - `operations.md`: Pod setup, GPU/storage selection, credit guardrails,
   stop-window policy, and command discipline.
+- `mistral_7b_plan.md`: commit-safe candidate plan for the recommended
+  full-comparison larger-than-TinyLlama successor.
 - `opt_2_7b_plan.md`: commit-safe smoke and focused-run command plan for the
-  active larger-than-TinyLlama Milestone 4 target.
+  OPT partial scale-up probe; do not treat it as the active full-comparison
+  successor unless AWQ/GPTQ support is added and smoke-stable.
 - `qwen2_5_3b_plan.md`: commit-safe smoke and focused-run command plan for the
   earlier Qwen smoke/backend-debug detour.
 - `usage_ledger.md`: running ledger of setup, verification, idle/admin, cleanup,

@@ -5291,6 +5291,26 @@ Local checks:
 RunPod remains unneeded until the user provides fresh Pod details and approves
 the smoke/cache/readiness segment estimate.
 
+## Session: 2026-07-06 - Full successor-model rule clarified
+
+The Milestone 4 scale-up requirement is now explicit: the next larger model
+after TinyLlama must support the same comparison family as TinyLlama, namely
+the project `scale_row_g4` path, bitsandbytes NF4, AWQ, and GPTQ. A model with
+only project plus one external baseline is a partial probe, not the main
+successor.
+
+Implications:
+
+- Qwen2.5-3B remains a backend-compatibility detour: project smoke passed, but
+  AWQ/GPTQ failed in the current stack after Marlin-family kernel selection.
+- OPT-2.7B remains useful partial evidence: project `scale_row_g4` and
+  bitsandbytes NF4 smokes passed, but AWQ/GPTQ were not validated.
+- The recommended next full-comparison candidate is
+  `mistralai/Mistral-7B-Instruct-v0.2`, with TheBloke AWQ/GPTQ checkpoints as
+  the first external checkpoint choices. It is larger and therefore must be
+  gated by smoke/readiness and refreshed runtime/cost estimates before a full
+  256-record run.
+
 ## Session: 2026-07-06 - OPT-2.7B smoke/readiness on RunPod
 
 RunPod smoke/readiness segment ran on a migrated RTX 4090 Pod at commit

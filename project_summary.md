@@ -794,15 +794,24 @@ faster and lower-memory in method-level telemetry.
 
 Milestone 4 roadmap from this checkpoint:
 
+Successor-model rule: a larger-than-TinyLlama model is not accepted as the main
+Milestone 4 successor unless project `scale_row_g4`, bitsandbytes NF4, AWQ, and
+GPTQ all have a viable checkpoint/runtime plan and pass smoke on the same
+evaluation resource. If one path fails, record the model as a partial probe or
+backend detour and keep the details in the lab book/RunPod ledger rather than
+the research draft.
+
 | Step | Goal | Repo implementation estimate | Run estimate | Notes |
 | --- | --- | ---: | ---: | --- |
 | 4A | TinyLlama AWQ external baseline | Complete | 238.2s runner after setup | Added optional pre-quantized AWQ checkpoint runner and completed the 256-record RTX 4090 run. First Pod pass required gptqmodel/ninja/helper dependency setup and Marlin JIT compilation. |
 | 4B | TinyLlama GPTQ external baseline | Complete | 262.2s runner after setup | Added optional pre-quantized GPTQ checkpoint runner and completed the 256-record RTX 4090 run. Shared the dependency stack established for AWQ. |
 | 4C | Distill TinyLlama external-baseline comparison | Complete | no GPU run | Research draft now contains the distilled project/bnb/AWQ/GPTQ comparison; run-history details live in lab book and RunPod ledger. |
 | 4D | Try Qwen2.5-3B as first scale-up target | Complete/blocked for external comparison | no further Qwen run approved | Qwen reference cache and project one-layer `scale_row_g4` smoke passed, but AWQ/GPTQ smokes failed with exit 132 after selecting Marlin-family kernels. Keep this as bookkeeping/backend-compatibility evidence, not a research-draft result. |
-| 4E | Select OPT-2.7B as larger-model comparison target | Complete | no GPU run | Selected `facebook/opt-2.7b` as the active larger-than-TinyLlama target because it is a simpler, older Transformers decoder-only model and should be a better first boring external-compatible scale-up path. First external baseline should be bitsandbytes NF4, not AWQ/GPTQ. |
-| 4F | OPT-2.7B local prep and smoke/cache/readiness | Complete | 75.7s cache runner, 37.4s project smoke runner, 54.3s bnb smoke runner | Project `scale_row_g4` one-layer smoke and bitsandbytes NF4 one-record smoke both passed on RTX 4090. |
-| 4G | OPT-2.7B focused comparison | ~0.5 active day if only documentation/analysis remains after run; more if full run exposes model-specific issues | likely 1-3 h wall for original + project `scale_row_g4` + bnb NF4 | Next GPU step. Requires fresh estimate and explicit approval before launching the 256-record comparison. |
+| 4E | Probe OPT-2.7B as a partial scale-up target | Complete/partial | 75.7s cache runner, 37.4s project smoke runner, 54.3s bnb smoke runner | Project `scale_row_g4` one-layer smoke and bitsandbytes NF4 one-record smoke passed on RTX 4090. OPT is not the main full-comparison successor unless AWQ/GPTQ support is validated. |
+| 4F | Select full-comparison larger-model candidate | Complete | no GPU run | Recommend `mistralai/Mistral-7B-Instruct-v0.2` because it is Apache-2.0, widely used, LLaMA/Mistral-family, public Transformers-compatible, and has established AWQ/GPTQ checkpoints via TheBloke. |
+| 4G | Mistral-7B local prep and four-path smoke plan | Next | no GPU run until approved | Add/verify project preset targeting Mistral attention projections, prepare cache/project/bnb/AWQ/GPTQ smoke commands, and estimate RTX 4090 runtime/cost before launch. |
+| 4H | Mistral-7B smoke/readiness segment | Pending approval | likely 45-120 min wall for cache plus four one-record/single-layer smokes | Promote to full benchmark only if project `scale_row_g4`, bnb NF4, AWQ, and GPTQ all pass smoke. |
+| 4I | Mistral-7B full 256-record comparison | Pending smoke success | likely several hours wall; refresh estimate from smoke telemetry | Run original/reference, project `scale_row_g4`, bnb NF4, AWQ, and GPTQ on the same 256-record resource, then distill only the comparison knowledge into the research draft. |
 
 Run estimates are intentionally ranges. They use the current timing table:
 TinyLlama bnb NF4 needed 191.5s runner / 6m24s wall on RTX 4090, while the
@@ -831,9 +840,9 @@ Current handover state after AWQ/GPTQ integration:
    `scale_row_g4` smoke passed, but AWQ/GPTQ external smokes failed at
    Marlin-family backend selection with exit 132. Keep this out of the research
    draft except as a very brief backend limitation if needed.
-5. Next Milestone 4 step: estimate and approve the full `facebook/opt-2.7b`
-   focused comparison covering original/reference, project `scale_row_g4`, and
-   bitsandbytes NF4.
+5. Next Milestone 4 step: prepare the Mistral-7B full-comparison smoke plan.
+   OPT is useful partial evidence, but it is not the main successor until
+   AWQ/GPTQ are included.
 6. OPT smoke/readiness result: reference cache prep, project one-layer
    `scale_row_g4` smoke, and bitsandbytes NF4 one-record smoke all passed on
    RTX 4090.
@@ -844,7 +853,8 @@ Current handover state after AWQ/GPTQ integration:
    project summary after each GPU segment.
 9. The Qwen 3B RunPod command plan remains in `docs/runpod/qwen2_5_3b_plan.md`
    as historical/backend-debug context.
-10. The active OPT RunPod command plan is `docs/runpod/opt_2_7b_plan.md`.
+10. The OPT RunPod command plan remains in `docs/runpod/opt_2_7b_plan.md` as
+    partial-probe context.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,

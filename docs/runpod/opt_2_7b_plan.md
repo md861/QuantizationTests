@@ -4,6 +4,13 @@ This file is commit-safe operational bookkeeping for the next Milestone 4 GPU
 segment. Do not add raw SSH hosts, ports, usernames, Pod IDs, private key
 paths, API keys, account identifiers, or one-off connection strings.
 
+Status after roadmap clarification: this is a partial-probe plan, not the main
+larger-model successor plan. The main post-TinyLlama Milestone 4 successor must
+support project `scale_row_g4`, bitsandbytes NF4, AWQ, and GPTQ. OPT-2.7B has
+only passed project and bitsandbytes smokes so far; do not promote it to a full
+research comparison unless AWQ/GPTQ support is explicitly added and smoke
+passes.
+
 ## Target
 
 - Reference model: `facebook/opt-2.7b`

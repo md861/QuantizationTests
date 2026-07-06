@@ -75,29 +75,32 @@ RunPod SSH details, keys, account identifiers, and Pod-specific connection
 strings must not be committed.
 
 1. TinyLlama external-baseline set is complete for bitsandbytes NF4, AWQ, and GPTQ on the same tracked 256-record WikiText-2 raw validation resource and shared logit/loss/runtime/memory fields.
-2. Qwen2.5-3B was tried as the first modern scale-up target. The project `scale_row_g4` smoke passed, but Qwen AWQ/GPTQ external smokes failed with exit `132` after selecting Marlin-family kernels. Treat this as a backend-compatibility detour, not a research result.
-3. The active larger-model comparison target is now `facebook/opt-2.7b`, chosen as a simpler Transformers model for a boring external-compatible scale-up path. OPT reference cache prep, project `scale_row_g4` one-layer smoke, and bitsandbytes NF4 one-record smoke have all passed.
-4. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
-5. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
-6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
-7. Stop the RunPod Pod as soon as benchmark execution finishes unless another GPU benchmark is already queued to start within about 30 minutes; otherwise pull CSVs/logs/results back locally for analysis and documentation.
-8. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger, usage dashboard, and Benchmark Run Timings table after every Pod segment.
-9. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines, while keeping run/provenance details out of the research draft.
-10. Update the research draft, README, project summary, and lab book after each completed model.
+2. The next larger-than-TinyLlama research model must be a full-comparison successor: project `scale_row_g4`, bitsandbytes NF4, AWQ, and GPTQ must all have a viable checkpoint/runtime plan and pass smoke before the model is promoted to the main Milestone 4 comparison.
+3. Qwen2.5-3B was tried as the first modern scale-up target. The project `scale_row_g4` smoke passed, but Qwen AWQ/GPTQ external smokes failed with exit `132` after selecting Marlin-family kernels. Treat this as a backend-compatibility detour, not a research result.
+4. OPT-2.7B reference cache prep, project `scale_row_g4` one-layer smoke, and bitsandbytes NF4 one-record smoke passed. Under the full-comparison rule, OPT remains a partial probe unless AWQ and GPTQ checkpoints/backends are separately validated.
+5. The recommended next full-comparison candidate is `mistralai/Mistral-7B-Instruct-v0.2`, gated by smoke tests for project `scale_row_g4`, bitsandbytes NF4, `TheBloke/Mistral-7B-Instruct-v0.2-AWQ`, and `TheBloke/Mistral-7B-Instruct-v0.2-GPTQ`.
+6. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
+7. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
+8. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
+9. Stop the RunPod Pod as soon as benchmark execution finishes unless another GPU benchmark is already queued to start within about 30 minutes; otherwise pull CSVs/logs/results back locally for analysis and documentation.
+10. Keep total RunPod benchmark spend under the project budget ceiling of about GBP 200; update the RunPod usage ledger, usage dashboard, and Benchmark Run Timings table after every Pod segment.
+11. Compare quality, runtime, memory pressure, and artifact size across the project method and external baselines, while keeping run/provenance details out of the research draft.
+12. Update the research draft, README, project summary, and lab book after each completed model.
 
 The external baseline scaffolds are experiments/bitsandbytes_baseline.py,
 experiments/awq_baseline.py, and experiments/gptq_baseline.py. They are
 intentionally separate from the project quantizer harness: these baselines load
 quantized Transformers runtime modules or pre-quantized checkpoints, so the
 fair shared comparison is logit/loss/perplexity plus runtime and memory
-metadata, not project weight or activation reconstruction tables. OPT-2.7B and
-Qwen2.5-3B project presets now live in
-`experiments/run_transformer_benchmark.py`; the active OPT RunPod command plan
-is `docs/runpod/opt_2_7b_plan.md`. Keep these baselines optional; normal local
-tests do not require their optional packages or CUDA. The AWQ and GPTQ runners
-require explicit `--awq-model-name` and `--gptq-model-name` arguments so a
-reference checkpoint is not accidentally reported as an external quantized
-baseline.
+metadata, not project weight or activation reconstruction tables. Qwen2.5-3B
+and OPT-2.7B project presets now live in
+`experiments/run_transformer_benchmark.py`, but both are classified as
+partial scale-up probes until all planned external baselines are smoke-stable.
+The Mistral-7B candidate smoke plan is `docs/runpod/mistral_7b_plan.md`.
+Keep these baselines optional; normal local tests do not require their optional
+packages or CUDA. The AWQ and GPTQ runners require explicit `--awq-model-name`
+and `--gptq-model-name` arguments so a reference checkpoint is not
+accidentally reported as an external quantized baseline.
 
 The first controlled TinyLlama matrix is locked: original Hugging Face
 reference, project INT4 global, project INT4 row_grouped_g4/g8, project INT4
@@ -217,8 +220,10 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: estimate and approve the OPT-2.7B full 256-record focused comparison:
-original/reference, project `scale_row_g4`, and bitsandbytes NF4.
+Next: prepare the Mistral-7B full-comparison smoke plan. The next promoted
+larger-model comparison must include original/reference, project
+`scale_row_g4`, bitsandbytes NF4, AWQ, and GPTQ; OPT-2.7B remains a partial
+probe unless AWQ/GPTQ support is added and smoke-stable.
 
 ## Completed Milestone 2
 
