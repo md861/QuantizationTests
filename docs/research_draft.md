@@ -1422,6 +1422,48 @@ applies as above: this is a comparison of the current project dequantized
 harness against external packed-runtime implementations, not a claim that the
 project path has already achieved packed-kernel speed or memory behavior.
 
+### 19.4 Effective Bits-per-Weight and Fairness of the Mistral Comparison
+
+The Mistral comparison also exposes a compression-budget caveat. The project
+row is labelled INT4 because its packed payload uses 4-bit quantized weights,
+but the current `scale_row_g4` artifact spends substantial metadata on
+per-4-row scales and per-channel scaling factors. On Mistral-7B, the project
+telemetry estimates `3,489,660,928` packed-weight bytes and `6,984,826,880`
+scale-metadata bytes, for a total estimated artifact size of
+`10,474,487,808` bytes. This is approximately **12 bits per weight** as coded
+with `float32` metadata, or about **8 bits per weight** under an optimistic
+`float16` scale-repacking assumption.
+
+The external AWQ and GPTQ checkpoints use much coarser groups. The successful
+Mistral AWQ checkpoint uses 4-bit quantization with group size 128 and zero
+points; the GPTQ checkpoint uses 4-bit symmetric quantization with group size
+128. These formats land near **4.1-4.2 effective bits per weight**, because the
+scale and zero-point metadata are amortized over 128 weights rather than 4.
+
+| Method | Effective bits/weight interpretation |
+| --- | ---: |
+| project `scale_row_g4`, current `float32` metadata | ~12.0 |
+| project `scale_row_g4`, optimistic `float16` metadata | ~8.0 |
+| AWQ 4-bit checkpoint, group size 128 | ~4.16 |
+| GPTQ 4-bit checkpoint, group size 128 | ~4.13 |
+
+This means the current quality result should be read carefully. The project
+`scale_row_g4` row beats AWQ and GPTQ on logit MSE, top-5 overlap, and PPL
+ratio, but it does so at roughly 2-3x the storage budget per weight. That is a
+real and useful result: very fine-grained project scaling preserves the model
+well. It is not yet evidence that the project method beats AWQ or GPTQ at a
+matched compression ratio.
+
+The next fair comparison should therefore keep the same Mistral evaluation
+resource and rerun the project path at a matched group size, especially
+`scale_row_g128` or `row_grouped_g128`. With one scale per 128 weights, the
+project artifact would land near the same effective bits-per-weight budget as
+AWQ and GPTQ, making the comparison answer the sharper question: does the
+project scaling/row-grouping scheme still preserve quality better once its
+extra metadata budget is removed? Future Milestone 4 tables should report
+effective bits per weight, or at least estimated artifact size, alongside
+quality, runtime, and CUDA memory.
+
 ## Appendix A. Reproducing Current Figures
 
 
