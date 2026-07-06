@@ -158,6 +158,7 @@ def test_mistral_7b_smoke_preset_uses_single_layer_and_one_text():
     assert config.row_group_fractions == []
     assert config.top_width_pair_fractions == []
     assert config.calibration_texts == ["Quantization smoke test."]
+    assert config.torch_dtype == "float16"
     assert "mistral_7b_v0_2" in str(config.results_dir)
 
 
@@ -178,6 +179,7 @@ def test_mistral_7b_focused_preset_uses_eval_resource_and_scale_row_filter():
     assert config.top_width_pair_fractions == []
     assert config.logit_only is True
     assert config.logit_method_names == ["scale_row_g4"]
+    assert config.torch_dtype == "float16"
     assert len(config.calibration_texts) == 256
     assert config.calibration_text_source == (
         "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"

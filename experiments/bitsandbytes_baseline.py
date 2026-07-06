@@ -107,6 +107,7 @@ def run_bitsandbytes_baseline(config: BitsAndBytesBaselineConfig) -> LogitRecord
     original_model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
         local_files_only=config.local_files_only,
+        torch_dtype=_resolve_compute_dtype(config.compute_dtype),
     )
     original_model.to(device)
     original_model.eval()

@@ -109,6 +109,7 @@ def run_awq_baseline(config: AwqBaselineConfig) -> LogitRecord:
     original_model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
         local_files_only=config.local_files_only,
+        torch_dtype=_resolve_torch_dtype(config.torch_dtype),
         trust_remote_code=config.trust_remote_code,
     )
     original_model.to(device)

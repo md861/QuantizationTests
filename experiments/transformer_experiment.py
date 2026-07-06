@@ -92,6 +92,7 @@ class TransformerConfig:
     device: str = "auto"
     logit_only: bool = False
     logit_method_names: Optional[list[str]] = None
+    torch_dtype: Optional[str] = None
     # Optional progress callback: on_progress(phase, done, total)
     # phase is "layer" or "logit"; done and total are int counts.
     on_progress: object = field(default=None, repr=False, compare=False)
@@ -172,6 +173,7 @@ def run_transformer_experiment(
     model = AutoModelForCausalLM.from_pretrained(
         config.model_name,
         local_files_only=config.local_files_only,
+        torch_dtype=_resolve_optional_torch_dtype(config.torch_dtype),
     )
     tokenizer = AutoTokenizer.from_pretrained(
         config.model_name,
@@ -881,6 +883,21 @@ def _resolve_torch_device(device: str) -> torch.device:
     if device == "cpu":
         return torch.device("cpu")
     raise ValueError("device must be one of: auto, cpu, cuda")
+
+
+def _resolve_optional_torch_dtype(name: Optional[str]) -> Optional[torch.dtype]:
+    if name is None:
+        return None
+    try:
+        return {
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "float32": torch.float32,
+        }[name]
+    except KeyError as exc:
+        raise ValueError(
+            "torch dtype must be one of: float16, bfloat16, float32"
+        ) from exc
 
 
 def _cuda_memory_mb(value: Optional[int]) -> Optional[float]:

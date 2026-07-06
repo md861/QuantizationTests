@@ -39,6 +39,7 @@ class BenchmarkPreset:
     max_eval_texts: Optional[int] = None
     single_layer_name: Optional[str] = None
     calibration_texts: Optional[list[str]] = None
+    torch_dtype: Optional[str] = None
 
 
 PRESETS: dict[str, BenchmarkPreset] = {
@@ -132,6 +133,7 @@ PRESETS: dict[str, BenchmarkPreset] = {
         plots_dir=Path("plots/transformer_mistral_7b_v0_2_int4_smoke"),
         single_layer_name="model.layers.0.self_attn.q_proj",
         calibration_texts=["Quantization smoke test."],
+        torch_dtype="float16",
     ),
     "mistral-7b-v0.2-int4-scale-row-g4": BenchmarkPreset(
         model_name="mistralai/Mistral-7B-Instruct-v0.2",
@@ -146,6 +148,7 @@ PRESETS: dict[str, BenchmarkPreset] = {
         ),
         max_eval_texts=256,
         single_layer_name=None,
+        torch_dtype="float16",
     ),
     "pythia-14m-int8-baseline": BenchmarkPreset(
         model_name="EleutherAI/pythia-14m",
@@ -350,6 +353,7 @@ def build_config(args: argparse.Namespace) -> TransformerConfig:
         device=args.device,
         logit_only=bool(args.logit_only),
         logit_method_names=_parse_logit_methods(args.logit_methods),
+        torch_dtype=preset.torch_dtype,
     )
 
 
