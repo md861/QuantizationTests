@@ -122,6 +122,31 @@ PRESETS: dict[str, BenchmarkPreset] = {
         max_eval_texts=256,
         single_layer_name=None,
     ),
+    "mistral-7b-v0.2-int4-smoke": BenchmarkPreset(
+        model_name="mistralai/Mistral-7B-Instruct-v0.2",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        row_group_sizes=[4],
+        row_group_fractions=[],
+        results_dir=Path("results/transformer_mistral_7b_v0_2_int4_smoke"),
+        plots_dir=Path("plots/transformer_mistral_7b_v0_2_int4_smoke"),
+        single_layer_name="model.layers.0.self_attn.q_proj",
+        calibration_texts=["Quantization smoke test."],
+    ),
+    "mistral-7b-v0.2-int4-scale-row-g4": BenchmarkPreset(
+        model_name="mistralai/Mistral-7B-Instruct-v0.2",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        row_group_sizes=[4],
+        row_group_fractions=[],
+        results_dir=Path("results/transformer_mistral_7b_v0_2_int4_scale_row_g4"),
+        plots_dir=Path("plots/transformer_mistral_7b_v0_2_int4_scale_row_g4"),
+        evaluation_text_file=Path(
+            "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"
+        ),
+        max_eval_texts=256,
+        single_layer_name=None,
+    ),
     "pythia-14m-int8-baseline": BenchmarkPreset(
         model_name="EleutherAI/pythia-14m",
         bitwidths=[8],

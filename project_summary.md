@@ -809,23 +809,19 @@ the research draft.
 | 4D | Try Qwen2.5-3B as first scale-up target | Complete/blocked for external comparison | no further Qwen run approved | Qwen reference cache and project one-layer `scale_row_g4` smoke passed, but AWQ/GPTQ smokes failed with exit 132 after selecting Marlin-family kernels. Keep this as bookkeeping/backend-compatibility evidence, not a research-draft result. |
 | 4E | Probe OPT-2.7B as a partial scale-up target | Complete/partial | 75.7s cache runner, 37.4s project smoke runner, 54.3s bnb smoke runner | Project `scale_row_g4` one-layer smoke and bitsandbytes NF4 one-record smoke passed on RTX 4090. OPT is not the main full-comparison successor unless AWQ/GPTQ support is validated. |
 | 4F | Select full-comparison larger-model candidate | Complete | no GPU run | Recommend `mistralai/Mistral-7B-Instruct-v0.2` because it is Apache-2.0, widely used, LLaMA/Mistral-family, public Transformers-compatible, and has established AWQ/GPTQ checkpoints via TheBloke. |
-| 4G | Mistral-7B local prep and four-path smoke plan | Next | no GPU run until approved | Add/verify project preset targeting Mistral attention projections, prepare cache/project/bnb/AWQ/GPTQ smoke commands, and estimate RTX 4090 runtime/cost before launch. |
-| 4H | Mistral-7B smoke/readiness segment | Pending approval | likely 45-120 min wall for cache plus four one-record/single-layer smokes | Promote to full benchmark only if project `scale_row_g4`, bnb NF4, AWQ, and GPTQ all pass smoke. |
+| 4G | Mistral-7B local prep and four-path smoke plan | Complete | no GPU run | Added Mistral project smoke/focused presets, tests, and command-safe cache/project/bnb/AWQ/GPTQ smoke commands. Local runner tests and preset listing passed. |
+| 4H | Mistral-7B smoke/readiness segment | Pending approval | likely 45-120 min wall for cache plus project/bnb/AWQ/GPTQ smokes | Promote to full benchmark only if project `scale_row_g4`, bnb NF4, AWQ, and GPTQ all pass smoke. |
 | 4I | Mistral-7B full 256-record comparison | Pending smoke success | likely several hours wall; refresh estimate from smoke telemetry | Run original/reference, project `scale_row_g4`, bnb NF4, AWQ, and GPTQ on the same 256-record resource, then distill only the comparison knowledge into the research draft. |
 
 Fresh resume roadmap:
 
-1. Start locally from `docs/runpod/mistral_7b_plan.md`.
-2. Add/verify Mistral-7B presets for a one-layer `scale_row_g4` smoke and a
-   full-layer focused project run.
-3. Prepare command-safe smoke commands for reference/cache, project, bnb NF4,
-   AWQ, and GPTQ.
-4. Run local tests/config checks and commit before touching RunPod.
-5. Estimate RTX 4090 wall time, cost, and VRAM risk, then ask the user for
+1. Start from `docs/runpod/mistral_7b_plan.md`.
+2. Confirm the Mistral local prep commit is present and the repo is clean.
+3. Estimate or refresh RTX 4090 wall time, cost, and VRAM risk, then ask the user for
    explicit approval before any Pod command.
-6. Run only the smoke/readiness segment first. Promote to full 256-record
+4. Run only the smoke/readiness segment first. Promote to full 256-record
    benchmarking only if all planned paths pass.
-7. After any GPU segment, update the RunPod ledger/dashboard, lab book,
+5. After any GPU segment, update the RunPod ledger/dashboard, lab book,
    project summary, README, and, only where scientifically distilled,
    `docs/research_draft.md`.
 
@@ -871,9 +867,9 @@ Current handover state after AWQ/GPTQ integration:
    as historical/backend-debug context.
 10. The OPT RunPod command plan remains in `docs/runpod/opt_2_7b_plan.md` as
     partial-probe context.
-11. Resume from Mistral-7B local prep; RunPod is not needed until the local
-    Mistral presets/commands are committed and a fresh runtime/cost estimate
-    has been approved.
+11. Resume from the Mistral-7B smoke approval gate. RunPod is not needed until
+    the user approves the 45-120 minute RTX 4090 smoke/readiness estimate and
+    provides fresh Pod details.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,

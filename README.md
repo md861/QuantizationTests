@@ -89,20 +89,19 @@ strings must not be committed.
 
 Fresh resume roadmap:
 
-1. Local prep: add/verify Mistral-7B project presets for one-layer smoke and
-   focused `scale_row_g4` full-layer evaluation.
-2. Local checks: run targeted tests/config checks only; no RunPod required.
-3. Smoke estimate: use TinyLlama/Qwen/OPT timing history plus the Mistral
+1. Local prep: complete. Mistral-7B project presets, tests, and smoke commands
+   are in place.
+2. Smoke estimate: use TinyLlama/Qwen/OPT timing history plus the Mistral
    7B size increase to estimate RTX 4090 wall time, VRAM risk, and cost.
-4. Approval gate: ask the user before any Pod command, reporting target
+3. Approval gate: ask the user before any Pod command, reporting target
    commit, GPU class, hourly rate, expected runtime/cost, and output paths.
-5. RunPod smoke: cache/reference prep, project `scale_row_g4` smoke,
+4. RunPod smoke: cache/reference prep, project `scale_row_g4` smoke,
    bitsandbytes NF4 smoke, AWQ smoke, and GPTQ smoke.
-6. Promotion gate: promote Mistral-7B to the main post-TinyLlama comparison
+5. Promotion gate: promote Mistral-7B to the main post-TinyLlama comparison
    only if all four comparison paths pass smoke.
-7. Full run: if smoke passes, refresh estimates and run the 256-record
+6. Full run: if smoke passes, refresh estimates and run the 256-record
    original/project/bnb/AWQ/GPTQ comparison on the tracked WikiText-2 resource.
-8. Distillation: update the research draft only with distilled method
+7. Distillation: update the research draft only with distilled method
    comparison knowledge; keep command history, setup, failures, and cost
    details in the lab book and RunPod ledger.
 

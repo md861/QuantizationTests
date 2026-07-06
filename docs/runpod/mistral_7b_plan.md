@@ -40,22 +40,106 @@ smoke or full 256-record benchmarking. Wait for explicit user approval.
 
 ## Next Local Prep
 
-1. Add or verify a Mistral project smoke preset targeting a single attention
-   projection such as `model.layers.0.self_attn.q_proj`.
-2. Add a focused project preset for all compatible layers with
-   `--logit-only --logit-methods scale_row_g4`.
-3. Prepare cache/project/bnb/AWQ/GPTQ smoke commands using the tracked
+Local prep is complete:
+
+1. Added `mistral-7b-v0.2-int4-smoke`, targeting
+   `model.layers.0.self_attn.q_proj`.
+2. Added `mistral-7b-v0.2-int4-scale-row-g4`, a focused all-layer project
+   preset for `--logit-only --logit-methods scale_row_g4`.
+3. Prepared cache/project/bnb/AWQ/GPTQ smoke commands using the tracked
    `docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt`
    resource.
-4. Run local config/tests only. Do not launch GPU work until the user approves
-   the refreshed runtime/cost estimate.
+4. Local config checks passed with
+   `.venv/bin/python -m pytest tests/test_run_transformer_benchmark.py` and
+   `.venv/bin/python -m experiments.run_transformer_benchmark --list-presets`.
+
+Do not launch GPU work until the user approves the refreshed runtime/cost
+estimate.
+
+## Current Smoke Estimate
+
+For an RTX 4090-class Pod, budget about 45-120 minutes wall time for the first
+Mistral-7B smoke/readiness segment:
+
+- Reference/cache prep: about 10-30 minutes, depending on network/cache state.
+- Project one-layer `scale_row_g4` smoke: about 5-15 minutes.
+- bitsandbytes NF4 one-record smoke: about 5-15 minutes.
+- AWQ one-record smoke: about 10-30 minutes if extra loader/JIT work appears.
+- GPTQ one-record smoke: about 10-30 minutes if extra loader/JIT work appears.
+
+At $0.69/hr, this is roughly $0.52-$1.38 of compute before storage/cache
+overhead. This estimate is intentionally conservative because Mistral-7B is a
+larger jump than the Qwen/OPT probes and may expose backend or VRAM surprises.
+
+## Smoke/Readiness Commands
+
+Run these only after local prep is committed, pushed, estimated, and approved.
+Use a fresh, bootstrapped, synced Pod checkout at the approved commit.
+
+Reference/cache prep:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.run_transformer_benchmark mistral-7b-v0.2-int4-smoke --download-only --device cuda --results-dir results/transformer_mistral_7b_v0_2_download
+```
+
+Project `scale_row_g4` one-layer smoke from local cache:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.run_transformer_benchmark mistral-7b-v0.2-int4-smoke --device cuda --local-files-only --logit-only --logit-methods scale_row_g4
+```
+
+bitsandbytes NF4 one-record smoke:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.bitsandbytes_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/bitsandbytes_mistral_7b_v0_2_nf4_smoke --local-files-only --device cuda --compute-dtype float16
+```
+
+AWQ one-record smoke:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name TheBloke/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/awq_mistral_7b_v0_2_smoke --local-files-only --device cuda --torch-dtype float16
+```
+
+GPTQ one-record smoke:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.gptq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --gptq-model-name TheBloke/Mistral-7B-Instruct-v0.2-GPTQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/gptq_mistral_7b_v0_2_smoke --local-files-only --device cuda --torch-dtype float16
+```
+
+## Full 256-Record Commands
+
+Do not launch these until every smoke path above passes and the user approves
+the refreshed full-run estimate.
+
+Project focused comparison:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.run_transformer_benchmark mistral-7b-v0.2-int4-scale-row-g4 --device cuda --local-files-only --logit-only --logit-methods scale_row_g4
+```
+
+bitsandbytes NF4:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.bitsandbytes_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 256 --results-dir results/bitsandbytes_mistral_7b_v0_2_nf4_256 --local-files-only --device cuda --compute-dtype float16
+```
+
+AWQ:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name TheBloke/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 256 --results-dir results/awq_mistral_7b_v0_2_256 --local-files-only --device cuda --torch-dtype float16
+```
+
+GPTQ:
+
+```bash
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.gptq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --gptq-model-name TheBloke/Mistral-7B-Instruct-v0.2-GPTQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 256 --results-dir results/gptq_mistral_7b_v0_2_256 --local-files-only --device cuda --torch-dtype float16
+```
 
 ## Resume Checklist
 
 1. Confirm the repo is clean and current with `main`.
-2. Implement Mistral local presets/tests.
-3. Commit and push local prep.
-4. Produce a fresh RunPod estimate for cache plus five smoke commands:
+2. Confirm Mistral local prep commit is present.
+3. Produce or refresh the RunPod estimate for cache plus five smoke commands:
    reference/cache, project, bitsandbytes NF4, AWQ, and GPTQ.
-5. Wait for user approval and fresh Pod details.
-6. Run smoke in detached `tmux`, pull artifacts, and update bookkeeping.
+4. Wait for user approval and fresh Pod details.
+5. Run smoke in detached `tmux`, pull artifacts, and update bookkeeping.

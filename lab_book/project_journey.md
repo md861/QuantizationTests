@@ -5314,6 +5314,32 @@ Research-draft reminder: keep the draft focused on distilled comparison
 knowledge. Put operational detours, backend failures, setup costs, and Pod
 provenance in the lab book and RunPod ledger.
 
+## Session: 2026-07-06 - Mistral-7B local prep
+
+Started the Mistral-first path without using RunPod:
+
+- Added `mistral-7b-v0.2-int4-smoke` for a one-layer project smoke targeting
+  `model.layers.0.self_attn.q_proj`.
+- Added `mistral-7b-v0.2-int4-scale-row-g4` for focused all-layer project
+  evaluation on the tracked 256-record WikiText-2 resource.
+- Added tests locking the Mistral model ID, single-layer target, evaluation
+  resource, and `scale_row_g4` logit-only filter.
+- Expanded `docs/runpod/mistral_7b_plan.md` with command-safe reference/cache,
+  project, bitsandbytes NF4, AWQ, and GPTQ smoke commands plus full-run command
+  templates.
+
+Local checks:
+
+- `.venv/bin/python -m pytest tests/test_run_transformer_benchmark.py` passed:
+  16 tests.
+- `.venv/bin/python -m experiments.run_transformer_benchmark --list-presets`
+  confirmed the two Mistral presets are registered.
+
+Next approval gate: before any RunPod command, report the target commit, GPU
+class/hourly rate, expected runtime/cost, output paths, and smoke/full-run
+scope. Current first-smoke estimate for RTX 4090 is about 45-120 minutes wall,
+roughly $0.52-$1.38 compute at $0.69/hr, before storage/cache overhead.
+
 ## Session: 2026-07-06 - Full successor-model rule clarified
 
 The Milestone 4 scale-up requirement is now explicit: the next larger model

@@ -148,6 +148,45 @@ def test_opt_2_7b_focused_preset_uses_eval_resource_and_scale_row_filter():
     )
 
 
+def test_mistral_7b_smoke_preset_uses_single_layer_and_one_text():
+    config = runner.build_config(_args(preset="mistral-7b-v0.2-int4-smoke"))
+
+    assert config.model_name == "mistralai/Mistral-7B-Instruct-v0.2"
+    assert config.single_layer_name == "model.layers.0.self_attn.q_proj"
+    assert config.bitwidths == [4]
+    assert config.row_group_sizes == [4]
+    assert config.row_group_fractions == []
+    assert config.top_width_pair_fractions == []
+    assert config.calibration_texts == ["Quantization smoke test."]
+    assert "mistral_7b_v0_2" in str(config.results_dir)
+
+
+def test_mistral_7b_focused_preset_uses_eval_resource_and_scale_row_filter():
+    config = runner.build_config(
+        _args(
+            preset="mistral-7b-v0.2-int4-scale-row-g4",
+            logit_only=True,
+            logit_methods="scale_row_g4",
+        )
+    )
+
+    assert config.model_name == "mistralai/Mistral-7B-Instruct-v0.2"
+    assert config.single_layer_name is None
+    assert config.bitwidths == [4]
+    assert config.row_group_sizes == [4]
+    assert config.row_group_fractions == []
+    assert config.top_width_pair_fractions == []
+    assert config.logit_only is True
+    assert config.logit_method_names == ["scale_row_g4"]
+    assert len(config.calibration_texts) == 256
+    assert config.calibration_text_source == (
+        "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"
+    )
+    assert str(config.results_dir).endswith(
+        "transformer_mistral_7b_v0_2_int4_scale_row_g4"
+    )
+
+
 def test_config_honors_local_files_and_overrides(tmp_path):
     config = runner.build_config(
         _args(
