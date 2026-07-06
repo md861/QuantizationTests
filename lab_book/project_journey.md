@@ -5356,3 +5356,21 @@ Next active work:
    smoke commands.
 3. Run local dry checks and commit.
 4. Ask for fresh runtime/cost approval before any RunPod smoke segment.
+
+## Session: 2026-07-06 - OPT-2.7B local prep
+
+Added local OPT-2.7B project benchmark prep without touching RunPod:
+
+- Added `opt-2.7b-int4-smoke`, a one-layer smoke preset for
+  `facebook/opt-2.7b` targeting `model.decoder.layers.0.self_attn.q_proj`.
+- Added `opt-2.7b-int4-scale-row-g4`, a focused all-layer preset using the
+  tracked 256-record WikiText-2 validation resource.
+- Added tests that lock the OPT model name, row-group settings, evaluation
+  resource, and the expected `--logit-only --logit-methods scale_row_g4`
+  workflow.
+- Added `docs/runpod/opt_2_7b_plan.md` with commit-safe RunPod commands for
+  cache prep, project smoke, bitsandbytes NF4 smoke, and the later focused
+  256-record runs.
+
+RunPod remains unneeded until the user provides fresh Pod details and approves
+the smoke/cache/readiness segment estimate.

@@ -53,6 +53,8 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Qwen2.5-3B RunPod command plan | Complete |
 | Qwen2.5-3B smoke/cache readiness | Partial: project smoke passed; AWQ/GPTQ external smokes blocked |
 | OPT-2.7B larger-model comparison target | Selected |
+| OPT-2.7B project smoke/focused presets | Complete |
+| OPT-2.7B RunPod command plan | Complete |
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
@@ -87,13 +89,14 @@ experiments/awq_baseline.py, and experiments/gptq_baseline.py. They are
 intentionally separate from the project quantizer harness: these baselines load
 quantized Transformers runtime modules or pre-quantized checkpoints, so the
 fair shared comparison is logit/loss/perplexity plus runtime and memory
-metadata, not project weight or activation reconstruction tables. Qwen2.5-3B
-project presets now live in `experiments/run_transformer_benchmark.py`; the
-commit-safe RunPod command plan is `docs/runpod/qwen2_5_3b_plan.md`. Keep
-these baselines optional; normal local tests do not require their optional
-packages or CUDA. The AWQ and GPTQ runners require explicit `--awq-model-name`
-and `--gptq-model-name` arguments so a reference checkpoint is not accidentally
-reported as an external quantized baseline.
+metadata, not project weight or activation reconstruction tables. OPT-2.7B and
+Qwen2.5-3B project presets now live in
+`experiments/run_transformer_benchmark.py`; the active OPT RunPod command plan
+is `docs/runpod/opt_2_7b_plan.md`. Keep these baselines optional; normal local
+tests do not require their optional packages or CUDA. The AWQ and GPTQ runners
+require explicit `--awq-model-name` and `--gptq-model-name` arguments so a
+reference checkpoint is not accidentally reported as an external quantized
+baseline.
 
 The first controlled TinyLlama matrix is locked: original Hugging Face
 reference, project INT4 global, project INT4 row_grouped_g4/g8, project INT4
@@ -213,9 +216,9 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: add OPT-2.7B local benchmark prep, then run a smoke/cache/readiness pass
-for original/reference, project `scale_row_g4`, and bitsandbytes NF4 before
-approving any full 256-record comparison.
+Next: estimate and approve the OPT-2.7B smoke/cache readiness segment for
+original/reference, project `scale_row_g4`, and bitsandbytes NF4 before any
+full 256-record comparison.
 
 ## Completed Milestone 2
 

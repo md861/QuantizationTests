@@ -97,6 +97,31 @@ PRESETS: dict[str, BenchmarkPreset] = {
         max_eval_texts=256,
         single_layer_name=None,
     ),
+    "opt-2.7b-int4-smoke": BenchmarkPreset(
+        model_name="facebook/opt-2.7b",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        row_group_sizes=[4],
+        row_group_fractions=[],
+        results_dir=Path("results/transformer_opt_2_7b_int4_smoke"),
+        plots_dir=Path("plots/transformer_opt_2_7b_int4_smoke"),
+        single_layer_name="model.decoder.layers.0.self_attn.q_proj",
+        calibration_texts=["Quantization smoke test."],
+    ),
+    "opt-2.7b-int4-scale-row-g4": BenchmarkPreset(
+        model_name="facebook/opt-2.7b",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        row_group_sizes=[4],
+        row_group_fractions=[],
+        results_dir=Path("results/transformer_opt_2_7b_int4_scale_row_g4"),
+        plots_dir=Path("plots/transformer_opt_2_7b_int4_scale_row_g4"),
+        evaluation_text_file=Path(
+            "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"
+        ),
+        max_eval_texts=256,
+        single_layer_name=None,
+    ),
     "pythia-14m-int8-baseline": BenchmarkPreset(
         model_name="EleutherAI/pythia-14m",
         bitwidths=[8],

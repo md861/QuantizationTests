@@ -798,7 +798,7 @@ Milestone 4 roadmap from this checkpoint:
 | 4C | Distill TinyLlama external-baseline comparison | Complete | no GPU run | Research draft now contains the distilled project/bnb/AWQ/GPTQ comparison; run-history details live in lab book and RunPod ledger. |
 | 4D | Try Qwen2.5-3B as first scale-up target | Complete/blocked for external comparison | no further Qwen run approved | Qwen reference cache and project one-layer `scale_row_g4` smoke passed, but AWQ/GPTQ smokes failed with exit 132 after selecting Marlin-family kernels. Keep this as bookkeeping/backend-compatibility evidence, not a research-draft result. |
 | 4E | Select OPT-2.7B as larger-model comparison target | Complete | no GPU run | Selected `facebook/opt-2.7b` as the active larger-than-TinyLlama target because it is a simpler, older Transformers decoder-only model and should be a better first boring external-compatible scale-up path. First external baseline should be bitsandbytes NF4, not AWQ/GPTQ. |
-| 4F | OPT-2.7B local prep and smoke/cache/readiness | ~45-90 min active implementation; then likely 30-90 min Pod wall time | no Pod until local prep is committed and a fresh estimate is approved | Add/reuse project preset and command paths for reference/cache, project `scale_row_g4`, and bitsandbytes NF4. Run cache/readiness and small-subset smoke before any 256-record comparison. |
+| 4F | OPT-2.7B local prep and smoke/cache/readiness | Local prep complete; smoke needs fresh Pod details and approval | smoke likely 30-90 min | Added project smoke/focused presets and commit-safe commands for reference/cache, project `scale_row_g4`, and bitsandbytes NF4. Next is cache/readiness and small-subset smoke before any 256-record comparison. |
 | 4G | OPT-2.7B focused comparison | ~0.5 active day if only preset/command plumbing is needed; more if model-specific issues appear | likely 1-3 h wall for original + project `scale_row_g4` + bnb NF4 | Start with original reference, project `scale_row_g4`, and bnb NF4. Add AWQ/GPTQ only later if an OPT external checkpoint/backend proves clean. |
 
 Run estimates are intentionally ranges. They use the current timing table:
@@ -837,8 +837,8 @@ Current handover state after AWQ/GPTQ integration:
 7. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
 8. The Qwen 3B RunPod command plan remains in `docs/runpod/qwen2_5_3b_plan.md`
-   as historical/backend-debug context. Create an OPT-specific command plan
-   before the next Pod segment.
+   as historical/backend-debug context.
+9. The active OPT RunPod command plan is `docs/runpod/opt_2_7b_plan.md`.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,
