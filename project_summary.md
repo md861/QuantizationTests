@@ -886,6 +886,16 @@ time log. The only provenance gap is exact package-install substep timing during
 AWQ/GPTQ setup; available smoke and benchmark tmux start timestamps are now in
 the RunPod ledger and lab book.
 
+Handover audit on 2026-07-06 16:45 BST confirmed the Mistral-7B results are
+represented in the research draft, README, project summary, RunPod
+dashboard/ledger, Mistral plan, lab book, and implementation time log. Local
+`main` and `origin/main` both point at `0ed83bf`. Stale-text checks found no
+remaining Mistral pending/smoke-gate wording in active docs. Local process scan
+found no benchmark or tmux jobs beyond the scan command itself. The last
+successful Pod process check showed no tmux sessions and idle GPU; the final
+SSH probe to that old endpoint returned connection refused, so treat the Pod as
+stopped/unreachable and request fresh Pod details before any new GPU work.
+
 Regression and artifact acceptance checks:
 
 ```bash
