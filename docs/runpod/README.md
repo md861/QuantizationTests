@@ -124,6 +124,8 @@ Interpretation:
 
 - `operations.md`: Pod setup, GPU/storage selection, credit guardrails,
   stop-window policy, and command discipline.
+- `qwen2_5_3b_plan.md`: commit-safe smoke and focused-run command plan for the
+  next larger-than-TinyLlama Milestone 4 model.
 - `usage_ledger.md`: running ledger of setup, verification, idle/admin, cleanup,
   and benchmark time spent on RunPod.
 

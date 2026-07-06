@@ -70,6 +70,45 @@ def test_tinyllama_matrix_preset_uses_all_layers_g4_g8_and_eval_resource():
     assert str(config.results_dir).endswith("transformer_tinyllama_1_1b_int4_matrix")
 
 
+def test_qwen3b_smoke_preset_uses_single_layer_and_one_text():
+    config = runner.build_config(_args(preset="qwen2.5-3b-int4-smoke"))
+
+    assert config.model_name == "Qwen/Qwen2.5-3B-Instruct"
+    assert config.single_layer_name == "model.layers.0.self_attn.q_proj"
+    assert config.bitwidths == [4]
+    assert config.row_group_sizes == [4]
+    assert config.row_group_fractions == []
+    assert config.top_width_pair_fractions == []
+    assert config.calibration_texts == ["Quantization smoke test."]
+    assert "qwen2_5_3b" in str(config.results_dir)
+
+
+def test_qwen3b_focused_preset_uses_eval_resource_and_scale_row_filter():
+    config = runner.build_config(
+        _args(
+            preset="qwen2.5-3b-int4-scale-row-g4",
+            logit_only=True,
+            logit_methods="scale_row_g4",
+        )
+    )
+
+    assert config.model_name == "Qwen/Qwen2.5-3B-Instruct"
+    assert config.single_layer_name is None
+    assert config.bitwidths == [4]
+    assert config.row_group_sizes == [4]
+    assert config.row_group_fractions == []
+    assert config.top_width_pair_fractions == []
+    assert config.logit_only is True
+    assert config.logit_method_names == ["scale_row_g4"]
+    assert len(config.calibration_texts) == 256
+    assert config.calibration_text_source == (
+        "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"
+    )
+    assert str(config.results_dir).endswith(
+        "transformer_qwen2_5_3b_int4_scale_row_g4"
+    )
+
+
 def test_config_honors_local_files_and_overrides(tmp_path):
     config = runner.build_config(
         _args(

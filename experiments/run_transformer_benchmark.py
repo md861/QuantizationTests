@@ -72,6 +72,31 @@ PRESETS: dict[str, BenchmarkPreset] = {
         max_eval_texts=256,
         single_layer_name=None,
     ),
+    "qwen2.5-3b-int4-smoke": BenchmarkPreset(
+        model_name="Qwen/Qwen2.5-3B-Instruct",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        row_group_sizes=[4],
+        row_group_fractions=[],
+        results_dir=Path("results/transformer_qwen2_5_3b_int4_smoke"),
+        plots_dir=Path("plots/transformer_qwen2_5_3b_int4_smoke"),
+        single_layer_name="model.layers.0.self_attn.q_proj",
+        calibration_texts=["Quantization smoke test."],
+    ),
+    "qwen2.5-3b-int4-scale-row-g4": BenchmarkPreset(
+        model_name="Qwen/Qwen2.5-3B-Instruct",
+        bitwidths=[4],
+        top_width_pair_fractions=[],
+        row_group_sizes=[4],
+        row_group_fractions=[],
+        results_dir=Path("results/transformer_qwen2_5_3b_int4_scale_row_g4"),
+        plots_dir=Path("plots/transformer_qwen2_5_3b_int4_scale_row_g4"),
+        evaluation_text_file=Path(
+            "docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt"
+        ),
+        max_eval_texts=256,
+        single_layer_name=None,
+    ),
     "pythia-14m-int8-baseline": BenchmarkPreset(
         model_name="EleutherAI/pythia-14m",
         bitwidths=[8],

@@ -5265,3 +5265,28 @@ Next steps:
 3. Prepare RunPod commands for original, project `scale_row_g4`, AWQ, and GPTQ.
 4. Ask for fresh Pod details and explicit approval before bootstrap or GPU
    smoke work.
+
+## Session: 2026-07-06 - Qwen2.5-3B local prep
+
+Added local Qwen2.5-3B project benchmark prep without touching RunPod:
+
+- Added `qwen2.5-3b-int4-smoke`, a one-layer smoke preset for
+  `Qwen/Qwen2.5-3B-Instruct` targeting `model.layers.0.self_attn.q_proj`.
+- Added `qwen2.5-3b-int4-scale-row-g4`, a focused all-layer preset using the
+  tracked 256-record WikiText-2 validation resource.
+- Added tests that lock the Qwen model name, row-group settings, evaluation
+  resource, and the expected `--logit-only --logit-methods scale_row_g4`
+  workflow.
+- Added `docs/runpod/qwen2_5_3b_plan.md` with commit-safe RunPod commands for
+  cache prep, project smoke, AWQ smoke, GPTQ smoke, and the later focused
+  256-record runs.
+
+Local checks:
+
+- `.venv/bin/python -m experiments.run_transformer_benchmark --list-presets`
+  shows both Qwen presets.
+- `PYTHONPATH=. .venv/bin/pytest tests/test_run_transformer_benchmark.py`
+  passed: 12 tests.
+
+RunPod remains unneeded until the user provides fresh Pod details and approves
+the smoke/cache/readiness segment estimate.

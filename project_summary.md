@@ -793,7 +793,7 @@ Milestone 4 roadmap from this checkpoint:
 | 4B | TinyLlama GPTQ external baseline | Complete | 262.2s runner after setup | Added optional pre-quantized GPTQ checkpoint runner and completed the 256-record RTX 4090 run. Shared the dependency stack established for AWQ. |
 | 4C | Distill TinyLlama external-baseline comparison | Complete | no GPU run | Research draft now contains the distilled project/bnb/AWQ/GPTQ comparison; run-history details live in lab book and RunPod ledger. |
 | 4D | Select one larger-than-TinyLlama model | Complete | no GPU run | Selected `Qwen/Qwen2.5-3B-Instruct` as the next scale-up target. It is meaningfully larger than TinyLlama, has AWQ/GPTQ Int4 checkpoint candidates, and should be smoke-tested before any full run because the HF card uses `qwen-research` licensing and the memory/runtime profile is not yet measured in this harness. |
-| 4E | Qwen 3B local prep and smoke/cache/readiness | ~1-2 h active implementation; then ~30-90 min Pod wall time | no Pod until local prep is committed; smoke likely 30-90 min | Add/reuse preset and command paths for original, project `scale_row_g4`, AWQ, and GPTQ. Run cache/readiness and small-subset smoke before approving any 256-record run. |
+| 4E | Qwen 3B local prep and smoke/cache/readiness | Local prep complete; smoke needs fresh Pod details and approval | smoke likely 30-90 min | Added project smoke/focused presets and commit-safe commands for original, project `scale_row_g4`, AWQ, and GPTQ. Next is cache/readiness and small-subset smoke before approving any 256-record run. |
 | 4F | Qwen 3B focused comparison | ~0.5-1 active day if only preset/command plumbing is needed; more if Qwen-specific runner changes are needed | likely 1.25-3.5 h wall for original + project `scale_row_g4` + AWQ/GPTQ | Start with original reference, project `scale_row_g4`, and AWQ. Add GPTQ if smoke is stable. Expand to a broader project matrix only if the first result is informative. |
 
 Run estimates are intentionally ranges. They use the current timing table:
@@ -819,13 +819,16 @@ Current handover state after AWQ/GPTQ integration:
    strongest quality row; bnb NF4 is the fastest external method loop; AWQ is
    close to bnb on logit MSE; GPTQ has the best external PPL ratio but weaker
    logit MSE/top-5 overlap.
-4. Next Milestone 4 step: add local prep for `Qwen/Qwen2.5-3B-Instruct`,
-   then run a smoke/cache/readiness pass before a focused comparison.
+4. Next Milestone 4 step: run the approved smoke/cache/readiness pass for
+   `Qwen/Qwen2.5-3B-Instruct` before a focused comparison.
 5. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.
 6. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
+7. The commit-safe Qwen 3B RunPod command plan is
+   `docs/runpod/qwen2_5_3b_plan.md`; use it for smoke/readiness and focused
+   256-record command templates.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,

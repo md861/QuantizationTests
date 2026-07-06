@@ -49,6 +49,8 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | bitsandbytes NF4 external baseline runner and 256-text baseline | Complete |
 | AWQ external baseline runner and 256-text baseline | Complete |
 | GPTQ external baseline runner and 256-text baseline | Complete |
+| Qwen2.5-3B project smoke/focused presets | Complete |
+| Qwen2.5-3B RunPod command plan | Complete |
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
@@ -83,10 +85,12 @@ experiments/awq_baseline.py, and experiments/gptq_baseline.py. They are
 intentionally separate from the project quantizer harness: these baselines load
 quantized Transformers runtime modules or pre-quantized checkpoints, so the
 fair shared comparison is logit/loss/perplexity plus runtime and memory
-metadata, not project weight or activation reconstruction tables. Keep these
-baselines optional; normal local tests do not require their optional packages or
-CUDA. The AWQ and GPTQ runners require explicit `--awq-model-name` and
-`--gptq-model-name` arguments so a reference checkpoint is not accidentally
+metadata, not project weight or activation reconstruction tables. Qwen2.5-3B
+project presets now live in `experiments/run_transformer_benchmark.py`; the
+commit-safe RunPod command plan is `docs/runpod/qwen2_5_3b_plan.md`. Keep
+these baselines optional; normal local tests do not require their optional
+packages or CUDA. The AWQ and GPTQ runners require explicit `--awq-model-name`
+and `--gptq-model-name` arguments so a reference checkpoint is not accidentally
 reported as an external quantized baseline.
 
 The first controlled TinyLlama matrix is locked: original Hugging Face
