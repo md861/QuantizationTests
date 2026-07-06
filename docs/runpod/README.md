@@ -13,11 +13,11 @@ Known captured/reconciled RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: 336.8 min</th>
-    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 971.9 min (16.2 h)</th>
+    <th colspan="2">Logged work time: 377.5 min</th>
+    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 1012.6 min (16.9 h)</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: ~$7.64 | Storage: ~$0.15 | Total: ~$7.79 | Budget ceiling: about GBP 200</th>
+    <th colspan="5">Compute: ~$8.11 | Storage: ~$0.15 | Total: ~$8.26 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -28,8 +28,8 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Setup / install</td>
-    <td>126.6 min</td>
-    <td>~$1.20</td>
+    <td>130.1 min</td>
+    <td>~$1.24</td>
     <td>13%</td>
     <td><code>###-----------------</code></td>
   </tr>
@@ -42,30 +42,30 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Benchmark compute / smoke</td>
-    <td>199.4 min</td>
-    <td>~$0.97</td>
+    <td>216.6 min</td>
+    <td>~$1.17</td>
     <td>21%</td>
     <td><code>####----------------</code></td>
   </tr>
   <tr>
     <td>Download / cache</td>
-    <td>3.5 min</td>
-    <td>~$0.01</td>
-    <td>&lt;1%</td>
+    <td>8.2 min</td>
+    <td>~$0.06</td>
+    <td>1%</td>
     <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>RunPod debug / command wrapper</td>
-    <td>1.5 min</td>
-    <td>~$0.01</td>
-    <td>&lt;1%</td>
+    <td>16.7 min</td>
+    <td>~$0.18</td>
+    <td>2%</td>
     <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>Unlogged uptime / admin / idle</td>
     <td>635.2 min</td>
     <td>~$5.42</td>
-    <td>65%</td>
+    <td>63%</td>
     <td><code>#############-------</code></td>
   </tr>
 </table>
@@ -76,7 +76,9 @@ Interpretation:
   256-text matrix, the completed bitsandbytes NF4/AWQ/GPTQ 256-text external
   baselines, the TinyLlama project INT4 per-method telemetry rerun, and the two
   intentionally aborted full-harness attempts that motivated the logit-only
-  Milestone 4 path.
+  Milestone 4 path. It also includes the Qwen2.5-3B smoke/readiness segment:
+  reference cache prep and project one-layer `scale_row_g4` smoke passed, while
+  Qwen AWQ/GPTQ external smokes failed at Marlin-family backend selection.
 - The AWQ/GPTQ segment added a useful cost lesson: first-time external baseline
   setup can dominate the actual benchmark. The successful AWQ/GPTQ 256-record
   runner times were about 4.0-4.4 min each, but dependency probing, package

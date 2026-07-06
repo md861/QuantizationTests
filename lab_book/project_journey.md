@@ -5290,3 +5290,40 @@ Local checks:
 
 RunPod remains unneeded until the user provides fresh Pod details and approves
 the smoke/cache/readiness segment estimate.
+
+## Session: 2026-07-06 - Qwen2.5-3B smoke/readiness on RunPod
+
+RunPod smoke/readiness segment ran on a migrated RTX 4090 Pod at commit
+`4a85f75`; raw connection details remain local-only. The Pod was reachable at
+2026-07-06 10:20:58 UTC. The repo was synced from `97bc484` to `4a85f75`, and
+`tools/runpod_bootstrap.sh` installed ephemeral `tmux` and `rsync`. Runtime
+stack: torch 2.6.0+cu124, Transformers 5.12.1, bitsandbytes 0.49.2,
+accelerate 1.14.0.
+
+Smoke results:
+
+- Qwen reference cache prep passed. Runner elapsed `56.477s`, wall marker
+  `283s`, peak CUDA `0 MB`, and HF cache grew from about 2.1 GB to about
+  7.9 GB.
+- Project Qwen `scale_row_g4` one-layer smoke passed on
+  `model.layers.0.self_attn.q_proj`. Runner elapsed `73.775s`, wall marker
+  `306s`, peak CUDA `6010.587 MB` allocated / `6172 MB` reserved. The one-text
+  smoke produced logit MSE `0.00238394`, logit cosine `0.99984396`, top-5
+  overlap `1.0`, loss delta `+0.052055`, PPL ratio `1.053434`, method loop
+  `0.312s`, and throughput `16.037 tokens/s`.
+- Qwen AWQ one-record smoke failed after wall marker `357s`, exit `132`, after
+  selecting `AwqMarlinLinear`. No AWQ metrics or metadata were written.
+- Qwen GPTQ one-record smoke failed after wall marker `374s`, exit `132`, after
+  selecting `MarlinLinear`. No GPTQ metrics or metadata were written.
+
+Interpretation: the project Qwen path is ready enough for a small/full focused
+project run estimate, but the Qwen AWQ/GPTQ external baselines are blocked by a
+low-level Marlin-family backend failure in this current torch/Transformers/
+gptqmodel stack. These failed smokes are backend compatibility evidence, not
+quality evidence against AWQ or GPTQ.
+
+Next decision point: before launching any full Qwen 256-record run, decide
+whether to debug or disable the Marlin backend for Qwen external baselines,
+try a different external checkpoint/backend, or proceed with a project-only
+Qwen focused run. A fresh runtime/cost estimate and explicit user approval are
+still required before the next GPU segment.

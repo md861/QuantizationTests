@@ -51,6 +51,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | GPTQ external baseline runner and 256-text baseline | Complete |
 | Qwen2.5-3B project smoke/focused presets | Complete |
 | Qwen2.5-3B RunPod command plan | Complete |
+| Qwen2.5-3B smoke/cache readiness | Partial: project smoke passed; AWQ/GPTQ external smokes blocked |
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
@@ -71,7 +72,7 @@ strings must not be committed.
 
 1. TinyLlama external-baseline set is complete for bitsandbytes NF4, AWQ, and GPTQ on the same tracked 256-record WikiText-2 raw validation resource and shared logit/loss/runtime/memory fields.
 2. The selected larger-than-TinyLlama model is `Qwen/Qwen2.5-3B-Instruct`, with `Qwen/Qwen2.5-3B-Instruct-AWQ` and `Qwen/Qwen2.5-3B-Instruct-GPTQ-Int4` as external-baseline candidates.
-3. For Qwen 3B, begin with local preset/command prep, then a RunPod smoke/cache/readiness pass. If that passes, run a focused comparison: original reference, project `scale_row_g4`, and AWQ first, with GPTQ added if stable.
+3. Qwen 3B local prep and RunPod smoke/cache readiness are complete enough for the project path: reference cache prep and project `scale_row_g4` one-layer smoke passed. AWQ/GPTQ external smokes failed with exit `132` after selecting Marlin-family kernels, so they need backend debugging or replacement before a fair external comparison.
 4. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
 5. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
 6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
@@ -211,8 +212,9 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: add local Qwen2.5-3B benchmark prep, then smoke-test
-`Qwen/Qwen2.5-3B-Instruct` with a focused `scale_row_g4` comparison.
+Next: decide whether to debug the Qwen AWQ/GPTQ Marlin backend failure, try a
+different external checkpoint/backend, or proceed with a project-only Qwen
+`scale_row_g4` focused run.
 
 ## Completed Milestone 2
 

@@ -207,6 +207,10 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | bitsandbytes NF4 float16 telemetry rerun | none | 191.5s (3.2 min) | RunPod RTX 4090, 256 WikiText-2 records, wall 6m24s; isolated method loop 24.577s, 1354.168 tokens/s, 0.738 ms/token, peak CUDA allocated 963 MB |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | AWQ 4-bit | none | 238.2s (4.0 min) | RunPod RTX 4090, 256 WikiText-2 records; isolated method loop 39.409s, 844.535 tokens/s, 1.184 ms/token, peak CUDA allocated 904 MB; first Pod pass required gptqmodel/ninja dependency setup and Marlin JIT compile |
 | TinyLlama/TinyLlama-1.1B-Chat-v1.0 | 1.1B | external | GPTQ 4-bit | none | 262.2s (4.4 min) | RunPod RTX 4090, 256 WikiText-2 records; isolated method loop 58.086s, 572.980 tokens/s, 1.745 ms/token, peak CUDA allocated 904 MB; dependency setup shared with AWQ |
+| Qwen/Qwen2.5-3B-Instruct | 3B | download/cache | reference cache prep | none | 56.5s runner; 283s wall | RunPod RTX 4090, model/tokenizer cache prep, peak CUDA 0 MB, HF cache grew to about 7.9 GB |
+| Qwen/Qwen2.5-3B-Instruct | 3B | 1 layer | INT4 `scale_row_g4` logit-only smoke | none | 73.8s runner; 306s wall | RunPod RTX 4090, single `model.layers.0.self_attn.q_proj`, 1 text, logit MSE 0.002384, PPL ratio 1.0534, peak CUDA allocated 6011 MB |
+| Qwen/Qwen2.5-3B-Instruct-AWQ | 3B | external | AWQ 4-bit smoke | none | failed after 357s wall | RunPod RTX 4090, exit 132 after selecting `AwqMarlinLinear`; no metrics written |
+| Qwen/Qwen2.5-3B-Instruct-GPTQ-Int4 | 3B | external | GPTQ 4-bit smoke | none | failed after 374s wall | RunPod RTX 4090, exit 132 after selecting `MarlinLinear`; no metrics written |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -819,14 +823,18 @@ Current handover state after AWQ/GPTQ integration:
    strongest quality row; bnb NF4 is the fastest external method loop; AWQ is
    close to bnb on logit MSE; GPTQ has the best external PPL ratio but weaker
    logit MSE/top-5 overlap.
-4. Next Milestone 4 step: run the approved smoke/cache/readiness pass for
-   `Qwen/Qwen2.5-3B-Instruct` before a focused comparison.
-5. Before the next GPU segment, estimate runtime/cost from the benchmark timing
+4. Qwen smoke/readiness result: reference cache prep and project one-layer
+   `scale_row_g4` smoke passed, but AWQ/GPTQ external smokes failed at
+   Marlin-family backend selection with exit 132.
+5. Next Milestone 4 step: decide whether to debug/disable the Qwen Marlin
+   external baseline path, choose a different Qwen external checkpoint/backend,
+   or proceed with a project-only Qwen focused run.
+6. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.
-6. Continue updating RunPod ledger, lab book, research draft, README, and
+7. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
-7. The commit-safe Qwen 3B RunPod command plan is
+8. The commit-safe Qwen 3B RunPod command plan is
    `docs/runpod/qwen2_5_3b_plan.md`; use it for smoke/readiness and focused
    256-record command templates.
 
