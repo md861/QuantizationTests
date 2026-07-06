@@ -5540,3 +5540,12 @@ before claiming a stronger win over AWQ/GPTQ: prepare `scale_row_g128` and/or
 `row_grouped_g128` on the same 256-record WikiText-2 resource, estimate the
 RunPod cost from the completed g4 Mistral row, and update the comparison tables
 with effective bits/weight or artifact-size columns.
+
+## Session: 2026-07-06 - Future-work tracking section
+
+Added a dedicated future-work section to the research draft and a bookkeeping
+rule in `project_summary.md` so future implementation work updates that
+section. The tracked future-work themes are packed low-bit runtime kernels,
+calibration-driven rotation-pair/angle selection, activation-aware or learned
+channel scaling, and broader evaluation beyond the fixed 256-record WikiText-2
+subset.

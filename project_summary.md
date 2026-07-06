@@ -174,6 +174,14 @@ If another coding agent resumes this project, the safest order is:
 rg "passed, [0-9]+ warnings|tests/test_" project_summary.md README.md docs/research_draft.md
 ```
 
+19. **Research draft future-work tracker.** Section 20 of
+`docs/research_draft.md` lists known future-work limitations: packed low-bit
+runtime kernels, calibration-driven rotation selection, activation-aware or
+learned channel scaling, and broader evaluation beyond the 256-record
+WikiText-2 subset. Any repo change that implements, materially advances, or
+invalidates one of those items must update section 20 in the same commit and
+mention the change in the lab book or project summary.
+
 ## Benchmark Run Timings
 
 This table is the authoritative record of wall-clock runtimes for benchmark

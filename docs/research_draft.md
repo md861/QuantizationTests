@@ -1475,6 +1475,42 @@ extra metadata budget is removed? Future Milestone 4 tables should report
 effective bits per weight, or at least estimated artifact size, alongside
 quality, runtime, and CUDA memory.
 
+## 20. Future Work
+
+The current repo is useful as a transparent quantization research harness, but
+several limitations remain before the results can support broader deployment
+claims.
+
+First, the project does not yet implement a packed low-bit runtime kernel. The
+project rows quantize weights, reconstruct dequantized floating-point tensors,
+and then execute the model through the ordinary floating-point path. Therefore
+the project runtime and CUDA memory numbers describe a dequantize-then-execute
+benchmark harness, not deployable packed-INT4 inference. They should not be
+read as directly comparable to bitsandbytes, AWQ, or GPTQ runtime/memory
+claims, because those baselines use packed quantized modules or checkpoint
+kernels.
+
+Second, rotation-pair selection is still heuristic. The current sparse rotation
+paths choose candidate pairs from weight statistics and simple search rules;
+they do not yet use transformer calibration data to optimize rotation angles or
+pair choices against layer outputs, logits, or downstream loss. A stronger
+rotation study would make pair and angle selection calibration-driven rather
+than relying on uncalibrated structural heuristics.
+
+Third, channel scaling is based on full-column max-absolute balancing. This is
+simple and interpretable, but it is not learned, activation-aware, or
+loss-aware. Future variants should test whether activation statistics,
+calibration batches, or learned scaling factors can preserve the benefits of
+the current scaling path while reducing metadata cost or improving robustness.
+
+Finally, the Milestone 4 evaluation is intentionally bounded to a fixed
+256-record WikiText-2 validation subset. This is a real held-out text resource
+and is useful for controlled iteration, but it is narrow. The reported results
+should therefore be read as subset findings rather than broad benchmark claims.
+Wider evaluation should include larger validation slices, additional corpora,
+and task-specific checks once the matched bits-per-weight and runtime-kernel
+questions are better controlled.
+
 ## Appendix A. Reproducing Current Figures
 
 

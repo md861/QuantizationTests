@@ -237,10 +237,10 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: synthesize the completed TinyLlama and Mistral results, then choose
-whether the next Milestone 4 push should be another full-successor model or
-implementation work on packed project runtime kernels. OPT-2.7B remains a
-partial probe unless AWQ/GPTQ support is added and smoke-stable.
+Next: run the Mistral matched effective-bits project comparison
+(`scale_row_g128` and/or `row_grouped_g128`) and add bits/weight or
+artifact-size columns before making stronger AWQ/GPTQ claims. OPT-2.7B remains
+a partial probe unless AWQ/GPTQ support is added and smoke-stable.
 
 ## Completed Milestone 2
 
