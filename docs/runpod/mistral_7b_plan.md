@@ -94,16 +94,20 @@ bitsandbytes NF4 one-record smoke:
 MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.bitsandbytes_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/bitsandbytes_mistral_7b_v0_2_nf4_smoke --local-files-only --device cuda --compute-dtype float16
 ```
 
-AWQ one-record smoke:
+AWQ one-record smoke. On the first Mistral run, omit `--local-files-only` so
+the AWQ checkpoint can populate `/workspace/hf_cache`; add it only for repeat
+runs after the checkpoint is confirmed cached.
 
 ```bash
-MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name TheBloke/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/awq_mistral_7b_v0_2_smoke --local-files-only --device cuda --torch-dtype float16
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.awq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --awq-model-name TheBloke/Mistral-7B-Instruct-v0.2-AWQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/awq_mistral_7b_v0_2_smoke --device cuda --torch-dtype float16
 ```
 
-GPTQ one-record smoke:
+GPTQ one-record smoke. On the first Mistral run, omit `--local-files-only` so
+the GPTQ checkpoint can populate `/workspace/hf_cache`; add it only for repeat
+runs after the checkpoint is confirmed cached.
 
 ```bash
-MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.gptq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --gptq-model-name TheBloke/Mistral-7B-Instruct-v0.2-GPTQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/gptq_mistral_7b_v0_2_smoke --local-files-only --device cuda --torch-dtype float16
+MPLCONFIGDIR=/tmp/paroquant-mpl .venv/bin/python -m experiments.gptq_baseline --model-name mistralai/Mistral-7B-Instruct-v0.2 --gptq-model-name TheBloke/Mistral-7B-Instruct-v0.2-GPTQ --eval-text-file docs/research_resources/eval_texts/wikitext2_raw_validation_256.txt --max-eval-texts 1 --results-dir results/gptq_mistral_7b_v0_2_smoke --device cuda --torch-dtype float16
 ```
 
 ## Full 256-Record Commands
