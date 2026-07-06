@@ -68,8 +68,8 @@ RunPod SSH details, keys, account identifiers, and Pod-specific connection
 strings must not be committed.
 
 1. TinyLlama external-baseline set is complete for bitsandbytes NF4, AWQ, and GPTQ on the same tracked 256-record WikiText-2 raw validation resource and shared logit/loss/runtime/memory fields.
-2. Choose one additional model larger than TinyLlama to test whether the `scale_row_g4` finding generalizes.
-3. For the larger model, begin with a smoke/cache/readiness pass, then run a focused comparison: original reference, project `scale_row_g4`, and one external baseline before expanding any full matrix.
+2. The selected larger-than-TinyLlama model is `Qwen/Qwen2.5-3B-Instruct`, with `Qwen/Qwen2.5-3B-Instruct-AWQ` and `Qwen/Qwen2.5-3B-Instruct-GPTQ-Int4` as external-baseline candidates.
+3. For Qwen 3B, begin with local preset/command prep, then a RunPod smoke/cache/readiness pass. If that passes, run a focused comparison: original reference, project `scale_row_g4`, and AWQ first, with GPTQ added if stable.
 4. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
 5. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
 6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
@@ -207,8 +207,8 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: choose and smoke-test one larger-than-TinyLlama model with a focused
-`scale_row_g4` comparison.
+Next: add local Qwen2.5-3B benchmark prep, then smoke-test
+`Qwen/Qwen2.5-3B-Instruct` with a focused `scale_row_g4` comparison.
 
 ## Completed Milestone 2
 

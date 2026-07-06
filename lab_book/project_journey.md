@@ -5228,3 +5228,40 @@ Milestone 4 task is to choose one additional model larger than TinyLlama, then
 estimate and seek approval for a smoke/cache/readiness GPU segment. No Pod is
 needed until that estimate is accepted; if the previous Pod is still running,
 it should be stopped unless another benchmark is queued immediately.
+
+## Session: 2026-07-06 - Qwen2.5-3B Milestone 4 selection
+
+Audit timestamp: 2026-07-06 11:11:58 BST.
+
+Stale-state check before the Qwen work found a clean git tree at commit
+`26a560f`. The only active stale roadmap language was the expected
+"choose one larger-than-TinyLlama model" wording, which is superseded by the
+user-approved model choice below.
+
+Selected next Milestone 4 model:
+
+- Reference: `Qwen/Qwen2.5-3B-Instruct`.
+- External baseline candidates: `Qwen/Qwen2.5-3B-Instruct-AWQ` first, then
+  `Qwen/Qwen2.5-3B-Instruct-GPTQ-Int4` if smoke/readiness is stable.
+- Initial project comparison path: original reference plus project
+  `scale_row_g4`; do not start with the full five-row matrix.
+- RunPod is first needed only after local preset/command prep is complete and
+  committed. The next GPU segment must be a smoke/cache/readiness pass, not a
+  full 256-record run.
+
+Current estimates:
+
+- Local implementation prep: about 1-2 active hours.
+- First RunPod smoke/cache/readiness segment: about 30-90 minutes wall time.
+- Focused 256-record comparison after smoke passes: about 1.25-3.5 hours wall
+  time for original + project `scale_row_g4` + AWQ/GPTQ.
+- Rough RTX 4090 first-pass compute budget: about $1.50-$4.00 plus small
+  storage/cache overhead, assuming no prolonged dependency debugging.
+
+Next steps:
+
+1. Add or verify Qwen 3B preset/config support locally.
+2. Run local dry checks for CLI/config/output paths.
+3. Prepare RunPod commands for original, project `scale_row_g4`, AWQ, and GPTQ.
+4. Ask for fresh Pod details and explicit approval before bootstrap or GPU
+   smoke work.
