@@ -5327,3 +5327,32 @@ whether to debug or disable the Marlin backend for Qwen external baselines,
 try a different external checkpoint/backend, or proceed with a project-only
 Qwen focused run. A fresh runtime/cost estimate and explicit user approval are
 still required before the next GPU segment.
+
+## Session: 2026-07-06 - Switch active scale-up target to OPT-2.7B
+
+After reviewing the Qwen smoke outcome, the user chose to switch the active
+larger-model Milestone 4 target from Qwen2.5-3B to `facebook/opt-2.7b`.
+
+Rationale:
+
+- Qwen remains useful as a project-method smoke result, but its AWQ/GPTQ
+  external baselines are blocked in the current stack by Marlin-family kernel
+  failures. Those details belong in the lab book and RunPod ledger, not in the
+  research draft.
+- OPT-2.7B is an older, simpler decoder-only Transformers model and should be a
+  better first "boring compatibility" scale-up target.
+- The first external baseline for OPT should be bitsandbytes NF4. AWQ/GPTQ can
+  be considered later only if clean checkpoint/backend support is confirmed.
+
+Research-draft policy: do not add the Qwen smoke detour as a result section.
+If it must be mentioned later, keep it to one succinct backend-compatibility
+sentence and leave detailed logs, exit codes, and operational context in
+bookkeeping docs.
+
+Next active work:
+
+1. Add or verify OPT-2.7B project preset/config support locally.
+2. Prepare OPT cache/readiness, project `scale_row_g4`, and bitsandbytes NF4
+   smoke commands.
+3. Run local dry checks and commit.
+4. Ask for fresh runtime/cost approval before any RunPod smoke segment.

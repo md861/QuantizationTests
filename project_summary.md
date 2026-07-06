@@ -796,9 +796,10 @@ Milestone 4 roadmap from this checkpoint:
 | 4A | TinyLlama AWQ external baseline | Complete | 238.2s runner after setup | Added optional pre-quantized AWQ checkpoint runner and completed the 256-record RTX 4090 run. First Pod pass required gptqmodel/ninja/helper dependency setup and Marlin JIT compilation. |
 | 4B | TinyLlama GPTQ external baseline | Complete | 262.2s runner after setup | Added optional pre-quantized GPTQ checkpoint runner and completed the 256-record RTX 4090 run. Shared the dependency stack established for AWQ. |
 | 4C | Distill TinyLlama external-baseline comparison | Complete | no GPU run | Research draft now contains the distilled project/bnb/AWQ/GPTQ comparison; run-history details live in lab book and RunPod ledger. |
-| 4D | Select one larger-than-TinyLlama model | Complete | no GPU run | Selected `Qwen/Qwen2.5-3B-Instruct` as the next scale-up target. It is meaningfully larger than TinyLlama, has AWQ/GPTQ Int4 checkpoint candidates, and should be smoke-tested before any full run because the HF card uses `qwen-research` licensing and the memory/runtime profile is not yet measured in this harness. |
-| 4E | Qwen 3B local prep and smoke/cache/readiness | Local prep complete; smoke needs fresh Pod details and approval | smoke likely 30-90 min | Added project smoke/focused presets and commit-safe commands for original, project `scale_row_g4`, AWQ, and GPTQ. Next is cache/readiness and small-subset smoke before approving any 256-record run. |
-| 4F | Qwen 3B focused comparison | ~0.5-1 active day if only preset/command plumbing is needed; more if Qwen-specific runner changes are needed | likely 1.25-3.5 h wall for original + project `scale_row_g4` + AWQ/GPTQ | Start with original reference, project `scale_row_g4`, and AWQ. Add GPTQ if smoke is stable. Expand to a broader project matrix only if the first result is informative. |
+| 4D | Try Qwen2.5-3B as first scale-up target | Complete/blocked for external comparison | no further Qwen run approved | Qwen reference cache and project one-layer `scale_row_g4` smoke passed, but AWQ/GPTQ smokes failed with exit 132 after selecting Marlin-family kernels. Keep this as bookkeeping/backend-compatibility evidence, not a research-draft result. |
+| 4E | Select OPT-2.7B as larger-model comparison target | Complete | no GPU run | Selected `facebook/opt-2.7b` as the active larger-than-TinyLlama target because it is a simpler, older Transformers decoder-only model and should be a better first boring external-compatible scale-up path. First external baseline should be bitsandbytes NF4, not AWQ/GPTQ. |
+| 4F | OPT-2.7B local prep and smoke/cache/readiness | ~45-90 min active implementation; then likely 30-90 min Pod wall time | no Pod until local prep is committed and a fresh estimate is approved | Add/reuse project preset and command paths for reference/cache, project `scale_row_g4`, and bitsandbytes NF4. Run cache/readiness and small-subset smoke before any 256-record comparison. |
+| 4G | OPT-2.7B focused comparison | ~0.5 active day if only preset/command plumbing is needed; more if model-specific issues appear | likely 1-3 h wall for original + project `scale_row_g4` + bnb NF4 | Start with original reference, project `scale_row_g4`, and bnb NF4. Add AWQ/GPTQ only later if an OPT external checkpoint/backend proves clean. |
 
 Run estimates are intentionally ranges. They use the current timing table:
 TinyLlama bnb NF4 needed 191.5s runner / 6m24s wall on RTX 4090, while the
@@ -825,18 +826,19 @@ Current handover state after AWQ/GPTQ integration:
    logit MSE/top-5 overlap.
 4. Qwen smoke/readiness result: reference cache prep and project one-layer
    `scale_row_g4` smoke passed, but AWQ/GPTQ external smokes failed at
-   Marlin-family backend selection with exit 132.
-5. Next Milestone 4 step: decide whether to debug/disable the Qwen Marlin
-   external baseline path, choose a different Qwen external checkpoint/backend,
-   or proceed with a project-only Qwen focused run.
+   Marlin-family backend selection with exit 132. Keep this out of the research
+   draft except as a very brief backend limitation if needed.
+5. Next Milestone 4 step: use `facebook/opt-2.7b` as the active larger-model
+   target and prepare a focused original/project `scale_row_g4`/bitsandbytes NF4
+   smoke path before any full comparison.
 6. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.
 7. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
-8. The commit-safe Qwen 3B RunPod command plan is
-   `docs/runpod/qwen2_5_3b_plan.md`; use it for smoke/readiness and focused
-   256-record command templates.
+8. The Qwen 3B RunPod command plan remains in `docs/runpod/qwen2_5_3b_plan.md`
+   as historical/backend-debug context. Create an OPT-specific command plan
+   before the next Pod segment.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,

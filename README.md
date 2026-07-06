@@ -52,6 +52,7 @@ INT8 paths, and completed benchmark runs on `sshleifer/tiny-gpt2`,
 | Qwen2.5-3B project smoke/focused presets | Complete |
 | Qwen2.5-3B RunPod command plan | Complete |
 | Qwen2.5-3B smoke/cache readiness | Partial: project smoke passed; AWQ/GPTQ external smokes blocked |
+| OPT-2.7B larger-model comparison target | Selected |
 | WikiText-2 256-record evaluation resource | Complete |
 | RunPod persistent Hugging Face cache policy | Complete |
 | TinyLlama bitsandbytes NF4 one-record smoke | Complete |
@@ -71,8 +72,8 @@ RunPod SSH details, keys, account identifiers, and Pod-specific connection
 strings must not be committed.
 
 1. TinyLlama external-baseline set is complete for bitsandbytes NF4, AWQ, and GPTQ on the same tracked 256-record WikiText-2 raw validation resource and shared logit/loss/runtime/memory fields.
-2. The selected larger-than-TinyLlama model is `Qwen/Qwen2.5-3B-Instruct`, with `Qwen/Qwen2.5-3B-Instruct-AWQ` and `Qwen/Qwen2.5-3B-Instruct-GPTQ-Int4` as external-baseline candidates.
-3. Qwen 3B local prep and RunPod smoke/cache readiness are complete enough for the project path: reference cache prep and project `scale_row_g4` one-layer smoke passed. AWQ/GPTQ external smokes failed with exit `132` after selecting Marlin-family kernels, so they need backend debugging or replacement before a fair external comparison.
+2. Qwen2.5-3B was tried as the first modern scale-up target. The project `scale_row_g4` smoke passed, but Qwen AWQ/GPTQ external smokes failed with exit `132` after selecting Marlin-family kernels. Treat this as a backend-compatibility detour, not a research result.
+3. The active larger-model comparison target is now `facebook/opt-2.7b`, chosen as a simpler Transformers model for a boring external-compatible scale-up path, with bitsandbytes NF4 as the first external baseline.
 4. Estimate expected RunPod runtime and cost before each GPU run from the timing table and usage ledger; choose GPU class by cost per useful benchmark, not raw theoretical speed.
 5. Run another single-layer or small-subset smoke before a full benchmark whenever the model, comparison matrix, evaluation text, dependencies, or GPU class changes.
 6. Run full-model benchmarks only from detached tmux, writing logs/results under persistent /workspace on RunPod and recording elapsed time, GPU type, VRAM, peak memory, method telemetry, commit hash, hourly rate, and estimated spend in the bookkeeping docs.
@@ -212,9 +213,9 @@ All planned baseline models and INT4 rotation presets are complete. The
 cross-model rotation synthesis is documented in `docs/research_draft.md`: on the
 tracked WikiText-2 validation sample, sparse uncalibrated rotations worsen or
 fail to improve the best INT4 g4 path on Pythia-14M, Pythia-70M, and distilgpt2.
-Next: decide whether to debug the Qwen AWQ/GPTQ Marlin backend failure, try a
-different external checkpoint/backend, or proceed with a project-only Qwen
-`scale_row_g4` focused run.
+Next: add OPT-2.7B local benchmark prep, then run a smoke/cache/readiness pass
+for original/reference, project `scale_row_g4`, and bitsandbytes NF4 before
+approving any full 256-record comparison.
 
 ## Completed Milestone 2
 
