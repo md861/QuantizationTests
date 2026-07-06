@@ -211,6 +211,9 @@ threads (`--torch-threads 2`, `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`).
 | Qwen/Qwen2.5-3B-Instruct | 3B | 1 layer | INT4 `scale_row_g4` logit-only smoke | none | 73.8s runner; 306s wall | RunPod RTX 4090, single `model.layers.0.self_attn.q_proj`, 1 text, logit MSE 0.002384, PPL ratio 1.0534, peak CUDA allocated 6011 MB |
 | Qwen/Qwen2.5-3B-Instruct-AWQ | 3B | external | AWQ 4-bit smoke | none | failed after 357s wall | RunPod RTX 4090, exit 132 after selecting `AwqMarlinLinear`; no metrics written |
 | Qwen/Qwen2.5-3B-Instruct-GPTQ-Int4 | 3B | external | GPTQ 4-bit smoke | none | failed after 374s wall | RunPod RTX 4090, exit 132 after selecting `MarlinLinear`; no metrics written |
+| facebook/opt-2.7b | 2.7B | download/cache | reference cache prep | none | 75.7s runner; 288s wall | RunPod RTX 4090, model/tokenizer cache prep, peak CUDA 0 MB, HF cache grew to about 23 GB |
+| facebook/opt-2.7b | 2.7B | 1 layer | INT4 `scale_row_g4` logit-only smoke | none | 37.4s runner; 214s wall | RunPod RTX 4090, single `model.decoder.layers.0.self_attn.q_proj`, 1 text, logit MSE 0.000161, PPL ratio 1.0012, peak CUDA allocated 5079 MB |
+| facebook/opt-2.7b | 2.7B | external | bitsandbytes NF4 float16 smoke | none | 54.3s runner; 244s wall | RunPod RTX 4090, 1 WikiText-2 record, logit MSE 0.167516, PPL ratio 1.0598, peak CUDA allocated 1984 MB |
 
 **Prediction rule (update as more data arrives):** Pythia-14m baselines ~3 min
 (25 layers), Pythia-14m rotation ~4 min after the wide-layer selector fix,
@@ -798,8 +801,8 @@ Milestone 4 roadmap from this checkpoint:
 | 4C | Distill TinyLlama external-baseline comparison | Complete | no GPU run | Research draft now contains the distilled project/bnb/AWQ/GPTQ comparison; run-history details live in lab book and RunPod ledger. |
 | 4D | Try Qwen2.5-3B as first scale-up target | Complete/blocked for external comparison | no further Qwen run approved | Qwen reference cache and project one-layer `scale_row_g4` smoke passed, but AWQ/GPTQ smokes failed with exit 132 after selecting Marlin-family kernels. Keep this as bookkeeping/backend-compatibility evidence, not a research-draft result. |
 | 4E | Select OPT-2.7B as larger-model comparison target | Complete | no GPU run | Selected `facebook/opt-2.7b` as the active larger-than-TinyLlama target because it is a simpler, older Transformers decoder-only model and should be a better first boring external-compatible scale-up path. First external baseline should be bitsandbytes NF4, not AWQ/GPTQ. |
-| 4F | OPT-2.7B local prep and smoke/cache/readiness | Local prep complete; smoke needs fresh Pod details and approval | smoke likely 30-90 min | Added project smoke/focused presets and commit-safe commands for reference/cache, project `scale_row_g4`, and bitsandbytes NF4. Next is cache/readiness and small-subset smoke before any 256-record comparison. |
-| 4G | OPT-2.7B focused comparison | ~0.5 active day if only preset/command plumbing is needed; more if model-specific issues appear | likely 1-3 h wall for original + project `scale_row_g4` + bnb NF4 | Start with original reference, project `scale_row_g4`, and bnb NF4. Add AWQ/GPTQ only later if an OPT external checkpoint/backend proves clean. |
+| 4F | OPT-2.7B local prep and smoke/cache/readiness | Complete | 75.7s cache runner, 37.4s project smoke runner, 54.3s bnb smoke runner | Project `scale_row_g4` one-layer smoke and bitsandbytes NF4 one-record smoke both passed on RTX 4090. |
+| 4G | OPT-2.7B focused comparison | ~0.5 active day if only documentation/analysis remains after run; more if full run exposes model-specific issues | likely 1-3 h wall for original + project `scale_row_g4` + bnb NF4 | Next GPU step. Requires fresh estimate and explicit approval before launching the 256-record comparison. |
 
 Run estimates are intentionally ranges. They use the current timing table:
 TinyLlama bnb NF4 needed 191.5s runner / 6m24s wall on RTX 4090, while the
@@ -828,17 +831,20 @@ Current handover state after AWQ/GPTQ integration:
    `scale_row_g4` smoke passed, but AWQ/GPTQ external smokes failed at
    Marlin-family backend selection with exit 132. Keep this out of the research
    draft except as a very brief backend limitation if needed.
-5. Next Milestone 4 step: use `facebook/opt-2.7b` as the active larger-model
-   target and prepare a focused original/project `scale_row_g4`/bitsandbytes NF4
-   smoke path before any full comparison.
-6. Before the next GPU segment, estimate runtime/cost from the benchmark timing
+5. Next Milestone 4 step: estimate and approve the full `facebook/opt-2.7b`
+   focused comparison covering original/reference, project `scale_row_g4`, and
+   bitsandbytes NF4.
+6. OPT smoke/readiness result: reference cache prep, project one-layer
+   `scale_row_g4` smoke, and bitsandbytes NF4 one-record smoke all passed on
+   RTX 4090.
+7. Before the next GPU segment, estimate runtime/cost from the benchmark timing
    table, ask for approval, run `tools/runpod_bootstrap.sh` on any new or
    migrated Pod, and launch long jobs inside detached `tmux`.
-7. Continue updating RunPod ledger, lab book, research draft, README, and
+8. Continue updating RunPod ledger, lab book, research draft, README, and
    project summary after each GPU segment.
-8. The Qwen 3B RunPod command plan remains in `docs/runpod/qwen2_5_3b_plan.md`
+9. The Qwen 3B RunPod command plan remains in `docs/runpod/qwen2_5_3b_plan.md`
    as historical/backend-debug context.
-9. The active OPT RunPod command plan is `docs/runpod/opt_2_7b_plan.md`.
+10. The active OPT RunPod command plan is `docs/runpod/opt_2_7b_plan.md`.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,

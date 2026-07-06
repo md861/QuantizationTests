@@ -13,11 +13,11 @@ Known captured/reconciled RunPod time so far:
 
 <table>
   <tr>
-    <th colspan="2">Logged work time: 377.5 min</th>
-    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 1012.6 min (16.9 h)</th>
+    <th colspan="2">Logged work time: 400.5 min</th>
+    <th colspan="3">Captured/reconciled runtime incl. unlogged/admin: 1035.6 min (17.3 h)</th>
   </tr>
   <tr>
-    <th colspan="5">Compute: ~$8.11 | Storage: ~$0.15 | Total: ~$8.26 | Budget ceiling: about GBP 200</th>
+    <th colspan="5">Compute: ~$8.37 | Storage: ~$0.15 | Total: ~$8.52 | Budget ceiling: about GBP 200</th>
   </tr>
   <tr>
     <th>Bucket</th>
@@ -28,8 +28,8 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Setup / install</td>
-    <td>130.1 min</td>
-    <td>~$1.24</td>
+    <td>135.3 min</td>
+    <td>~$1.30</td>
     <td>13%</td>
     <td><code>###-----------------</code></td>
   </tr>
@@ -42,22 +42,22 @@ Known captured/reconciled RunPod time so far:
   </tr>
   <tr>
     <td>Benchmark compute / smoke</td>
-    <td>216.6 min</td>
-    <td>~$1.17</td>
-    <td>21%</td>
+    <td>224.2 min</td>
+    <td>~$1.26</td>
+    <td>22%</td>
     <td><code>####----------------</code></td>
   </tr>
   <tr>
     <td>Download / cache</td>
-    <td>8.2 min</td>
-    <td>~$0.06</td>
+    <td>13.0 min</td>
+    <td>~$0.12</td>
     <td>1%</td>
     <td><code>--------------------</code></td>
   </tr>
   <tr>
     <td>RunPod debug / command wrapper</td>
-    <td>16.7 min</td>
-    <td>~$0.18</td>
+    <td>22.1 min</td>
+    <td>~$0.24</td>
     <td>2%</td>
     <td><code>--------------------</code></td>
   </tr>
@@ -65,7 +65,7 @@ Known captured/reconciled RunPod time so far:
     <td>Unlogged uptime / admin / idle</td>
     <td>635.2 min</td>
     <td>~$5.42</td>
-    <td>63%</td>
+    <td>61%</td>
     <td><code>#############-------</code></td>
   </tr>
 </table>
@@ -78,7 +78,10 @@ Interpretation:
   intentionally aborted full-harness attempts that motivated the logit-only
   Milestone 4 path. It also includes the Qwen2.5-3B smoke/readiness segment:
   reference cache prep and project one-layer `scale_row_g4` smoke passed, while
-  Qwen AWQ/GPTQ external smokes failed at Marlin-family backend selection.
+  Qwen AWQ/GPTQ external smokes failed at Marlin-family backend selection. The
+  dashboard now also includes the OPT-2.7B smoke/readiness segment: reference
+  cache prep, project one-layer `scale_row_g4` smoke, and bitsandbytes NF4
+  one-record smoke all passed.
 - The AWQ/GPTQ segment added a useful cost lesson: first-time external baseline
   setup can dominate the actual benchmark. The successful AWQ/GPTQ 256-record
   runner times were about 4.0-4.4 min each, but dependency probing, package

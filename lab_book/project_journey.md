@@ -5291,6 +5291,38 @@ Local checks:
 RunPod remains unneeded until the user provides fresh Pod details and approves
 the smoke/cache/readiness segment estimate.
 
+## Session: 2026-07-06 - OPT-2.7B smoke/readiness on RunPod
+
+RunPod smoke/readiness segment ran on a migrated RTX 4090 Pod at commit
+`a368b8f`; raw connection details remain local-only. The Pod was reachable at
+2026-07-06 11:42:12 UTC. The repo was synced from `4a85f75` to `a368b8f`, and
+`tools/runpod_bootstrap.sh` installed ephemeral `tmux` and `rsync`. Runtime
+stack: torch 2.6.0+cu124, Transformers 5.12.1, bitsandbytes 0.49.2.
+
+Smoke results:
+
+- OPT reference cache prep passed. Runner elapsed `75.729s`, wall marker
+  `288s`, peak CUDA `0 MB`, and HF cache grew from about 13 GB to about 23 GB.
+- Project OPT `scale_row_g4` one-layer smoke passed on
+  `model.decoder.layers.0.self_attn.q_proj`. Runner elapsed `37.360s`, wall
+  marker `214s`, peak CUDA `5078.676 MB` allocated / `5308 MB` reserved. The
+  one-text smoke produced logit MSE `0.00016094`, logit cosine `0.99998564`,
+  top-5 overlap `1.0`, loss delta `+0.001195`, PPL ratio `1.001196`, method
+  loop `0.114s`, and throughput `52.522 tokens/s`.
+- OPT bitsandbytes NF4 one-record smoke passed. Runner elapsed `54.314s`, wall
+  marker `244s`, peak CUDA `1984.248 MB` allocated / `2112 MB` reserved. The
+  one-record smoke produced logit MSE `0.167516`, logit cosine `0.986857`,
+  top-5 overlap `0.889744`, loss delta `+0.058090`, PPL ratio `1.059811`,
+  method loop `13.332s`, and throughput `11.702 tokens/s`.
+
+Interpretation: OPT-2.7B is now a viable larger-model comparison target for the
+next Milestone 4 focused run. Unlike the Qwen AWQ/GPTQ path, the bnb NF4
+external baseline loads and evaluates cleanly in the current stack.
+
+Next decision point: estimate and approve the full 256-record OPT focused
+comparison: original/reference, project `scale_row_g4`, and bitsandbytes NF4.
+Do not launch the full run without explicit approval.
+
 ## Session: 2026-07-06 - Qwen2.5-3B smoke/readiness on RunPod
 
 RunPod smoke/readiness segment ran on a migrated RTX 4090 Pod at commit
