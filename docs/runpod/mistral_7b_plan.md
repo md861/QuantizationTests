@@ -49,3 +49,13 @@ smoke or full 256-record benchmarking. Wait for explicit user approval.
    resource.
 4. Run local config/tests only. Do not launch GPU work until the user approves
    the refreshed runtime/cost estimate.
+
+## Resume Checklist
+
+1. Confirm the repo is clean and current with `main`.
+2. Implement Mistral local presets/tests.
+3. Commit and push local prep.
+4. Produce a fresh RunPod estimate for cache plus five smoke commands:
+   reference/cache, project, bitsandbytes NF4, AWQ, and GPTQ.
+5. Wait for user approval and fresh Pod details.
+6. Run smoke in detached `tmux`, pull artifacts, and update bookkeeping.

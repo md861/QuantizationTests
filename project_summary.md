@@ -813,6 +813,22 @@ the research draft.
 | 4H | Mistral-7B smoke/readiness segment | Pending approval | likely 45-120 min wall for cache plus four one-record/single-layer smokes | Promote to full benchmark only if project `scale_row_g4`, bnb NF4, AWQ, and GPTQ all pass smoke. |
 | 4I | Mistral-7B full 256-record comparison | Pending smoke success | likely several hours wall; refresh estimate from smoke telemetry | Run original/reference, project `scale_row_g4`, bnb NF4, AWQ, and GPTQ on the same 256-record resource, then distill only the comparison knowledge into the research draft. |
 
+Fresh resume roadmap:
+
+1. Start locally from `docs/runpod/mistral_7b_plan.md`.
+2. Add/verify Mistral-7B presets for a one-layer `scale_row_g4` smoke and a
+   full-layer focused project run.
+3. Prepare command-safe smoke commands for reference/cache, project, bnb NF4,
+   AWQ, and GPTQ.
+4. Run local tests/config checks and commit before touching RunPod.
+5. Estimate RTX 4090 wall time, cost, and VRAM risk, then ask the user for
+   explicit approval before any Pod command.
+6. Run only the smoke/readiness segment first. Promote to full 256-record
+   benchmarking only if all planned paths pass.
+7. After any GPU segment, update the RunPod ledger/dashboard, lab book,
+   project summary, README, and, only where scientifically distilled,
+   `docs/research_draft.md`.
+
 Run estimates are intentionally ranges. They use the current timing table:
 TinyLlama bnb NF4 needed 191.5s runner / 6m24s wall on RTX 4090, while the
 project five-row TinyLlama telemetry run needed 1208.7s runner / 23m43s wall on
@@ -855,6 +871,9 @@ Current handover state after AWQ/GPTQ integration:
    as historical/backend-debug context.
 10. The OPT RunPod command plan remains in `docs/runpod/opt_2_7b_plan.md` as
     partial-probe context.
+11. Resume from Mistral-7B local prep; RunPod is not needed until the local
+    Mistral presets/commands are committed and a fresh runtime/cost estimate
+    has been approved.
 
 Stale-state audit on 2026-07-06 00:31:51 BST confirmed the TinyLlama
 AWQ/GPTQ data are represented in the research draft, README, project summary,

@@ -5291,6 +5291,29 @@ Local checks:
 RunPod remains unneeded until the user provides fresh Pod details and approves
 the smoke/cache/readiness segment estimate.
 
+## Session: 2026-07-06 - Break handover after Mistral roadmap reset
+
+Prepared a clean pause point after clarifying the full successor-model rule.
+The resumed Milestone 4 path is now Mistral-first, with Qwen and OPT treated as
+historical partial probes.
+
+Fresh resume steps:
+
+1. Start from `docs/runpod/mistral_7b_plan.md`.
+2. Add/verify Mistral-7B local project presets for one-layer smoke and focused
+   `scale_row_g4` evaluation.
+3. Prepare reference/cache, project, bitsandbytes NF4, AWQ, and GPTQ smoke
+   commands.
+4. Run local checks and commit before any GPU work.
+5. Estimate RTX 4090 runtime/cost/VRAM risk and ask the user before launching
+   RunPod commands.
+6. Run the smoke segment only; promote Mistral to full 256-record benchmarking
+   only if project, bnb, AWQ, and GPTQ all pass smoke.
+
+Research-draft reminder: keep the draft focused on distilled comparison
+knowledge. Put operational detours, backend failures, setup costs, and Pod
+provenance in the lab book and RunPod ledger.
+
 ## Session: 2026-07-06 - Full successor-model rule clarified
 
 The Milestone 4 scale-up requirement is now explicit: the next larger model
